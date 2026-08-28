@@ -1,0 +1,72 @@
+# ASTA Cloud
+
+Evidence-first security testing for AI agents, RAG applications, MCP servers, prompts, tools, memory, permissions, and agent workflows.
+
+The first product is a **local Python CLI**. It is not a SaaS application and does not call an LLM.
+
+## Authorized use only
+
+ASTA Cloud scans **local directories you explicitly supply**. Use it only on systems and code you are authorized to test. It never executes the scanned application, never follows symlinks outside the target directory, and never transmits findings or secrets.
+
+## Install
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Requires Python 3.11 or newer.
+
+## CI
+
+GitHub Actions runs `ruff`, `mypy`, `pytest` (Python 3.11 and 3.12), generates a SARIF report from `examples/vulnerable_agent`, and verifies the Docker image. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+## Scan
+
+```bash
+asta scan ./examples/vulnerable_agent \
+  --config asta.yaml \
+  --format json \
+  --output results.json
+```
+
+Omit `--output` to print to stdout. `--format` accepts `json` (default), `sarif`, or `text`.
+
+```bash
+# SARIF for CI / GitHub Code Scanning
+asta scan ./examples/vulnerable_agent --format sarif --output results.sarif
+
+# Grep-friendly text
+asta scan ./examples/vulnerable_agent --format text
+
+# Confirm findings locally (never executes target code)
+asta scan ./examples/vulnerable_agent --validate --format json
+
+# Scan an MCP server example
+asta scan ./examples/vulnerable_mcp_server --format json
+
+# Scan a RAG application example
+asta scan ./examples/vulnerable_rag_app --format json
+
+# Scan an agent workflow example
+asta scan ./examples/vulnerable_workflow_app --format json
+```
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Scan finished; no findings at or above `fail_on` (default: `high`) |
+| 1 | Scan finished; at least one finding at or above `fail_on` |
+| 2 | Usage, config, path, or I/O error |
+
+## Security boundaries
+
+- Scan only the directory you pass as `TARGET`.
+- Never scan URLs or internet targets.
+- Never execute target code (`ast.parse` only).
+- Never read files outside the target (except an explicitly passed `--config`).
+- Never follow symlinks that resolve outside the target.
+- Redact secret values in reports. Do not collect or transmit secrets.
+- All findings are **suspected**. ASTA Cloud does not claim a vulnerability was validated unless a later validation step actually ran.
+
+See [docs/scan.md](docs/scan.md) for framework detection, taint analysis, rule catalog, config keys, and report formats.

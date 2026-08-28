@@ -1,0 +1,21 @@
+# Default ASTA Cloud scan config.
+# Copy or point --config at a project-specific file.
+
+exclude:
+  - .git
+  - .venv
+  - venv
+  - __pycache__
+  - .mypy_cache
+  - .ruff_cache
+  - dist
+  - build
+  - node_modules
+
+fail_on: high
+max_file_bytes: 1048576
+# enabled_rules: []  # omit to run all built-in rules
+# severity:           # optional per-rule severity overrides
+#   ASTA-SEC-004: high
+#   ASTA-SEC-008: low
+# validate: false     # re-read source to confirm findings (never executes target code)

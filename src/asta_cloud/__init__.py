@@ -1,0 +1,3 @@
+"""ASTA Cloud — local evidence-first security scanner for AI agents."""
+
+__version__ = "0.7.0"
