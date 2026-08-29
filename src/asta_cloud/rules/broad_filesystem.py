@@ -18,6 +18,31 @@ from asta_cloud.rules.base import make_finding
 
 _PATH_CTORS = {"Path", "pathlib.Path"}
 _READ_ATTRS = {"read_text", "read_bytes", "open", "write_text", "write_bytes"}
+_INFRASTRUCTURE_PATH_MARKERS = (
+    "/sandbox/",
+    "/sandboxes/",
+    "snapshot_defaults",
+    "snapshot_",
+)
+
+
+def is_infrastructure_module(relative: str) -> bool:
+    normalized = relative.replace("\\", "/").lower()
+    return any(marker in normalized for marker in _INFRASTRUCTURE_PATH_MARKERS)
+
+
+def _broad_path_access_hit(
+    call: ast.Call,
+    *,
+    module_relative: str,
+    fn_name: str,
+    tool_names: set[str],
+) -> bool:
+    if not (_is_path_home(call) or _is_root_path(call) or _is_os_walk_root(call)):
+        return False
+    if is_infrastructure_module(module_relative) and fn_name not in tool_names:
+        return False
+    return True
 
 
 def _is_path_home(call: ast.Call) -> bool:
@@ -109,7 +134,12 @@ class BroadFilesystemRule:
                 guarded = _has_path_guard(fn, params) if is_tool and params else True
                 for call, tainted in iter_calls_with_taint(fn, params if is_tool else set()):
                     hit = False
-                    if _is_path_home(call) or _is_root_path(call) or _is_os_walk_root(call):
+                    if _broad_path_access_hit(
+                        call,
+                        module_relative=module.relative,
+                        fn_name=fn.name,
+                        tool_names=tool_names,
+                    ):
                         hit = True
                     elif _is_unbounded_glob(call):
                         hit = True
