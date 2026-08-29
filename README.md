@@ -33,7 +33,7 @@ Images publish to GitHub Container Registry on each GitHub release.
 
 PyPI packages publish on each GitHub release as well (`pip install asta-cloud`). Maintainer setup: [docs/publishing.md](docs/publishing.md).
 
-**Landing page:** [docs/index.html](docs/index.html) · **GitHub PR policy:** [docs/github-integration.md](docs/github-integration.md) · **Design partners:** [docs/design-partner/README.md](docs/design-partner/README.md)
+**Landing page:** [asta-cloud on GitHub Pages](https://narendranadh6.github.io/asta-cloud/) · **GitHub PR policy:** [docs/github-integration.md](docs/github-integration.md) · **Design partners:** [docs/design-partner/README.md](docs/design-partner/README.md) · **Share kit:** [docs/share.md](docs/share.md)
 
 ## CI
 
