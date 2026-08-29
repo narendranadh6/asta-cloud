@@ -16,6 +16,9 @@ DEFAULT_EXCLUDE: tuple[str, ...] = (
     "dist",
     "build",
     "node_modules",
+    "tests",
+    "unit_tests",
+    "integration_tests",
 )
 
 DEFAULT_MAX_FILE_BYTES = 1_048_576

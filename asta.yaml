@@ -11,6 +11,9 @@ exclude:
   - dist
   - build
   - node_modules
+  - tests
+  - unit_tests
+  - integration_tests
 
 fail_on: high
 max_file_bytes: 1048576

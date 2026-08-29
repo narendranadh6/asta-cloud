@@ -28,7 +28,7 @@ asta --help
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `exclude` | `.git`, `.venv`, `venv`, `__pycache__`, `.mypy_cache`, `.ruff_cache`, `dist`, `build`, `node_modules` | Directory/file names to skip |
+| `exclude` | `.git`, `.venv`, `venv`, `__pycache__`, `.mypy_cache`, `.ruff_cache`, `dist`, `build`, `node_modules`, `tests`, `unit_tests`, `integration_tests` | Path segment names to skip (any directory with that name) |
 | `fail_on` | `high` | Minimum severity that yields exit code 1 |
 | `enabled_rules` | all rules | Optional list of rule ids |
 | `severity` | `{}` | Optional per-rule severity overrides (known rule ids only) |

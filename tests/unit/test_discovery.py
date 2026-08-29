@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from asta_cloud.config import ScanConfig
 from asta_cloud.discovery.files import collect_python_files
 
@@ -24,3 +26,17 @@ def test_skips_excluded_directories(tmp_path: Path) -> None:
 
     files, _notes = collect_python_files(tmp_path.resolve(), ScanConfig())
     assert [path.name for path in files] == ["kept.py"]
+
+
+@pytest.mark.parametrize(
+    "test_dir",
+    ["tests", "unit_tests", "integration_tests"],
+)
+def test_skips_test_directories_by_default(tmp_path: Path, test_dir: str) -> None:
+    excluded = tmp_path / test_dir
+    excluded.mkdir()
+    (excluded / "test_bad.py").write_text("OPENAI_API_KEY = 'leak'\n", encoding="utf-8")
+    (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
+
+    files, _notes = collect_python_files(tmp_path.resolve(), ScanConfig())
+    assert [path.name for path in files] == ["app.py"]
