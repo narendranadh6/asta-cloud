@@ -11,6 +11,12 @@ ASTA Cloud scans **local directories you explicitly supply**. Use it only on sys
 ## Install
 
 ```bash
+python -m pip install asta-cloud
+```
+
+For local development:
+
+```bash
 python -m pip install -e ".[dev]"
 ```
 
@@ -24,6 +30,8 @@ docker run --rm -v "$PWD:/target:ro" ghcr.io/narendranadh6/asta-cloud:latest \
 ```
 
 Images publish to GitHub Container Registry on each GitHub release.
+
+PyPI packages publish on each GitHub release as well (`pip install asta-cloud`). Maintainer setup: [docs/publishing.md](docs/publishing.md).
 
 ## CI
 
