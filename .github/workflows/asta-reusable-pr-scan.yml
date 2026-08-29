@@ -23,9 +23,6 @@ on:
         description: Upload SARIF artifact
         type: boolean
         default: false
-    secrets:
-      GITHUB_TOKEN:
-        required: true
 
 permissions:
   contents: read

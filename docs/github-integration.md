@@ -86,7 +86,6 @@ jobs:
     with:
       path: libs/my-agent
       baseline: asta-baseline.json
-    secrets: inherit
 ```
 
 ## GitHub App roadmap (paid tier)
