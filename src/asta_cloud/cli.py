@@ -63,6 +63,20 @@ def scan(
             help="Re-read source and confirm findings locally (never executes target code).",
         ),
     ] = None,
+    baseline: Annotated[
+        Path | None,
+        typer.Option(
+            "--baseline",
+            help="JSON baseline file; matching findings are suppressed from fail_on.",
+        ),
+    ] = None,
+    update_baseline: Annotated[
+        bool,
+        typer.Option(
+            "--update-baseline",
+            help="Write current findings to the baseline file and exit 0.",
+        ),
+    ] = False,
 ) -> None:
     """Statically scan a local Python repository for AI-agent security issues."""
     if report_format not in SUPPORTED_FORMATS:
@@ -79,6 +93,8 @@ def scan(
             config_path=config,
             output_path=output,
             validate_override=validate,
+            baseline_path=baseline,
+            update_baseline=update_baseline,
         )
     except ScanError as exc:
         typer.secho(str(exc), err=True)

@@ -258,3 +258,37 @@ def test_severity_override_can_fail_on_high(tmp_path: Path) -> None:
     )
     with_override = runner.invoke(app, ["scan", str(target), "--config", str(override_cfg)])
     assert with_override.exit_code == 1, with_override.output
+
+
+def test_baseline_suppresses_known_findings(tmp_path: Path) -> None:
+    baseline = tmp_path / "asta-baseline.json"
+    update = runner.invoke(
+        app,
+        [
+            "scan",
+            str(EXAMPLES / "vulnerable_agent"),
+            "--baseline",
+            str(baseline),
+            "--update-baseline",
+            "--format",
+            "json",
+        ],
+    )
+    assert update.exit_code == 0, update.output
+    assert baseline.is_file()
+
+    scan = runner.invoke(
+        app,
+        [
+            "scan",
+            str(EXAMPLES / "vulnerable_agent"),
+            "--baseline",
+            str(baseline),
+            "--format",
+            "json",
+        ],
+    )
+    assert scan.exit_code == 0, scan.output
+    payload = json.loads(scan.stdout)
+    assert payload["findings"] == []
+    assert any("suppressed by baseline" in note for note in payload["notes"])

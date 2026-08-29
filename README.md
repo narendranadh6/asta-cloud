@@ -16,6 +16,15 @@ python -m pip install -e ".[dev]"
 
 Requires Python 3.11 or newer.
 
+### Docker (GHCR)
+
+```bash
+docker run --rm -v "$PWD:/target:ro" ghcr.io/narendranadh6/asta-cloud:latest \
+  scan /target --format text
+```
+
+Images publish to GitHub Container Registry on each GitHub release.
+
 ## CI
 
 GitHub Actions runs `ruff`, `mypy`, `pytest` (Python 3.11 and 3.12), generates a SARIF report from `examples/vulnerable_agent`, and verifies the Docker image. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
@@ -40,6 +49,10 @@ asta scan ./examples/vulnerable_agent --format text
 
 # Confirm findings locally (never executes target code)
 asta scan ./examples/vulnerable_agent --validate --format json
+
+# Adopt in CI with a baseline (fail only on new findings)
+asta scan ./examples/vulnerable_agent --baseline asta-baseline.json --update-baseline
+asta scan ./examples/vulnerable_agent --baseline asta-baseline.json --format sarif
 
 # Scan an MCP server example
 asta scan ./examples/vulnerable_mcp_server --format json

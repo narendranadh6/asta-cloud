@@ -4,6 +4,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from asta_cloud.analyzers.context import ScanContext
+from asta_cloud.baseline import (
+    BaselineError,
+    apply_baseline,
+    load_baseline,
+    resolve_baseline_path,
+    save_baseline,
+)
 from asta_cloud.config import ConfigError, load_config
 from asta_cloud.discovery.files import collect_python_files
 from asta_cloud.discovery.inventory import build_inventory
@@ -32,6 +39,8 @@ def run_scan(
     config_path: str | Path | None = None,
     output_path: str | Path | None = None,
     validate_override: bool | None = None,
+    baseline_path: str | Path | None = None,
+    update_baseline: bool = False,
 ) -> tuple[ScanReport, bool]:
     try:
         root = resolve_scan_root(target)
@@ -84,6 +93,30 @@ def run_scan(
         notes.append(NO_VALIDATION_NOTE)
         validation_performed = False
 
+    effective_baseline = baseline_path if baseline_path is not None else config.baseline
+    if update_baseline:
+        if effective_baseline is None:
+            raise ScanError(
+                "A baseline path is required when using --update-baseline "
+                "(pass --baseline or set baseline in asta.yaml)."
+            )
+        resolved_baseline = resolve_baseline_path(root, effective_baseline)
+        save_baseline(resolved_baseline, findings)
+        notes.append(
+            f"Baseline written to {resolved_baseline} with {len(findings)} finding(s)."
+        )
+    elif effective_baseline is not None:
+        resolved_baseline = resolve_baseline_path(root, effective_baseline)
+        try:
+            baseline = load_baseline(resolved_baseline)
+        except BaselineError as exc:
+            raise ScanError(str(exc)) from exc
+        findings, suppressed = apply_baseline(findings, baseline)
+        if suppressed:
+            notes.append(
+                f"{suppressed} finding(s) suppressed by baseline {resolved_baseline}."
+            )
+
     inventory = redact_inventory(inventory)
     report = ScanReport(
         schema_version=SCHEMA_VERSION,
@@ -98,6 +131,8 @@ def run_scan(
         summary=_summary(len(files), findings),
     )
     report = redact_report(report)
+    if update_baseline:
+        return report, False
     failed = _meets_fail_on(report.findings, config.fail_on)
     return report, failed
 

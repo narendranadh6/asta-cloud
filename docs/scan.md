@@ -5,7 +5,7 @@ Local, offline, static analysis. Target code is never executed. Findings are **s
 ## CLI
 
 ```bash
-asta scan TARGET [--config PATH] [--format json|sarif|text] [--output PATH] [--validate]
+asta scan TARGET [--config PATH] [--format json|sarif|text] [--output PATH] [--validate] [--baseline PATH] [--update-baseline]
 asta --version
 asta --help
 ```
@@ -33,6 +33,7 @@ asta --help
 | `enabled_rules` | all rules | Optional list of rule ids |
 | `severity` | `{}` | Optional per-rule severity overrides (known rule ids only) |
 | `validate` | `false` | Re-read source to confirm findings locally (never executes target code) |
+| `baseline` | unset | JSON baseline file (relative to `TARGET`) whose findings are suppressed from `fail_on` |
 | `max_file_bytes` | `1048576` | Skip larger Python files |
 
 Example severity overrides:
@@ -45,6 +46,33 @@ severity:
 ```
 
 Unknown keys are rejected. If `--config` is omitted, ASTA Cloud uses `TARGET/asta.yaml` when present, otherwise built-in defaults.
+
+## Baseline (CI adoption)
+
+Use a baseline file to suppress known findings so CI fails only on **new** issues.
+
+```bash
+# Snapshot current findings into a baseline (exit 0)
+asta scan ./my-agent --baseline asta-baseline.json --update-baseline
+
+# Later scans: only findings not in the baseline affect fail_on
+asta scan ./my-agent --baseline asta-baseline.json --format sarif --output results.sarif
+```
+
+Or set `baseline: asta-baseline.json` in `asta.yaml` (path relative to `TARGET`).
+
+Baseline format:
+
+```json
+{
+  "schema_version": "1.0.0",
+  "findings": [
+    "ASTA-SEC-001:agent.py:12"
+  ]
+}
+```
+
+Each entry is a finding `instance_id` (`rule_id:path:line`). Suppressed findings are removed from the report summary and do not affect exit codes. A note records how many findings were suppressed.
 
 ## Inventory (Milestone 2b)
 

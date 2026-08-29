@@ -40,6 +40,7 @@ class ScanConfig(BaseModel):
         default=False,
         validation_alias=AliasChoices("validate", "enable_validation"),
     )
+    baseline: str | None = None
 
     @model_validator(mode="after")
     def validate_severity_keys(self) -> Self:
