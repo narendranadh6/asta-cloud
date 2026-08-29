@@ -21,14 +21,29 @@ _MEMORY_STORE_CALLS = {
     "postgreschatmessagehistory",
     "sqlitemessagehistory",
     "inmemorystore",
+    "inmemorysaver",
     "sqliteentitystore",
     "chatmessagehistory",
     "zepmemory",
     "mem0memory",
+    "sandboxmemorystorage",
 }
+
+_MEMORY_STORE_DENYLIST = {
+    "memoryview",
+}
+
+_MEMORY_STORE_SUFFIXES = (
+    "memory",
+    "messagehistory",
+    "chathistory",
+    "saver",
+    "memorystorage",
+)
 
 _SCOPE_KEYWORDS = {
     "session_id",
+    "session",
     "user_id",
     "tenant_id",
     "namespace",
@@ -128,6 +143,19 @@ def function_has_privileged_operation(fn: ast.FunctionDef | ast.AsyncFunctionDef
     return False
 
 
+def _is_memory_store_callee(base: str) -> bool:
+    lowered = base.lower()
+    if lowered in _MEMORY_STORE_DENYLIST:
+        return False
+    if "prompt" in lowered:
+        return False
+    if lowered in _MEMORY_STORE_CALLS:
+        return True
+    if base.startswith("_") or not base[:1].isupper():
+        return False
+    return any(lowered.endswith(suffix) for suffix in _MEMORY_STORE_SUFFIXES)
+
+
 def extract_memory_stores(module: ParsedModule) -> list[MemoryStoreComponent]:
     if module.tree is None:
         return []
@@ -137,9 +165,7 @@ def extract_memory_stores(module: ParsedModule) -> list[MemoryStoreComponent]:
             continue
         call_name = qualified_name(node.func) or ""
         base = call_name.split(".")[-1]
-        if base.lower() not in _MEMORY_STORE_CALLS and "memory" not in base.lower():
-            continue
-        if "prompt" in base.lower():
+        if not _is_memory_store_callee(base):
             continue
         stores.append(
             MemoryStoreComponent(
@@ -178,10 +204,7 @@ def extract_agent_handoffs(module: ParsedModule) -> list[AgentHandoffComponent]:
 def is_memory_store_call(call: ast.Call) -> bool:
     call_name = qualified_name(call.func) or ""
     base = call_name.split(".")[-1]
-    lowered = base.lower()
-    if "prompt" in lowered:
-        return False
-    return lowered in _MEMORY_STORE_CALLS or "memory" in lowered
+    return _is_memory_store_callee(base)
 
 
 def is_handoff_call(call: ast.Call) -> bool:
