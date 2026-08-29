@@ -73,6 +73,11 @@ _PERMISSION_KEYWORDS = {
 }
 
 _HANDOFF_CALLS = {"handoff", "transfer", "delegate", "route_to", "transfer_to_agent"}
+_HANDOFF_INTERNAL_PREFIXES = (
+    "run_internal/",
+    "handoffs/",
+    "realtime/",
+)
 _HANDOFF_ALLOWLIST_KEYWORDS = {
     "allowed_agents",
     "handoff_targets",
@@ -178,6 +183,23 @@ def extract_memory_stores(module: ParsedModule) -> list[MemoryStoreComponent]:
     return stores
 
 
+def is_user_handoff_call(call: ast.Call, module_relative: str = "") -> bool:
+    if isinstance(call.func, ast.Attribute):
+        return False
+    call_name = qualified_name(call.func) or ""
+    base = call_name.split(".")[-1]
+    if base == "Handoff":
+        return False
+    if base.lower() not in _HANDOFF_CALLS:
+        return False
+    if module_relative and any(
+        module_relative == prefix.rstrip("/") or module_relative.startswith(prefix)
+        for prefix in _HANDOFF_INTERNAL_PREFIXES
+    ):
+        return False
+    return True
+
+
 def extract_agent_handoffs(module: ParsedModule) -> list[AgentHandoffComponent]:
     if module.tree is None:
         return []
@@ -185,10 +207,10 @@ def extract_agent_handoffs(module: ParsedModule) -> list[AgentHandoffComponent]:
     for node in ast.walk(module.tree):
         if not isinstance(node, ast.Call):
             continue
-        call_name = qualified_name(node.func) or ""
-        base = call_name.split(".")[-1].lower()
-        if base not in _HANDOFF_CALLS:
+        if not is_user_handoff_call(node, module.relative):
             continue
+        call_name = qualified_name(node.func) or ""
+        base = call_name.split(".")[-1]
         target = _handoff_target(node)
         handoffs.append(
             AgentHandoffComponent(
@@ -208,8 +230,7 @@ def is_memory_store_call(call: ast.Call) -> bool:
 
 
 def is_handoff_call(call: ast.Call) -> bool:
-    call_name = qualified_name(call.func) or ""
-    return call_name.split(".")[-1].lower() in _HANDOFF_CALLS
+    return is_user_handoff_call(call)
 
 
 def agent_call_has_unscoped_memory(call: ast.Call) -> bool:

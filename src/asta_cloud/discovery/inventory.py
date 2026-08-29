@@ -67,6 +67,17 @@ _AGENT_CALL_NAMES = {
     "runner",
     "from_tools",
 }
+_AGENT_INTERNAL_CALLEES = {
+    "get_response",
+    "_build_response_create_kwargs",
+    "_get_response_via_chat",
+    "_get_response_via_responses",
+    "_stream_response_via_chat",
+    "_stream_response_via_responses",
+    "_fetch_responses_response",
+    "_fetch_chat_response",
+    "agentspandata",
+}
 _TOOL_CALL_NAMES = {
     "tool",
     "functiontool",
@@ -244,6 +255,32 @@ def _extract_tools(module: ParsedModule, module_framework: Framework | None) -> 
     return tools
 
 
+def _is_agent_construction_callee(base: str) -> bool:
+    base_l = base.lower()
+    if base_l in _AGENT_INTERNAL_CALLEES:
+        return False
+    if base.startswith("_"):
+        return False
+    if base_l in _AGENT_CALL_NAMES:
+        return True
+    return base == "Agent"
+
+
+def is_agent_construction_call(call: ast.Call) -> bool:
+    call_name = qualified_name(call.func) or ""
+    base = call_name.split(".")[-1]
+    if not _is_agent_construction_callee(base):
+        return False
+    if any(keyword.arg == "tools" for keyword in call.keywords):
+        return True
+    base_l = base.lower()
+    if base_l in {"from_tools", "create_react_agent", "create_tool_calling_agent"}:
+        if base_l == "from_tools":
+            return len(call.args) >= 1
+        return len(call.args) >= 2
+    return False
+
+
 def _extract_agents(
     module: ParsedModule, module_framework: Framework | None
 ) -> list[AgentComponent]:
@@ -257,13 +294,7 @@ def _extract_agents(
         if not call_name:
             continue
         base = call_name.split(".")[-1]
-        base_l = base.lower()
-        has_tools_kw = any(kw.arg == "tools" for kw in node.keywords)
-        has_prompt_kw = any(
-            kw.arg is not None and kw.arg.lower() in _PROMPT_NAMES for kw in node.keywords
-        )
-        is_agent = base_l in _AGENT_CALL_NAMES or "agent" in base_l
-        if not is_agent and not (has_tools_kw and has_prompt_kw):
+        if not is_agent_construction_call(node):
             continue
 
         tools_node = None
@@ -279,6 +310,15 @@ def _extract_agents(
                     prompt_names.append(keyword.arg)
             elif keyword.arg and keyword.arg.lower() in _ALLOWLIST_KEYWORDS:
                 allowlist = True
+
+        if tools_node is None:
+            base_l = base.lower()
+            if base_l == "from_tools" and node.args:
+                tools_node = node.args[0]
+            elif base_l in {"create_react_agent", "create_tool_calling_agent"} and len(
+                node.args
+            ) >= 2:
+                tools_node = node.args[1]
 
         parent_name = _enclosing_assign_name(module.tree, node)
         fw = merge_framework(module_framework, framework_from_call(call_name))

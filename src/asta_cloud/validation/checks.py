@@ -4,6 +4,7 @@ import ast
 from collections.abc import Callable
 
 from asta_cloud.analyzers.taint import call_has_tainted_argument, iter_calls_with_taint
+from asta_cloud.discovery.inventory import is_agent_construction_call
 from asta_cloud.discovery.mcp import is_broad_mcp_resource_uri, module_has_network_transport
 from asta_cloud.discovery.parse import (
     const_str,
@@ -114,14 +115,12 @@ def check_unrestricted_prompt(module_tree: ast.AST, line: int | None) -> bool:
 
 def check_missing_allowlist(module_tree: ast.AST, line: int | None) -> bool:
     for node in nodes_on_line(module_tree, line):
-        if not isinstance(node, ast.Call):
-            continue
-        has_tools = any(kw.arg == "tools" for kw in node.keywords)
-        allowlist = any(
-            kw.arg is not None and kw.arg.lower() in _ALLOWLIST_KEYWORDS for kw in node.keywords
-        )
-        if has_tools and not allowlist:
-            return True
+        if isinstance(node, ast.Call) and is_agent_construction_call(node):
+            allowlist = any(
+                kw.arg is not None and kw.arg.lower() in _ALLOWLIST_KEYWORDS for kw in node.keywords
+            )
+            if not allowlist:
+                return True
     return False
 
 
