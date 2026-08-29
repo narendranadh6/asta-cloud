@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ASTA Cloud — SAST for AI Agents</title>
+  <meta name="description" content="Catch unsafe tools, memory, handoffs, MCP, and RAG issues in CI before production. Static analysis for LangChain, OpenAI Agents, and Python agent code." />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2f;
+      --text: #e8eefc;
+      --muted: #9fb0d0;
+      --accent: #5eead4;
+      --accent-2: #60a5fa;
+      --danger: #f87171;
+      --border: #24304d;
+      --max: 980px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1d2b57 0%, var(--bg) 55%), var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 1.25rem; }
+    header { padding: 4rem 0 2rem; }
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 999px;
+      padding: 0.35rem 0.8rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      line-height: 1.1;
+      margin: 0 0 1rem;
+      letter-spacing: -0.03em;
+    }
+    .lead { font-size: 1.15rem; color: var(--muted); max-width: 46rem; }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.75rem 0 0; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.8rem 1.1rem;
+      border-radius: 0.7rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .btn-primary { background: var(--accent); color: #06241f; }
+    .btn-secondary { background: transparent; border-color: var(--border); color: var(--text); }
+    section { padding: 2.5rem 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: rgba(18, 26, 47, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.1rem 1.2rem;
+    }
+    .card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    pre {
+      background: #0a0f1c;
+      border: 1px solid var(--border);
+      border-radius: 0.8rem;
+      padding: 1rem;
+      overflow: auto;
+      font-size: 0.85rem;
+    }
+    .pricing {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .price { font-size: 1.8rem; font-weight: 700; margin: 0.4rem 0; }
+    footer {
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      padding: 2rem 0 3rem;
+      font-size: 0.9rem;
+    }
+    .ok { color: var(--accent); }
+    .warn { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="badge">SAST for AI agents · Python · CI-first</div>
+      <h1>Ship agents with security gates, not security surprises.</h1>
+      <p class="lead">
+        ASTA Cloud scans LangChain, OpenAI Agents, MCP, and RAG Python code in every pull request.
+        Catch unsafe tools, memory leaks, handoffs, and secrets before production — without running agent code or calling an LLM.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/narendranadh6/asta-cloud">View on GitHub</a>
+        <a class="btn btn-secondary" href="https://pypi.org/project/asta-cloud/">pip install asta-cloud</a>
+        <a class="btn btn-secondary" href="design-partner/README.md">Design partner program</a>
+      </div>
+    </header>
+
+    <section>
+      <div class="grid">
+        <div class="card">
+          <h3>17 agent-specific rules</h3>
+          <p>Tools, memory scoping, handoffs, MCP resources, RAG loaders, secrets, shell usage.</p>
+        </div>
+        <div class="card">
+          <h3>PR policy gates</h3>
+          <p>GitHub Action comments on PRs and fails checks based on <code>fail_on</code> in <code>asta.yaml</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Baseline adoption</h3>
+          <p>Suppress legacy findings. Fail only on new issues — built for real repos, not greenfield demos.</p>
+        </div>
+        <div class="card">
+          <h3>Validated on real SDKs</h3>
+          <p class="ok">LangChain + OpenAI Agents production trees: 0 findings after tuning.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>GitHub Actions in 60 seconds</h2>
+      <pre><code>name: ASTA Security
+on: [pull_request]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  asta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: narendranadh6/asta-cloud/action@v0.10.0
+        with:
+          path: .
+          config: asta.yaml
+          baseline: asta-baseline.json
+          post-comment: true</code></pre>
+      <p><a href="github-integration.md">Full integration guide →</a></p>
+    </section>
+
+    <section>
+      <h2>Design partner pilots</h2>
+      <p>We're onboarding <strong>5 teams</strong> building agents in production.</p>
+      <div class="pricing">
+        <div class="card">
+          <h3>Starter</h3>
+          <div class="price">$500/mo</div>
+          <p>1 repo · Action setup · email support · 30-day pilot</p>
+        </div>
+        <div class="card">
+          <h3>Team</h3>
+          <div class="price">$1,200/mo</div>
+          <p>3 repos · baseline migration · Slack · rule tuning</p>
+        </div>
+        <div class="card">
+          <h3>Enterprise</h3>
+          <div class="price">$2,000/mo</div>
+          <p>Monorepo · custom rules · weekly review · GitHub App early access</p>
+        </div>
+      </div>
+      <p style="margin-top:1rem;">
+        Email <a href="mailto:hello@asta-cloud.dev">hello@asta-cloud.dev</a> or open a
+        <a href="https://github.com/narendranadh6/asta-cloud/issues/new">GitHub discussion</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>What ASTA is not</h2>
+      <div class="grid">
+        <div class="card"><h3>Not a generic SAST</h3><p>Purpose-built for agent frameworks, tools, memory, and workflows.</p></div>
+        <div class="card"><h3>Not runtime pentesting</h3><p>Static, evidence-first analysis. No code execution in your environment.</p></div>
+        <div class="card"><h3>Not an LLM bill</h3><p>Deterministic rules only. Fast CI, predictable cost.</p></div>
+      </div>
+    </section>
+
+    <footer>
+      <p>ASTA Cloud · Evidence-first security for AI agents · <a href="https://github.com/narendranadh6/asta-cloud">GitHub</a></p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,46 @@
+name: ASTA PR Scan
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        description: Directory to scan
+        type: string
+        default: .
+      config:
+        description: Optional asta.yaml path
+        type: string
+        default: ""
+      baseline:
+        description: Optional baseline JSON path
+        type: string
+        default: ""
+      post-comment:
+        description: Post PR summary comment
+        type: boolean
+        default: true
+      upload-sarif:
+        description: Upload SARIF artifact
+        type: boolean
+        default: false
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./action
+        with:
+          path: ${{ inputs.path }}
+          config: ${{ inputs.config }}
+          baseline: ${{ inputs.baseline }}
+          post-comment: ${{ inputs.post-comment }}
+          upload-sarif: ${{ inputs.upload-sarif }}

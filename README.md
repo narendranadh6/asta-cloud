@@ -33,9 +33,25 @@ Images publish to GitHub Container Registry on each GitHub release.
 
 PyPI packages publish on each GitHub release as well (`pip install asta-cloud`). Maintainer setup: [docs/publishing.md](docs/publishing.md).
 
+**Landing page:** [docs/index.html](docs/index.html) · **GitHub PR policy:** [docs/github-integration.md](docs/github-integration.md) · **Design partners:** [docs/design-partner/README.md](docs/design-partner/README.md)
+
 ## CI
 
-GitHub Actions runs `ruff`, `mypy`, `pytest` (Python 3.11 and 3.12), generates a SARIF report from `examples/vulnerable_agent`, and verifies the Docker image. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+GitHub Actions runs `ruff`, `mypy`, `pytest` (Python 3.11 and 3.12), generates a SARIF report from `examples/vulnerable_agent`, verifies the Docker image, and runs the ASTA PR policy action on pull requests. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [docs/github-integration.md](docs/github-integration.md).
+
+## GitHub PR policy
+
+Add the composite Action to fail PRs when findings meet `fail_on` in `asta.yaml`:
+
+```yaml
+- uses: narendranadh6/asta-cloud/action@v0.10.0
+  with:
+    path: .
+    config: asta.yaml
+    post-comment: true
+```
+
+Copy [`templates/github-action-workflow.yml`](templates/github-action-workflow.yml) or see [docs/github-integration.md](docs/github-integration.md) for baseline, SARIF, and reusable workflows.
 
 ## Scan
 

@@ -1,0 +1,114 @@
+name: ASTA Cloud Scan
+description: Scan Python AI agent code and enforce security policy on pull requests.
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  path:
+    description: Directory to scan.
+    required: false
+    default: .
+  config:
+    description: Optional path to asta.yaml.
+    required: false
+    default: ""
+  baseline:
+    description: Optional baseline JSON file path.
+    required: false
+    default: ""
+  post-comment:
+    description: Post or update a summary comment on pull requests.
+    required: false
+    default: "true"
+  upload-sarif:
+    description: Upload SARIF to GitHub code scanning.
+    required: false
+    default: "false"
+  python-version:
+    description: Python version used to install ASTA Cloud.
+    required: false
+    default: "3.12"
+
+outputs:
+  exit-code:
+    description: ASTA scan exit code (0 pass, 1 policy fail, 2 error).
+    value: ${{ steps.scan.outputs.exit-code }}
+  high-or-above:
+    description: Number of high or critical findings.
+    value: ${{ steps.summary.outputs.high-or-above }}
+  findings-total:
+    description: Total findings after baseline suppression.
+    value: ${{ steps.summary.outputs.findings-total }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install ASTA Cloud
+      shell: bash
+      run: python -m pip install --upgrade pip asta-cloud
+
+    - name: Run ASTA scan
+      id: scan
+      shell: bash
+      run: |
+        set +e
+        args=(scan "${{ inputs.path }}" --format json --output asta-results.json)
+        if [ -n "${{ inputs.config }}" ]; then
+          args+=(--config "${{ inputs.config }}")
+        fi
+        if [ -n "${{ inputs.baseline }}" ]; then
+          args+=(--baseline "${{ inputs.baseline }}")
+        fi
+        asta "${args[@]}"
+        code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" -eq 2 ]; then
+          echo "::error::ASTA scan failed with a configuration or path error."
+          exit 2
+        fi
+
+    - name: Summarize report
+      id: summary
+      shell: bash
+      run: python3 "${{ github.action_path }}/summarize.py" asta-results.json >> "$GITHUB_OUTPUT"
+
+    - name: Post PR comment
+      if: inputs.post-comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        ASTA_REPORT: asta-results.json
+        ASTA_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: python3 "${{ github.action_path }}/post_pr_comment.py"
+
+    - name: Upload SARIF
+      if: inputs.upload-sarif == 'true'
+      shell: bash
+      run: |
+        args=(scan "${{ inputs.path }}" --format sarif --output asta-results.sarif)
+        if [ -n "${{ inputs.config }}" ]; then args+=(--config "${{ inputs.config }}"); fi
+        if [ -n "${{ inputs.baseline }}" ]; then args+=(--baseline "${{ inputs.baseline }}"); fi
+        set +e
+        asta "${args[@]}"
+        set -e
+
+    - name: Publish SARIF artifact
+      if: inputs.upload-sarif == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: asta-sarif
+        path: asta-results.sarif
+
+    - name: Enforce policy gate
+      shell: bash
+      run: |
+        if [ "${{ steps.scan.outputs.exit-code }}" = "1" ]; then
+          echo "::error::ASTA policy gate failed. See scan summary for findings at or above fail_on."
+          exit 1
+        fi

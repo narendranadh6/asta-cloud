@@ -1,0 +1,23 @@
+name: ASTA PR Policy
+
+on:
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan examples (policy demo)
+        uses: ./action
+        with:
+          path: src
+          config: asta.yaml
+          post-comment: "true"
+          upload-sarif: false

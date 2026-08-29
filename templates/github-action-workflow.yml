@@ -1,0 +1,23 @@
+name: ASTA Security
+
+on:
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  asta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: narendranadh6/asta-cloud/action@v0.10.0
+        with:
+          path: .
+          config: asta.yaml
+          baseline: asta-baseline.json
+          post-comment: true
+          upload-sarif: false
