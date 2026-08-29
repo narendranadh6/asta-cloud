@@ -10,24 +10,31 @@ Releases publish artifacts to **PyPI** and **GHCR** when a GitHub release is pub
 | Publish Docker | `.github/workflows/publish-docker.yml` | release published, manual |
 | Publish PyPI | `.github/workflows/publish-pypi.yml` | release published, manual |
 
-## One-time PyPI setup (trusted publishing)
+## One-time PyPI setup
 
-ASTA Cloud uses [PyPI trusted publishing](https://docs.pypi.org/trusted-publishers/) (OIDC). No long-lived API token is stored in GitHub.
+Choose **one** of these options.
 
-1. Create the PyPI project (first release only):
-   - Option A: run **Publish PyPI** manually after step 2; PyPI creates the project on first upload.
-   - Option B: register `asta-cloud` on [pypi.org](https://pypi.org) first.
+### Option A: API token (fastest)
 
-2. On PyPI → **Account settings** → **Publishing** → **Add a new pending publisher**:
+1. On PyPI → **Account settings** → **API tokens** → **Add API token**
+   - Scope: entire account (first upload) or project `asta-cloud`
+   - Copy the token (`pypi-...`)
+2. On GitHub → repo **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+   - Name: `PYPI_API_TOKEN`
+   - Value: the token
+3. Re-run **Publish PyPI** in Actions.
+
+### Option B: Trusted publishing (no stored token)
+
+1. On PyPI → **Account settings** → **Publishing** → **Add a new pending publisher**:
    - **PyPI Project Name:** `asta-cloud`
    - **Owner:** `narendranadh6`
    - **Repository name:** `asta-cloud`
    - **Workflow name:** `publish-pypi.yml`
-   - **Environment name:** `pypi`
+   - **Environment name:** leave blank
+2. Re-run **Publish PyPI** in Actions.
 
-3. On GitHub → repo **Settings** → **Environments** → **New environment** → name it `pypi` (no secrets required for trusted publishing).
-
-4. Create a GitHub release (or re-run **Publish PyPI** via Actions → workflow_dispatch).
+Do **not** set `PYPI_API_TOKEN` if using trusted publishing only.
 
 ## Release checklist
 
