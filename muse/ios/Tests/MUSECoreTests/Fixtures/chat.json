@@ -1,0 +1,107 @@
+{
+ "conversation_id": null,
+ "reply": "I looked for a calm mood; Telugu music; melody; from the 2000s. Here are 14 verified tracks (about 55 min). Edit the queue, then save it as a playlist.",
+ "draft": {
+  "session_id": "aa9f5033-a8a2-4f31-b8de-5ccef51266ff",
+  "title": "Telugu Calm Melody",
+  "explanation": "I looked for a calm mood; Telugu music; melody; from the 2000s.",
+  "intent": {
+   "mood": "calm",
+   "language": "Telugu",
+   "genres": [
+    "melody"
+   ],
+   "activity": null,
+   "era": "2000s",
+   "energy": 30,
+   "vocals": "any",
+   "duration_minutes": 60,
+   "discovery": "balanced",
+   "reference_artists": [],
+   "exclude_artists": [],
+   "search_queries": [
+    "Telugu melody songs 2000s",
+    "Telugu calm songs 2000s"
+   ]
+  },
+  "planner": "heuristic",
+  "queries": [
+   "Telugu melody songs 2000s",
+   "Telugu calm songs 2000s"
+  ],
+  "tracks": [
+   {
+    "track": {
+     "video_id": "demorp_mppS",
+     "title": "Telugu Melody No. 1",
+     "channel_title": "Aarav Strings",
+     "channel_id": null,
+     "description": "Demo catalog entry (calm, energy 70).",
+     "thumbnails": {
+      "high": {
+       "url": "https://picsum.photos/seed/demorp_mppS/480/360",
+       "width": 480,
+       "height": 360
+      }
+     },
+     "duration_seconds": 150,
+     "published_at": "2004-01-01T00:00:00Z",
+     "view_count": 1000,
+     "is_live": false,
+     "watch_url": "https://www.youtube.com/watch?v=demorp_mppS",
+     "attribution": {
+      "provider": "demo",
+      "label": "MUSE demo catalog (not real YouTube data)",
+      "url": null
+     }
+    },
+    "score": 1.59,
+    "reasons": [
+     "Matches melody, telugu",
+     "From Aarav Strings, an artist you like",
+     "Found for \u201cTelugu melody songs 2000s\u201d"
+    ],
+    "matched_query": "Telugu melody songs 2000s"
+   },
+   {
+    "track": {
+     "video_id": "demoXsmfEf6",
+     "title": "Telugu Melody No. 2 (Remix)",
+     "channel_title": "Keerthi Waves",
+     "channel_id": null,
+     "description": "Demo catalog entry (calm, energy 70).",
+     "thumbnails": {
+      "high": {
+       "url": "https://picsum.photos/seed/demoXsmfEf6/480/360",
+       "width": 480,
+       "height": 360
+      }
+     },
+     "duration_seconds": 187,
+     "published_at": "2004-04-07T00:00:00Z",
+     "view_count": 8919,
+     "is_live": false,
+     "watch_url": "https://www.youtube.com/watch?v=demoXsmfEf6",
+     "attribution": {
+      "provider": "demo",
+      "label": "MUSE demo catalog (not real YouTube data)",
+      "url": null
+     }
+    },
+    "score": 1.1096,
+    "reasons": [
+     "Matches melody, telugu",
+     "Found for \u201cTelugu melody songs 2000s\u201d"
+    ],
+    "matched_query": "Telugu melody songs 2000s"
+   }
+  ],
+  "total_duration_seconds": 3312,
+  "target_duration_seconds": 3600,
+  "provider": "demo",
+  "warnings": [
+   "Showing the MUSE demo catalog because YouTube search is not configured."
+  ]
+ },
+ "stored": false
+}

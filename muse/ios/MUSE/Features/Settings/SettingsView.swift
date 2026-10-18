@@ -1,0 +1,191 @@
+import SwiftData
+import SwiftUI
+
+struct SettingsView: View {
+    @Environment(AppModel.self) private var app
+    @Environment(AppSettings.self) private var settings
+    @State private var prefs = Preferences()
+    @State private var prefsLoaded = false
+    @State private var exportURL: URL?
+    @State private var isExporting = false
+    @State private var confirmClear = false
+    @State private var confirmDelete = false
+    @State private var isDeleting = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        @Bindable var settings = settings
+        Form {
+            Section("Profile") {
+                TextField("Name for greetings (optional, stays on device)", text: $settings.displayName)
+                    .textContentType(.givenName)
+            }
+
+            Section("Appearance") {
+                Toggle("Neon glow effects", isOn: $settings.glowEffects)
+                Toggle("Haptic feedback", isOn: $settings.hapticsEnabled)
+            } footer: {
+                Text("MUSE uses a dark theme. It follows iOS Reduce Motion, Reduce Transparency and text size settings.")
+            }
+
+            Section("Language") {
+                Picker("Preferred music language", selection: Binding(
+                    get: { settings.preferredLanguage ?? "" },
+                    set: { settings.preferredLanguage = $0.isEmpty ? nil : $0 })) {
+                    ForEach(PlaylistStudioViewModel.languages, id: \.self) {
+                        Text($0.isEmpty ? "No preference" : $0).tag($0)
+                    }
+                }
+            }
+
+            Section {
+                Toggle("Personalize with my MUSE activity", isOn: Binding(
+                    get: { prefs.personalizationEnabled },
+                    set: { value in
+                        prefs.personalizationEnabled = value
+                        if !value { prefs.storeAiConversations = false }
+                        settings.personalizationEnabled = value
+                        savePrefs()
+                    }))
+                Toggle("Keep AI DJ conversations", isOn: Binding(
+                    get: { prefs.storeAiConversations },
+                    set: { prefs.storeAiConversations = $0; savePrefs() }))
+                    .disabled(!prefs.personalizationEnabled)
+                NavigationLink("Taste Intelligence") { TasteView() }
+            } header: {
+                Text("AI personalization")
+            } footer: {
+                Text("Off by default. When off, MUSE doesn't store recommendation history or "
+                     + "feedback, and AI DJ chats are not saved.")
+            }
+
+            Section {
+                Toggle("Sync playlists to my MUSE account", isOn: $settings.syncPlaylists)
+                Toggle("Remember my searches", isOn: Binding(
+                    get: { prefs.recordSearchHistory },
+                    set: { prefs.recordSearchHistory = $0; savePrefs() }))
+                Button("Clear search history", role: .destructive) { confirmClear = true }
+            } header: {
+                Text("Privacy")
+            } footer: {
+                Text("No ads, no advertising SDKs, no third-party analytics. Your account is an "
+                     + "anonymous device account.")
+            }
+
+            Section("Browser") {
+                NavigationLink {
+                    BrowserHandoffView()
+                } label: {
+                    LabeledContent("Open links in", value: settings.browserPreference.label)
+                }
+            }
+
+            Section {
+                Toggle("Weekly discovery reminder", isOn: Binding(
+                    get: { settings.weeklyDiscoveryReminder },
+                    set: { value in
+                        Task {
+                            if value {
+                                settings.weeklyDiscoveryReminder = await app.notifications.enable()
+                            } else {
+                                await app.notifications.cancelAll()
+                                settings.weeklyDiscoveryReminder = false
+                            }
+                        }
+                    }))
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("A local reminder scheduled on this iPhone. MUSE doesn't use push notifications.")
+            }
+
+            Section("Your data") {
+                Button {
+                    Task { await export() }
+                } label: {
+                    if isExporting { ProgressView() } else { Label("Prepare data export", systemImage: "square.and.arrow.up") }
+                }
+                if let exportURL {
+                    ShareLink(item: exportURL) { Label("Share export file", systemImage: "doc") }
+                }
+                Button("Delete account and all data", role: .destructive) { confirmDelete = true }
+                    .disabled(isDeleting)
+            }
+
+            Section("About") {
+                LabeledContent("Music metadata", value: app.provider == .youtube
+                               ? "YouTube Data API" : (app.provider == .demo ? "Demo catalog" : "Unknown"))
+                LabeledContent("AI planner", value: app.aiPlanner == "llm" ? "LLM + verification" : "Built-in")
+                Text("MUSE is not affiliated with YouTube or Brave. It never streams, downloads or "
+                     + "modifies YouTube content.")
+                    .font(.footnote).foregroundStyle(MUSEColor.mutedText)
+            }
+        }
+        .museScreen()
+        .navigationTitle("Settings")
+        .task {
+            guard !prefsLoaded, let loaded = try? await app.api.preferences() else { return }
+            prefs = loaded
+            prefsLoaded = true
+            settings.personalizationEnabled = loaded.personalizationEnabled
+        }
+        .confirmationDialog("Clear search history?", isPresented: $confirmClear, titleVisibility: .visible) {
+            Button("Clear", role: .destructive) {
+                app.library.clearRecentSearches()
+                Task { try? await app.api.clearSearchHistory() }
+            }
+        }
+        .confirmationDialog("Delete your MUSE account?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete everything", role: .destructive) { Task { await deleteAccount() } }
+        } message: {
+            Text("This permanently deletes your playlists, preferences and history on the server and this iPhone.")
+        }
+        .alert("Something went wrong", isPresented: Binding(
+            get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private func savePrefs() {
+        let snapshot = prefs
+        Task {
+            do {
+                prefs = try await app.api.updatePreferences(snapshot)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func export() async {
+        isExporting = true
+        defer { isExporting = false }
+        do {
+            let local = try app.library.exportJSON()
+            let remote = (try? await app.api.exportData()) ?? Data("null".utf8)
+            var combined = Data("{\"device_library\":".utf8)
+            combined.append(local)
+            combined.append(Data(",\"server_account\":".utf8))
+            combined.append(remote)
+            combined.append(Data("}".utf8))
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("muse-export-\(Int(Date().timeIntervalSince1970)).json")
+            try combined.write(to: url, options: [.atomic, .completeFileProtection])
+            exportURL = url
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func deleteAccount() async {
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            try await app.deleteEverything()
+        } catch {
+            errorMessage = "Couldn't delete your account: \(error.localizedDescription)"
+        }
+    }
+}

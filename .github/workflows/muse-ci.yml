@@ -1,0 +1,85 @@
+name: MUSE CI
+
+on:
+  push:
+    paths: ["muse/**", ".github/workflows/muse-ci.yml"]
+  pull_request:
+    paths: ["muse/**", ".github/workflows/muse-ci.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: muse/backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: muse
+          POSTGRES_PASSWORD: muse
+          POSTGRES_DB: muse
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U muse" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      MUSE_DATABASE_URL: postgresql+asyncpg://muse:muse@localhost:5432/muse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: ruff check app tests alembic
+      - run: mypy app
+      - name: Migrations (upgrade, drift check, downgrade, upgrade)
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+      - name: Tests (SQLite)
+        run: pytest -q
+      - name: Tests (PostgreSQL)
+        run: pytest -q
+        env:
+          MUSE_TEST_DATABASE_URL: postgresql+asyncpg://muse:muse@localhost:5432/muse
+      - name: Docker image
+        working-directory: muse
+        run: docker build -t muse-api:ci backend
+
+  ios-core-linux:
+    runs-on: ubuntu-latest
+    container: swift:6.1-noble
+    defaults:
+      run:
+        working-directory: muse/ios
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build --build-tests
+      - run: swift test
+
+  ios-xcode:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: muse/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate project
+        run: brew install xcodegen && xcodegen generate
+      - name: Build and test on iOS Simulator
+        run: |
+          set -o pipefail
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -oE 'iPhone [0-9A-Za-z ]+' | sed 's/ *$//')
+          echo "Using simulator: $DEVICE"
+          xcodebuild test \
+            -project MUSE.xcodeproj -scheme MUSE \
+            -destination "platform=iOS Simulator,name=$DEVICE" \
+            CODE_SIGNING_ALLOWED=NO | tail -200

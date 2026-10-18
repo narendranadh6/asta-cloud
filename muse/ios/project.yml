@@ -1,0 +1,68 @@
+# Generate MUSE.xcodeproj with XcodeGen:  brew install xcodegen && xcodegen generate
+name: MUSE
+options:
+  bundleIdPrefix: app.muse
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""   # set your Team ID for device builds / TestFlight
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+configs:
+  Debug: debug
+  Release: release
+targets:
+  MUSE:
+    type: application
+    platform: iOS
+    sources:
+      - path: MUSE
+        excludes:
+          - "App/Info.plist"
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.muse.ios
+        INFOPLIST_FILE: MUSE/App/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+  MUSETests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/MUSECoreTests
+        excludes:
+          - "Fixtures"
+      - path: Tests/MUSECoreTests/Fixtures
+        type: folder
+        buildPhase: resources
+      - path: Tests/MUSETests
+    dependencies:
+      - target: MUSE
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.muse.ios.tests
+schemes:
+  MUSE:
+    build:
+      targets:
+        MUSE: all
+        MUSETests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [MUSETests]
+      gatherCoverageData: true
+    archive:
+      config: Release

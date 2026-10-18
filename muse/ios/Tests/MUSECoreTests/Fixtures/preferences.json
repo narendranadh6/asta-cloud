@@ -1,0 +1,23 @@
+{
+ "personalization_enabled": true,
+ "store_ai_conversations": false,
+ "record_search_history": true,
+ "languages": [
+  "Telugu"
+ ],
+ "genres": [],
+ "moods": [
+  "calm"
+ ],
+ "discovery_preference": "balanced",
+ "favorite_artists": [
+  {
+   "name": "Aarav Strings",
+   "youtube_channel_id": null
+  }
+ ],
+ "excluded_artists": [],
+ "onboarding_completed": false,
+ "personalization_consent_at": "2026-10-18T08:24:29.928643",
+ "updated_at": "2026-10-18T08:24:29.928673"
+}

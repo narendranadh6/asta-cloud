@@ -1,0 +1,9 @@
+# Swift / Xcode
+ios/.build/
+ios/.swiftpm/
+ios/DerivedData/
+*.xcuserstate
+xcuserdata/
+# Python
+backend/.venv/
+backend/*.egg-info/

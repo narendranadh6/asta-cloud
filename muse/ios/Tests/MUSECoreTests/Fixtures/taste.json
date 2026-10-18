@@ -1,0 +1,43 @@
+{
+ "personalization_enabled": true,
+ "basis": "Inferred from your activity inside MUSE: saved songs, playlists, searches and feedback. MUSE cannot see what you play in Brave or on YouTube.",
+ "top_artists": [
+  {
+   "label": "Aarav Strings",
+   "weight": 4.0,
+   "evidence": "saves, playlists and feedback"
+  },
+  {
+   "label": "Keerthi Waves",
+   "weight": 1.0,
+   "evidence": "saves, playlists and feedback"
+  },
+  {
+   "label": "Godavari Collective",
+   "weight": 1.0,
+   "evidence": "saves, playlists and feedback"
+  }
+ ],
+ "top_terms": [
+  {
+   "label": "telugu",
+   "weight": 1.0,
+   "evidence": "searched 1\u00d7"
+  },
+  {
+   "label": "melody",
+   "weight": 1.0,
+   "evidence": "searched 1\u00d7"
+  }
+ ],
+ "declared_languages": [
+  "Telugu"
+ ],
+ "declared_genres": [],
+ "excluded_artists": [],
+ "activity_counts": {
+  "playlists": 1,
+  "searches": 1,
+  "feedback": 0
+ }
+}

@@ -1,0 +1,55 @@
+{
+ "id": "696679f1-5dbf-4e46-9e86-0086d96a2362",
+ "name": "Evening",
+ "description": null,
+ "mood": null,
+ "is_ai_generated": false,
+ "youtube_playlist_id": null,
+ "youtube_playlist_url": null,
+ "item_count": 3,
+ "total_duration_seconds": 561,
+ "artwork_url": "https://picsum.photos/seed/demorp_mppS/480/360",
+ "created_at": "2026-10-18T08:24:29.953791",
+ "updated_at": "2026-10-18T08:24:29.953794",
+ "items": [
+  {
+   "id": "773c5896-7187-49b8-a6f2-84c21d277c18",
+   "position": 0,
+   "note": null,
+   "video_id": "demorp_mppS",
+   "title": "Telugu Melody No. 1",
+   "channel_title": "Aarav Strings",
+   "thumbnail_url": "https://picsum.photos/seed/demorp_mppS/480/360",
+   "duration_seconds": 150,
+   "is_available": true,
+   "watch_url": "https://www.youtube.com/watch?v=demorp_mppS",
+   "added_at": "2026-10-18T08:24:29.999664"
+  },
+  {
+   "id": "ae3a7d00-0bbf-4b58-ad60-82a7f69928e1",
+   "position": 1,
+   "note": null,
+   "video_id": "demoXsmfEf6",
+   "title": "Telugu Melody No. 2 (Remix)",
+   "channel_title": "Keerthi Waves",
+   "thumbnail_url": "https://picsum.photos/seed/demoXsmfEf6/480/360",
+   "duration_seconds": 187,
+   "is_available": true,
+   "watch_url": "https://www.youtube.com/watch?v=demoXsmfEf6",
+   "added_at": "2026-10-18T08:24:30.001700"
+  },
+  {
+   "id": "b9c08ab1-537e-45dc-853c-15f90a45922f",
+   "position": 2,
+   "note": null,
+   "video_id": "demoVbVxPwr",
+   "title": "Telugu Melody No. 3 (Live Session)",
+   "channel_title": "Godavari Collective",
+   "thumbnail_url": "https://picsum.photos/seed/demoVbVxPwr/480/360",
+   "duration_seconds": 224,
+   "is_available": true,
+   "watch_url": "https://www.youtube.com/watch?v=demoVbVxPwr",
+   "added_at": "2026-10-18T08:24:30.002283"
+  }
+ ]
+}
