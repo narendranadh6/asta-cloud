@@ -36,6 +36,7 @@
 		7940B7A4D3CE8999B5169A82 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A92F4C2AC912C74DF66D4FE /* Components.swift */; };
 		796944D060DFCAA3F23F6C0E /* LibraryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E9CC6327FC2AA36CEB1C34 /* LibraryStoreTests.swift */; };
 		8883DE106F52C44D6EE62989 /* PlaylistSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7309E0A217287E67301330C4 /* PlaylistSyncService.swift */; };
+		8FA1700CB3572DD07C746E50 /* ScreenshotTour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCF7DD85D79549B4F1AE9CA /* ScreenshotTour.swift */; };
 		8FCAC517DF3847EB8E29C18F /* BraveURLBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 804653E5786C18FAADDD5EC4 /* BraveURLBuilder.swift */; };
 		A0141843287AE2135E0DE964 /* DecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5009DC48DB9B25E5831D201A /* DecodingTests.swift */; };
 		A0236ABB4E07AED750D5427F /* MusicAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF36CA6288609D63D450A695 /* MusicAPI.swift */; };
@@ -67,6 +68,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2EBE97BA1AA397C87FDDE94A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 708BE76929EBCBCA5DDE6CE7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E119BF4C8DE89D73D2B00324;
+			remoteInfo = MUSE;
+		};
 		76C064D343F505970D34D159 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 708BE76929EBCBCA5DDE6CE7 /* Project object */;
@@ -93,6 +101,7 @@
 		48A17F795619763B679BC0E5 /* DraftEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftEditor.swift; sourceTree = "<group>"; };
 		4E1E5CADF4DF1A147C5E46CD /* MUSEApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MUSEApp.swift; sourceTree = "<group>"; };
 		4E24AF02579347265620FF1A /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
+		4F966DDA68F734C87468D0D2 /* MUSEUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MUSEUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5009DC48DB9B25E5831D201A /* DecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecodingTests.swift; sourceTree = "<group>"; };
 		555B5B47C5E1BAC3DCF79AB7 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		57E9CC6327FC2AA36CEB1C34 /* LibraryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStoreTests.swift; sourceTree = "<group>"; };
@@ -117,6 +126,7 @@
 		9448216237ECD365E6C18075 /* BrowserHandoffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserHandoffView.swift; sourceTree = "<group>"; };
 		9681F8E3838E39459B72EE8E /* MockMusicAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockMusicAPI.swift; sourceTree = "<group>"; };
 		976A92C2A622CFF0ABBB89F0 /* BrowserHandoffServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserHandoffServiceTests.swift; sourceTree = "<group>"; };
+		9BCF7DD85D79549B4F1AE9CA /* ScreenshotTour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTour.swift; sourceTree = "<group>"; };
 		9EACB051ED8A9C192515535D /* Showcase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Showcase.swift; sourceTree = "<group>"; };
 		9FBF2F6A2F2145439BBAE980 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		A92A16B32377090B53C9064D /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -270,11 +280,20 @@
 			path = PlaylistStudio;
 			sourceTree = "<group>";
 		};
+		6C37633D884FEFABDC76EA01 /* MUSEUITests */ = {
+			isa = PBXGroup;
+			children = (
+				9BCF7DD85D79549B4F1AE9CA /* ScreenshotTour.swift */,
+			);
+			path = MUSEUITests;
+			sourceTree = "<group>";
+		};
 		72293FEB49AAEBA043FDD645 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				EDFC664CE98B1732E6204123 /* MUSE.app */,
 				7A5BEB43E1767C4B215CC69B /* MUSETests.xctest */,
+				4F966DDA68F734C87468D0D2 /* MUSEUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -321,6 +340,7 @@
 			children = (
 				C2F3C538A9418BB7D38D5F9B /* MUSECoreTests */,
 				2397CC31C36F963AB1BE9DD7 /* MUSETests */,
+				6C37633D884FEFABDC76EA01 /* MUSEUITests */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -436,6 +456,22 @@
 			productReference = 7A5BEB43E1767C4B215CC69B /* MUSETests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		B72862A7B408D125CF1AF375 /* MUSEUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 31B4A2BA970E99B8C19C4E3C /* Build configuration list for PBXNativeTarget "MUSEUITests" */;
+			buildPhases = (
+				3B8AE0BAF62A73399BA8BAA2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A83203544CD2123B57B164B8 /* PBXTargetDependency */,
+			);
+			name = MUSEUITests;
+			productName = MUSEUITests;
+			productReference = 4F966DDA68F734C87468D0D2 /* MUSEUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		E119BF4C8DE89D73D2B00324 /* MUSE */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6EF3E3659C11A6E7B35703AB /* Build configuration list for PBXNativeTarget "MUSE" */;
@@ -464,6 +500,10 @@
 					50A2E5A0225CAB4DF845A604 = {
 						DevelopmentTeam = "";
 					};
+					B72862A7B408D125CF1AF375 = {
+						DevelopmentTeam = "";
+						TestTargetID = E119BF4C8DE89D73D2B00324;
+					};
 					E119BF4C8DE89D73D2B00324 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -484,6 +524,7 @@
 			targets = (
 				E119BF4C8DE89D73D2B00324 /* MUSE */,
 				50A2E5A0225CAB4DF845A604 /* MUSETests */,
+				B72862A7B408D125CF1AF375 /* MUSEUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -509,6 +550,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		3B8AE0BAF62A73399BA8BAA2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8FA1700CB3572DD07C746E50 /* ScreenshotTour.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AD12D9833528D786186ADA42 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -585,6 +634,11 @@
 			target = E119BF4C8DE89D73D2B00324 /* MUSE */;
 			targetProxy = 76C064D343F505970D34D159 /* PBXContainerItemProxy */;
 		};
+		A83203544CD2123B57B164B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E119BF4C8DE89D73D2B00324 /* MUSE */;
+			targetProxy = 2EBE97BA1AA397C87FDDE94A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -604,6 +658,23 @@
 				PRODUCT_BUNDLE_IDENTIFIER = app.muse.ios;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		564801EE4522E8BD9C93C24A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.muse.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = MUSE;
 			};
 			name = Debug;
 		};
@@ -789,9 +860,35 @@
 			};
 			name = Release;
 		};
+		E9205303F5D870AA636E1F71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.muse.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = MUSE;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		31B4A2BA970E99B8C19C4E3C /* Build configuration list for PBXNativeTarget "MUSEUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				564801EE4522E8BD9C93C24A /* Debug */,
+				E9205303F5D870AA636E1F71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		6B88822F2C268F013B008B6D /* Build configuration list for PBXProject "MUSE" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

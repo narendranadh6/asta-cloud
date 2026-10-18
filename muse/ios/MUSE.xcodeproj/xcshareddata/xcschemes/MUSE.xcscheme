@@ -35,6 +35,20 @@
                ReferencedContainer = "container:MUSE.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "B72862A7B408D125CF1AF375"
+               BuildableName = "MUSEUITests.xctest"
+               BlueprintName = "MUSEUITests"
+               ReferencedContainer = "container:MUSE.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -61,6 +75,16 @@
                BlueprintIdentifier = "50A2E5A0225CAB4DF845A604"
                BuildableName = "MUSETests.xctest"
                BlueprintName = "MUSETests"
+               ReferencedContainer = "container:MUSE.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "B72862A7B408D125CF1AF375"
+               BuildableName = "MUSEUITests.xctest"
+               BlueprintName = "MUSEUITests"
                ReferencedContainer = "container:MUSE.xcodeproj">
             </BuildableReference>
          </TestableReference>

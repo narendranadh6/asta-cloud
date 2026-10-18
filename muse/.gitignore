@@ -7,3 +7,4 @@ xcuserdata/
 # Python
 backend/.venv/
 backend/*.egg-info/
+ios/screenshots/

@@ -18,6 +18,12 @@ struct MUSEApp: App {
         }
         self.container = container
         let settings = AppSettings()
+        // UI-test/screenshot mode: skip onboarding with a sample profile. Never used in normal runs.
+        if ProcessInfo.processInfo.arguments.contains("-MUSEDemoOnboarded") {
+            settings.hasCompletedOnboarding = true
+            settings.displayName = ProcessInfo.processInfo.environment["MUSE_DEMO_NAME"] ?? "Alex"
+            settings.preferredLanguage = "Telugu"
+        }
         _settings = State(initialValue: settings)
         _model = State(initialValue: AppModel(
             api: AppModel.makeAPI(), settings: settings, context: container.mainContext,

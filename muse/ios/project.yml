@@ -52,17 +52,30 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: app.muse.ios.tests
+  MUSEUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/MUSEUITests
+    dependencies:
+      - target: MUSE
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.muse.ios.uitests
+        TEST_TARGET_NAME: MUSE
 schemes:
   MUSE:
     build:
       targets:
         MUSE: all
         MUSETests: [test]
+        MUSEUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
-      targets: [MUSETests]
+      targets: [MUSETests, MUSEUITests]
       gatherCoverageData: true
     archive:
       config: Release

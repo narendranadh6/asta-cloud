@@ -83,3 +83,12 @@ jobs:
             -project MUSE.xcodeproj -scheme MUSE \
             -destination "platform=iOS Simulator,name=$DEVICE" \
             CODE_SIGNING_ALLOWED=NO | tail -200
+        env:
+          TEST_RUNNER_MUSE_SCREENSHOT_DIR: ${{ github.workspace }}/muse/ios/screenshots
+      - name: Upload simulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: muse-ios-screenshots
+          path: muse/ios/screenshots
+          if-no-files-found: warn

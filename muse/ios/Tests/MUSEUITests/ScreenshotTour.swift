@@ -1,0 +1,109 @@
+import XCTest
+
+/// Drives the app against the in-app demo backend and captures a screenshot of each
+/// main screen. Screenshots are attached to the test result and, when
+/// MUSE_SCREENSHOT_DIR is set (CI), written there as PNGs.
+final class ScreenshotTour: XCTestCase {
+    private var app: XCUIApplication!
+
+    override func setUp() {
+        continueAfterFailure = true
+        app = XCUIApplication()
+        app.launchArguments = ["-MUSEMockAPI", "-MUSEInMemoryStore", "-MUSEDemoOnboarded"]
+        app.launchEnvironment["MUSE_DEMO_NAME"] = "Narendra"
+        app.launch()
+    }
+
+    private func snap(_ name: String) {
+        let shot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: shot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        if let dir = ProcessInfo.processInfo.environment["MUSE_SCREENSHOT_DIR"] {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("\(name).png")
+            try? FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? shot.pngRepresentation.write(to: url)
+        }
+    }
+
+    private func settle(_ seconds: TimeInterval = 2.5) {
+        _ = app.wait(for: .runningForeground, timeout: 5)
+        Thread.sleep(forTimeInterval: seconds)  // let artwork load for the screenshot
+    }
+
+    private func tab(_ label: String) {
+        let button = app.buttons[label].firstMatch
+        if button.waitForExistence(timeout: 5) { button.tap() }
+        settle()
+    }
+
+    func testTour() {
+        settle(4)
+        snap("01-home")
+
+        app.swipeUp()
+        settle(1)
+        snap("02-home-scrolled")
+        app.swipeDown()
+
+        let discover = app.buttons["Discover"].firstMatch
+        if discover.waitForExistence(timeout: 5) {
+            discover.tap()
+            settle(4)
+            snap("03-discover")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            settle(1)
+        }
+
+        tab("Search")
+        snap("04-search")
+        let firstTrack = app.cells.element(boundBy: 2)
+        if firstTrack.waitForExistence(timeout: 5) {
+            firstTrack.tap()
+            settle(3)
+            snap("05-song-details")
+        }
+
+        tab("AI DJ")
+        snap("06-ai-dj")
+        let trip = app.buttons["Create a playlist for my trip"].firstMatch
+        if trip.waitForExistence(timeout: 5) {
+            trip.tap()
+            settle(4)
+            snap("07-ai-dj-reply")
+            let review = app.buttons["Review & save queue"].firstMatch
+            if review.waitForExistence(timeout: 8) {
+                review.tap()
+                settle(3)
+                snap("08-review-queue")
+                let save = app.buttons["Save playlist"].firstMatch
+                if save.waitForExistence(timeout: 5) { save.tap(); settle(1) }
+                app.navigationBars.buttons.element(boundBy: 0).tap()
+                settle(1)
+            }
+        }
+
+        let studio = app.buttons["Playlist Studio"].firstMatch
+        if studio.waitForExistence(timeout: 3) {
+            studio.tap()
+            settle(2)
+            snap("09-playlist-studio")
+        }
+
+        tab("Library")
+        snap("10-library")
+
+        tab("Home")
+        let focus = app.buttons["Focus"].firstMatch
+        if focus.waitForExistence(timeout: 5) {
+            focus.tap()
+            settle(2)
+            snap("11-mood")
+        }
+
+        tab("Profile")
+        snap("12-settings")
+    }
+}
