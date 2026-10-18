@@ -67,6 +67,8 @@ jobs:
 
   ios-xcode:
     runs-on: macos-15
+    permissions:
+      contents: write  # only to publish screenshots to the muse-screenshots branch
     defaults:
       run:
         working-directory: muse/ios
@@ -92,3 +94,15 @@ jobs:
           name: muse-ios-screenshots
           path: muse/ios/screenshots
           if-no-files-found: warn
+      - name: Publish screenshots to muse-screenshots branch
+        if: always() && github.event_name == 'push'
+        working-directory: muse/ios
+        run: |
+          [ -d screenshots ] && ls screenshots/*.png >/dev/null 2>&1 || exit 0
+          cd screenshots
+          git init -q -b muse-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add *.png
+          git commit -q -m "Simulator screenshots for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" muse-screenshots
