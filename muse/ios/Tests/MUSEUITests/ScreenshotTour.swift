@@ -3,10 +3,11 @@ import XCTest
 /// Drives the app against the in-app demo backend and captures a screenshot of each
 /// main screen. Screenshots are attached to the test result and, when
 /// MUSE_SCREENSHOT_DIR is set (CI), written there as PNGs.
+@MainActor
 final class ScreenshotTour: XCTestCase {
     private var app: XCUIApplication!
 
-    override func setUp() {
+    private func launch() {
         continueAfterFailure = true
         app = XCUIApplication()
         app.launchArguments = ["-MUSEMockAPI", "-MUSEInMemoryStore", "-MUSEDemoOnboarded"]
@@ -40,6 +41,7 @@ final class ScreenshotTour: XCTestCase {
     }
 
     func testTour() {
+        launch()
         settle(4)
         snap("01-home")
 
