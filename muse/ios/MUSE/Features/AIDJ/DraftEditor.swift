@@ -99,7 +99,10 @@ struct DraftEditorView: View {
         .swipeActions(edge: .leading) {
             if !item.track.isDemo {
                 Button {
-                    Task { await handoff.open(item.track, using: app.handoff, haptics: settings.hapticsEnabled) }
+                    Task {
+                        await handoff.open(item.track, upNext: upNext(after: item.track.videoId),
+                                           using: app.handoff, haptics: settings.hapticsEnabled)
+                    }
                 } label: { Label("Open", systemImage: "arrow.up.forward.app") }
                     .tint(MUSEColor.accent)
             }
@@ -121,6 +124,12 @@ struct DraftEditorView: View {
                     .tint(MUSEColor.danger)
             }
         }
+    }
+
+    private func upNext(after videoID: String) -> [any TrackDisplayable] {
+        let tracks = draft.queue.items.map(\.track)
+        guard let index = tracks.firstIndex(where: { $0.videoId == videoID }) else { return tracks }
+        return Array(tracks[(index + 1)...])
     }
 
     private func rate(_ item: RecommendedTrack, _ rating: FeedbackRating) {

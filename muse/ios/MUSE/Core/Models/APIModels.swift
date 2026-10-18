@@ -94,6 +94,15 @@ public struct SearchResponse: Codable, Sendable {
     public var cached: Bool
 }
 
+public struct TrendingResponse: Codable, Sendable {
+    public var items: [Track]
+    public var nextPageToken: String?
+    public var prevPageToken: String?
+    public var provider: MetadataProvider
+    public var cached: Bool
+    public var source: String
+}
+
 public struct SuggestionsResponse: Codable, Sendable {
     public var query: String
     public var suggestions: [String]

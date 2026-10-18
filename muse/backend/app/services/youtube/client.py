@@ -198,6 +198,40 @@ class YouTubeDataAPIClient:
             filtered_out=len(ids) - len(items),
         )
 
+    async def trending(
+        self, *, page_token: str | None = None, max_results: int = 20
+    ) -> SearchPage:
+        """videos.list chart=mostPopular in the Music category (1 quota unit)."""
+        params: dict[str, Any] = {
+            "part": "snippet,contentDetails,status,statistics",
+            "chart": "mostPopular",
+            "videoCategoryId": MUSIC_CATEGORY_ID,
+            "regionCode": self._region,
+            "maxResults": max(1, min(max_results, 50)),
+        }
+        if page_token:
+            params["pageToken"] = page_token
+        data = await self._get("/videos", params)
+        items: list[Track] = []
+        dropped = 0
+        for item in data.get("items", []):
+            track = (
+                track_from_video_resource(item)
+                if is_available_in_region(item, self._region)
+                else None
+            )
+            if track is None:
+                dropped += 1
+            else:
+                items.append(track)
+        return SearchPage(
+            items=items,
+            next_page_token=data.get("nextPageToken"),
+            prev_page_token=data.get("prevPageToken"),
+            total_results_estimate=data.get("pageInfo", {}).get("totalResults"),
+            filtered_out=dropped,
+        )
+
     async def get_videos(self, video_ids: list[str]) -> dict[str, Track]:
         valid = [vid for vid in dict.fromkeys(video_ids) if is_valid_video_id(vid)]
         result: dict[str, Track] = {}

@@ -49,6 +49,7 @@ from app.schemas import (
     TasteProfile,
     TokenResponse,
     Track,
+    TrendingResponse,
 )
 from app.services.ai.providers import PlanOverrides
 from app.services.youtube.base import (
@@ -234,6 +235,32 @@ async def search_suggestions(
     seeds = [s for s in _SEED_SUGGESTIONS if not prefix or prefix in s]
     merged = list(dict.fromkeys([*own, *seeds]))[:limit]
     return SuggestionsResponse(query=q, suggestions=merged)
+
+
+@router.get(
+    "/discover/trending",
+    response_model=TrendingResponse,
+    tags=["search"],
+    dependencies=[SEARCH_LIMIT],
+    summary="Most popular music videos in the configured region (official YouTube chart)",
+)
+async def trending(
+    user: CurrentUser,
+    search_service: SearchServiceDep,
+    page_token: Annotated[str | None, Query(max_length=200)] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> TrendingResponse:
+    try:
+        result = await search_service.trending(page_token=page_token, max_results=limit)
+    except YouTubeError as exc:
+        raise translate_provider_error(exc) from exc
+    return TrendingResponse(
+        items=result.page.items,
+        next_page_token=result.page.next_page_token,
+        prev_page_token=result.page.prev_page_token,
+        provider=search_service.provider.name,
+        cached=result.cached,
+    )
 
 
 @router.get(

@@ -4,17 +4,16 @@ import SwiftUI
 struct SearchView: View {
     @Environment(AppModel.self) private var app
     @State private var model = SearchViewModel()
+    @State private var trending: [Track] = []
     @Query(sort: \RecentSearchEntity.searchedAt, order: .reverse) private var recent: [RecentSearchEntity]
 
     var body: some View {
         @Bindable var model = model
         List {
             Section {
-                Picker("Search for", selection: $model.kind) {
-                    ForEach(SearchKind.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear)
+                ChipBar(options: SearchKind.allCases, selection: $model.kind) { $0.label }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
             if case .idle = model.phase {
                 idleContent
@@ -35,6 +34,11 @@ struct SearchView: View {
             if model.lastSubmitted != nil { submit() }
         }
         .task(id: model.query) { await model.refreshSuggestions(api: app.api) }
+        .task {
+            if trending.isEmpty, let response = try? await app.api.trending(pageToken: nil, limit: 5) {
+                trending = response.items
+            }
+        }
         .museDestinations()
     }
 
@@ -46,10 +50,59 @@ struct SearchView: View {
         }
     }
 
+    private func suggestion(_ title: String, _ subtitle: String, _ symbol: String,
+                            _ route: SearchRoute) -> some View {
+        NavigationLink(value: route) { suggestionLabel(title, subtitle, symbol) }
+            .listRowBackground(Color.clear)
+    }
+
+    private func suggestionLabel(_ title: String, _ subtitle: String, _ symbol: String) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: symbol).font(.title3).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(MUSEColor.neon))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(MUSEColor.text)
+                Text(subtitle).font(.caption).foregroundStyle(MUSEColor.mutedText)
+            }
+        }
+    }
+
     @ViewBuilder
     private var idleContent: some View {
         Section {
             DemoModeBanner().listRowBackground(Color.clear)
+        }
+        if !trending.isEmpty {
+            Section {
+                ForEach(trending) { track in
+                    NavigationLink(value: track) { TrackRow(track: track) }
+                        .listRowBackground(Color.clear)
+                }
+            } header: {
+                HStack {
+                    Text("Trending on YouTube").font(MUSEFont.section).foregroundStyle(MUSEColor.text)
+                        .textCase(nil)
+                    Spacer()
+                    NavigationLink("See all") { DiscoverView() }.font(.subheadline.weight(.semibold))
+                        .textCase(nil)
+                }
+            }
+        }
+        Section {
+            suggestion("Trending remixes", "Popular now", "dial.high",
+                       SearchRoute(query: "trending remix", kind: .remix, title: "Trending remixes"))
+            NavigationLink(value: StudioRoute(mood: nil, description: "Underrated songs similar to my favorites")) {
+                suggestionLabel("Underrated gems", "Based on your taste", "diamond")
+            }
+            .listRowBackground(Color.clear)
+            NavigationLink(value: StudioRoute(mood: nil, description: "Songs similar to my favorite artists")) {
+                suggestionLabel("Similar to your favorites", "AI-powered discovery", "heart.circle")
+            }
+            .listRowBackground(Color.clear)
+        } header: {
+            Text("AI suggestions for you").font(MUSEFont.section).foregroundStyle(MUSEColor.text)
+                .textCase(nil)
         }
         if !recent.isEmpty {
             Section {

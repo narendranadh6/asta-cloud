@@ -38,6 +38,13 @@ final class AppSettings {
     var preferredLanguage: String? {
         didSet { defaults.set(preferredLanguage, forKey: Keys.language) }
     }
+    /// Energy level from Mood Hub (0–100), used as a default in Playlist Studio.
+    var preferredEnergy: Int? {
+        didSet { defaults.set(preferredEnergy, forKey: Keys.energy) }
+    }
+    var discovery: DiscoveryPreference {
+        didSet { defaults.set(discovery.rawValue, forKey: Keys.discovery) }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -52,6 +59,9 @@ final class AppSettings {
         displayName = defaults.string(forKey: Keys.name) ?? ""
         activeMood = defaults.string(forKey: Keys.mood).flatMap(Mood.init(rawValue:))
         preferredLanguage = defaults.string(forKey: Keys.language)
+        preferredEnergy = defaults.object(forKey: Keys.energy) as? Int
+        discovery = DiscoveryPreference(rawValue: defaults.string(forKey: Keys.discovery) ?? "")
+            ?? .balanced
     }
 
     func reset() {
@@ -66,6 +76,8 @@ final class AppSettings {
         displayName = ""
         activeMood = nil
         preferredLanguage = nil
+        preferredEnergy = nil
+        discovery = .balanced
     }
 
     private enum Keys {
@@ -79,7 +91,9 @@ final class AppSettings {
         static let name = "muse.displayName"
         static let mood = "muse.activeMood"
         static let language = "muse.preferredLanguage"
+        static let energy = "muse.preferredEnergy"
+        static let discovery = "muse.discovery"
         static let all = [browser, onboarding, personalization, sync, glow, haptics, reminder,
-                          name, mood, language]
+                          name, mood, language, energy, discovery]
     }
 }

@@ -83,6 +83,16 @@ public actor MockMusicAPI: MusicAPI {
             .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.prefix(8))
     }
 
+    public func trending(pageToken: String?, limit: Int) async throws -> TrendingResponse {
+        try checkFailure()
+        let ranked = catalog.sorted { ($0.viewCount ?? 0) > ($1.viewCount ?? 0) }
+        let offset = pageToken.flatMap(Int.init) ?? 0
+        let next = offset + limit < ranked.count ? String(offset + limit) : nil
+        return TrendingResponse(
+            items: Array(ranked.dropFirst(offset).prefix(limit)), nextPageToken: next,
+            prevPageToken: nil, provider: .demo, cached: false, source: "MUSE demo catalog")
+    }
+
     public func video(id: String) async throws -> Track {
         try checkFailure()
         guard let track = catalog.first(where: { $0.videoId == id }) else {

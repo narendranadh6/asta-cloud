@@ -139,6 +139,24 @@ class DemoMetadataProvider:
             total_results_estimate=len(scored),
         )
 
+    async def trending(
+        self, *, page_token: str | None = None, max_results: int = 20
+    ) -> SearchPage:
+        ranked = sorted((t for t, _ in _CATALOG), key=lambda t: t.view_count or 0, reverse=True)
+        try:
+            offset = int(page_token) if page_token else 0
+        except ValueError:
+            offset = 0
+        max_results = max(1, min(max_results, 50))
+        page = ranked[offset : offset + max_results]
+        next_offset = offset + max_results
+        return SearchPage(
+            items=page,
+            next_page_token=str(next_offset) if next_offset < len(ranked) else None,
+            prev_page_token=str(max(0, offset - max_results)) if offset > 0 else None,
+            total_results_estimate=len(ranked),
+        )
+
     async def get_videos(self, video_ids: list[str]) -> dict[str, Track]:
         self.video_calls += 1
         wanted = set(video_ids)

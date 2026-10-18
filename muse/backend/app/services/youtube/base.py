@@ -45,6 +45,12 @@ class MetadataProvider(Protocol):
         self, query: str, *, page_token: str | None = None, max_results: int = 20
     ) -> SearchPage: ...
 
+    async def trending(
+        self, *, page_token: str | None = None, max_results: int = 20
+    ) -> SearchPage:
+        """Most popular music videos for the configured region (official chart)."""
+        ...
+
     async def get_videos(self, video_ids: list[str]) -> dict[str, Track]:
         """Return validated metadata for available videos. Unavailable ids are omitted."""
         ...

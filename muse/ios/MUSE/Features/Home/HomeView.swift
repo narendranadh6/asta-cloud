@@ -14,14 +14,18 @@ struct HomeView: View {
     @Query(filter: #Predicate<ArtistEntity> { !$0.isExcluded }, sort: \ArtistEntity.addedAt)
     private var favoriteArtists: [ArtistEntity]
 
+    @State private var trending: [Track] = []
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                greeting
+                header
+                quickChips
                 DemoModeBanner()
-                aiDJCard
-                moodShortcuts
+                hero
+                playSomethingFor
                 if !discovered.isEmpty { recentlyDiscovered }
+                if !trending.isEmpty { trendingShelf }
                 if !playlists.isEmpty { savedPlaylists }
                 if !recommendedArtists.isEmpty { artists }
                 if !recentSearches.isEmpty { continueExploring }
@@ -30,22 +34,141 @@ struct HomeView: View {
             .padding(Spacing.md)
         }
         .museScreen()
-        .navigationTitle("MUSE")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .museDestinations()
+        .task {
+            if trending.isEmpty, let response = try? await app.api.trending(pageToken: nil, limit: 10) {
+                trending = response.items
+            }
+        }
     }
 
-    private var greeting: some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            Text(greetingText)
-                .font(MUSEFont.hero)
-                .foregroundStyle(MUSEColor.text)
-            Text(settings.activeMood.map { "In a \($0.label.lowercased()) mood" }
-                 ?? "What do you want to hear?")
-                .font(.subheadline)
-                .foregroundStyle(MUSEColor.mutedText)
+    private var header: some View {
+        HStack {
+            Text("MUSE")
+                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .foregroundStyle(MUSEColor.neon)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button { selectTab(.settings) } label: {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(MUSEColor.mutedText)
+            }
+            .accessibilityLabel("Profile and settings")
         }
-        .accessibilityElement(children: .combine)
+    }
+
+    private var quickChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Spacing.xs) {
+                Chip(title: "For You", isSelected: true) {}
+                Chip(title: "AI DJ", systemImage: "sparkles", isSelected: false) { selectTab(.dj) }
+                NavigationLink(value: MoodRoute(mood: .calm)) { chipLabel("Chill") }
+                NavigationLink(value: MoodRoute(mood: .workout)) { chipLabel("Workout") }
+                NavigationLink(value: MoodRoute(mood: .focused)) { chipLabel("Focus") }
+                NavigationLink { DiscoverView() } label: { chipLabel("Discover") }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func chipLabel(_ title: String) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(MUSEColor.text)
+            .padding(.horizontal, Spacing.sm)
+            .frame(minHeight: 36)
+            .background(Capsule().fill(MUSEColor.surface))
+            .overlay(Capsule().strokeBorder(.white.opacity(0.12)))
+    }
+
+    private var hero: some View {
+        Button {
+            app.pendingDJPrompt = heroPrompt
+            selectTab(.dj)
+        } label: {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: Spacing.cornerLarge, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [MUSEColor.primary.opacity(0.9), MUSEColor.secondary.opacity(0.75),
+                                 Color(hex: 0xFF8A5B).opacity(0.7)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing))
+                AIOrb(size: 120)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(Spacing.md)
+                    .opacity(0.9)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(greetingText)
+                        .font(MUSEFont.title)
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.leading)
+                    Text(settings.activeMood.map { "Let's keep the \($0.label.lowercased()) vibe going" }
+                         ?? "Let's get you in the right vibe")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                .padding(Spacing.md)
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(Spacing.md)
+            }
+            .frame(height: 190)
+            .shadow(color: MUSEColor.primary.opacity(0.4), radius: 20, y: 10)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(greetingText). Ask the AI DJ for a mix")
+    }
+
+    private var heroPrompt: String {
+        let mood = settings.activeMood?.discoveryPrompt ?? {
+            let hour = Calendar.current.component(.hour, from: .now)
+            return hour >= 22 || hour < 5 ? "mellow late night songs" : "songs for right now"
+        }()
+        return [settings.preferredLanguage, mood].compactMap { $0 }.joined(separator: " ")
+    }
+
+    private var playSomethingFor: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            SectionHeader(title: "Play something for…")
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.sm), count: 3),
+                      spacing: Spacing.md) {
+                ForEach(Self.tiles, id: \.title) { tile in
+                    NavigationLink(value: MoodRoute(mood: tile.mood)) {
+                        ArtTile(gradient: MUSEColor.moodGradient(tile.mood), symbol: tile.mood.symbol,
+                                title: tile.title, subtitle: tile.subtitle, height: 96)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private static let tiles: [(title: String, subtitle: String, mood: Mood)] = [
+        ("Focus", "Deep work", .focused), ("Chill", "Relax & unwind", .calm),
+        ("Workout", "High energy", .workout), ("Late Night", "Mellow beats", .sleep),
+        ("Feel Good", "Positive vibes", .happy), ("Travel", "Explore the world", .travel),
+    ]
+
+    private var trendingShelf: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack {
+                Text("Trending on YouTube").font(MUSEFont.section).foregroundStyle(MUSEColor.text)
+                Spacer()
+                NavigationLink("See all") { DiscoverView() }
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(MUSEColor.accent)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
+                    ForEach(trending) { track in
+                        NavigationLink(value: track) { TrackCard(track: track, width: 130) }
+                            .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
     }
 
     private var greetingText: String {
@@ -57,62 +180,7 @@ struct HomeView: View {
         default: "Late night"
         }
         let name = settings.displayName.trimmingCharacters(in: .whitespaces)
-        return name.isEmpty ? base : "\(base), \(name)"
-    }
-
-    private var aiDJCard: some View {
-        Button { selectTab(.dj) } label: {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "sparkles")
-                    .font(.title)
-                    .foregroundStyle(.white)
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(MUSEColor.neon))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("AI DJ").font(MUSEFont.title).foregroundStyle(MUSEColor.text)
-                    Text("Describe a vibe and get a playlist of real, verified songs.")
-                        .font(.subheadline)
-                        .foregroundStyle(MUSEColor.mutedText)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").foregroundStyle(MUSEColor.mutedText)
-            }
-            .padding(Spacing.md)
-            .museCard(cornerRadius: Spacing.cornerLarge)
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens the AI DJ tab")
-    }
-
-    private var moodShortcuts: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
-                Text("Moods")
-                    .font(MUSEFont.section)
-                    .foregroundStyle(MUSEColor.text)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                NavigationLink("Mood Hub") { MoodHubView() }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(MUSEColor.accent)
-            }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Spacing.xs) {
-                    ForEach(Mood.allCases) { mood in
-                        NavigationLink(value: MoodRoute(mood: mood)) {
-                            Label(mood.label, systemImage: mood.symbol)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, Spacing.md)
-                                .frame(minHeight: 44)
-                                .background(Capsule().fill(MUSEColor.moodGradient(mood)))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
+        return name.isEmpty ? base : "\(base),\n\(name)"
     }
 
     private var recentlyDiscovered: some View {
@@ -121,17 +189,8 @@ struct HomeView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: Spacing.sm) {
                     ForEach(discovered.prefix(12)) { entity in
-                        NavigationLink(value: Track(entity: entity)) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ArtworkView(url: entity.artworkURL, size: 140, cornerRadius: Spacing.corner)
-                                Text(entity.title).font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(MUSEColor.text).lineLimit(2)
-                                Text(entity.channelTitle).font(.caption)
-                                    .foregroundStyle(MUSEColor.mutedText).lineLimit(1)
-                            }
-                            .frame(width: 140, alignment: .leading)
-                        }
-                        .buttonStyle(.plain)
+                        NavigationLink(value: Track(entity: entity)) { TrackCard(track: entity, width: 140) }
+                            .buttonStyle(.plain)
                     }
                 }
             }

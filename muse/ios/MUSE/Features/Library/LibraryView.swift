@@ -22,15 +22,32 @@ struct LibraryView: View {
 
     var body: some View {
         List {
-            Picker("Section", selection: $segment) {
-                ForEach(Segment.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .listRowBackground(Color.clear)
+            ChipBar(options: Segment.allCases, selection: $segment) { $0.rawValue }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
             switch segment {
             case .songs: songs
-            case .playlists: playlistList(playlists.filter { matches($0.name) })
+            case .playlists:
+                likedCard
+                if !aiPlaylists.isEmpty && filter.isEmpty {
+                    Section {
+                        ForEach(aiPlaylists.prefix(5)) { playlist in
+                            NavigationLink(value: playlist) { PlaylistRow(playlist: playlist) }
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                    } header: {
+                        Text("AI playlists").font(MUSEFont.section).foregroundStyle(MUSEColor.text)
+                            .textCase(nil)
+                    }
+                }
+                Section {
+                    playlistList(playlists.filter { !$0.isAIGenerated && matches($0.name) })
+                } header: {
+                    Text("Your playlists").font(MUSEFont.section).foregroundStyle(MUSEColor.text)
+                        .textCase(nil)
+                }
             case .ai: playlistList(playlists.filter { $0.isAIGenerated && matches($0.name) })
             case .artists: artistList
             case .recent: recentList
@@ -38,7 +55,7 @@ struct LibraryView: View {
         }
         .listStyle(.plain)
         .museScreen()
-        .navigationTitle("Library")
+        .navigationTitle("Your Library")
         .searchable(text: $filter, prompt: "Filter your library")
         .toolbar {
             Button("New playlist", systemImage: "plus") {
@@ -55,6 +72,34 @@ struct LibraryView: View {
             Button("Cancel", role: .cancel) {}
         }
         .museDestinations()
+    }
+
+    private var aiPlaylists: [PlaylistEntity] { playlists.filter(\.isAIGenerated) }
+
+    private var likedCard: some View {
+        Button { segment = .songs } label: {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "heart.fill")
+                    .font(.title2)
+                    .foregroundStyle(.white)
+                    .frame(width: 56, height: 56)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(MUSEColor.neon))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Liked songs").font(MUSEFont.headline).foregroundStyle(MUSEColor.text)
+                    Text("\(savedTracks.count) songs saved in MUSE")
+                        .font(.subheadline).foregroundStyle(MUSEColor.mutedText)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(MUSEColor.mutedText)
+            }
+            .padding(Spacing.sm)
+            .background(RoundedRectangle(cornerRadius: Spacing.corner, style: .continuous)
+                .fill(LinearGradient(colors: [MUSEColor.primary.opacity(0.55), MUSEColor.surface],
+                                     startPoint: .leading, endPoint: .trailing)))
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private func matches(_ text: String) -> Bool {

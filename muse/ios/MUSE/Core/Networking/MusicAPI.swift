@@ -9,6 +9,7 @@ public protocol MusicAPI: Sendable {
     func search(query: String, kind: SearchKind, pageToken: String?, limit: Int) async throws
         -> SearchResponse
     func suggestions(prefix: String) async throws -> [String]
+    func trending(pageToken: String?, limit: Int) async throws -> TrendingResponse
     func video(id: String) async throws -> Track
 
     func playlists(limit: Int, offset: Int) async throws -> PlaylistPage
@@ -202,6 +203,12 @@ public actor APIClient: MusicAPI {
         let response: SuggestionsResponse = try await send(
             .get, "api/v1/search/suggestions", query: [URLQueryItem(name: "q", value: prefix)])
         return response.suggestions
+    }
+
+    public func trending(pageToken: String?, limit: Int) async throws -> TrendingResponse {
+        var items = [URLQueryItem(name: "limit", value: String(limit))]
+        if let pageToken { items.append(URLQueryItem(name: "page_token", value: pageToken)) }
+        return try await send(.get, "api/v1/discover/trending", query: items)
     }
 
     public func video(id: String) async throws -> Track {

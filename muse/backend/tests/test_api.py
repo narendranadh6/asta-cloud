@@ -385,3 +385,16 @@ async def test_validation_errors_do_not_echo_input(
     response = await client.post("/api/v1/ai/chat", json={"message": secret_text}, headers=auth)
     assert response.status_code == 422
     assert "private feelings" not in response.text
+
+
+async def test_trending_feed(client: httpx.AsyncClient, auth: dict[str, str]) -> None:
+    first = await client.get("/api/v1/discover/trending", params={"limit": 5}, headers=auth)
+    body = first.json()
+    assert first.status_code == 200
+    assert len(body["items"]) == 5 and body["provider"] == "demo"
+    views = [i["view_count"] for i in body["items"]]
+    assert views == sorted(views, reverse=True)
+    again = await client.get("/api/v1/discover/trending", params={"limit": 5}, headers=auth)
+    assert again.json()["cached"] is True
+    unauth = await client.get("/api/v1/discover/trending")
+    assert unauth.status_code == 401

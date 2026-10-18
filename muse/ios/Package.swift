@@ -19,7 +19,8 @@ let package = Package(
                 "Features/Library", "Features/MoodHub", "Features/Onboarding",
                 "Features/PlaylistStudio/PlaylistStudioView.swift", "Features/Search/SearchView.swift",
                 "Features/Search/SongDetailView.swift", "Features/Settings", "Features/Shared.swift",
-                "Features/Taste", "Resources",
+                "Features/Taste", "Resources", "Features/Discover/DiscoverView.swift",
+                "Features/NowInBrave", "Core/DesignSystem/Showcase.swift",
             ],
             sources: [
                 "Core/Networking",
@@ -31,6 +32,7 @@ let package = Package(
                 "Features/AIDJ/AIDJViewModel.swift",
                 "Features/AIDJ/EditableDraft.swift",
                 "Features/PlaylistStudio/PlaylistStudioViewModel.swift",
+                "Features/Discover/DiscoverViewModel.swift",
             ]
         ),
         .testTarget(

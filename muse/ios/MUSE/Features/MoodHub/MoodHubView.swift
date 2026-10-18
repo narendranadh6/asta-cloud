@@ -1,14 +1,19 @@
 import SwiftUI
 
 struct MoodHubView: View {
+    @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
+    @State private var mood: Mood?
+    @State private var energy: Double = 50
+    @State private var discovery: DiscoveryPreference = .balanced
+    @State private var saved = false
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Spacing.sm)]
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("Pick a mood to steer discovery and new playlists.")
-                    .font(.subheadline).foregroundStyle(MUSEColor.mutedText)
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                todayCard
+                SectionHeader(title: "Explore moods")
                 LazyVGrid(columns: columns, spacing: Spacing.sm) {
                     ForEach(Mood.allCases) { mood in
                         NavigationLink(value: MoodRoute(mood: mood)) {
@@ -22,7 +27,7 @@ struct MoodHubView: View {
                             }
                             .foregroundStyle(.white)
                             .padding(Spacing.md)
-                            .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
+                            .frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
                             .background(RoundedRectangle(cornerRadius: Spacing.corner)
                                 .fill(MUSEColor.moodGradient(mood)))
                         }
@@ -30,15 +35,77 @@ struct MoodHubView: View {
                         .accessibilityLabel("\(mood.label) mood\(settings.activeMood == mood ? ", active" : "")")
                     }
                 }
-                if settings.activeMood != nil {
-                    Button("Clear active mood") { settings.activeMood = nil }
-                        .buttonStyle(NeonButtonStyle(prominent: false))
-                }
             }
             .padding(Spacing.md)
         }
         .museScreen()
         .navigationTitle("Mood Hub")
+        .onAppear {
+            mood = settings.activeMood
+            energy = Double(settings.preferredEnergy ?? 50)
+            discovery = settings.discovery
+        }
+    }
+
+    private var todayCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                Text("Your mood today").font(MUSEFont.section).foregroundStyle(MUSEColor.text)
+                Spacer()
+                Button(saved ? "Saved ✓" : "Save", action: save)
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, Spacing.sm).padding(.vertical, 6)
+                    .background(Capsule().fill(MUSEColor.neon))
+                    .foregroundStyle(.white)
+            }
+            FlowLayout {
+                ForEach(Mood.allCases) { option in
+                    Chip(title: option.label, systemImage: option.symbol, isSelected: mood == option) {
+                        mood = mood == option ? nil : option
+                        saved = false
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack {
+                    Text("Energy level").foregroundStyle(MUSEColor.text)
+                    Spacer()
+                    Text("\(Int(energy))%").monospacedDigit().foregroundStyle(MUSEColor.mutedText)
+                }
+                Slider(value: $energy, in: 0...100, step: 5) { _ in saved = false }
+                    .tint(MUSEColor.primary)
+                    .accessibilityLabel("Energy level")
+                    .accessibilityValue("\(Int(energy)) percent")
+            }
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Music discovery").foregroundStyle(MUSEColor.text)
+                Picker("Music discovery", selection: $discovery) {
+                    Text("Familiar").tag(DiscoveryPreference.familiar)
+                    Text("Balanced").tag(DiscoveryPreference.balanced)
+                    Text("Adventurous").tag(DiscoveryPreference.discovery)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: discovery) { _, _ in saved = false }
+            }
+            Text("Used as defaults for the AI DJ hero mix and Playlist Studio.")
+                .font(.caption).foregroundStyle(MUSEColor.mutedText)
+        }
+        .padding(Spacing.md)
+        .museCard()
+    }
+
+    private func save() {
+        settings.activeMood = mood
+        settings.preferredEnergy = Int(energy)
+        settings.discovery = discovery
+        saved = true
+        Haptics.success(enabled: settings.hapticsEnabled)
+        let choice = discovery
+        Task {
+            guard var prefs = try? await app.api.preferences() else { return }
+            prefs.discoveryPreference = choice
+            _ = try? await app.api.updatePreferences(prefs)
+        }
     }
 }
 

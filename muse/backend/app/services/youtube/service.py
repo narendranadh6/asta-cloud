@@ -100,6 +100,34 @@ class YouTubeSearchService:
             )
         return CachedSearch(page=page, cached=False)
 
+    async def trending(
+        self, *, page_token: str | None = None, max_results: int = 20
+    ) -> CachedSearch:
+        key = self._key("trending", page_token or "", str(max_results))
+        cached = await self._store.get_json(key)
+        if cached is not None:
+            return CachedSearch(
+                page=SearchPage(
+                    items=[Track.model_validate(item) for item in cached["items"]],
+                    next_page_token=cached.get("next"),
+                    prev_page_token=cached.get("prev"),
+                    total_results_estimate=cached.get("total"),
+                ),
+                cached=True,
+            )
+        page = await self.provider.trending(page_token=page_token, max_results=max_results)
+        await self._store.set_json(
+            key,
+            {
+                "items": [t.model_dump(mode="json") for t in page.items],
+                "next": page.next_page_token,
+                "prev": page.prev_page_token,
+                "total": page.total_results_estimate,
+            },
+            min(self._search_ttl, 60 * 60),  # charts change; refresh hourly at most
+        )
+        return CachedSearch(page=page, cached=False)
+
     async def get_videos(self, video_ids: list[str]) -> dict[str, Track]:
         valid = [vid for vid in dict.fromkeys(video_ids) if is_valid_video_id(vid)]
         found: dict[str, Track] = {}

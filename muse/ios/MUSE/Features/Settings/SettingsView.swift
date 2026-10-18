@@ -22,8 +22,12 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Neon glow effects", isOn: $settings.glowEffects)
-                Toggle("Haptic feedback", isOn: $settings.hapticsEnabled)
+                Toggle(isOn: $settings.glowEffects) {
+                    IconRow(symbol: "sparkles", color: MUSEColor.primary, title: "Neon glow effects")
+                }
+                Toggle(isOn: $settings.hapticsEnabled) {
+                    IconRow(symbol: "hand.tap", color: MUSEColor.accent, title: "Haptic feedback")
+                }
             } header: {
                 Text("Appearance")
             } footer: {
@@ -31,29 +35,37 @@ struct SettingsView: View {
             }
 
             Section("Language") {
-                Picker("Preferred music language", selection: Binding(
+                Picker(selection: Binding(
                     get: { settings.preferredLanguage ?? "" },
                     set: { settings.preferredLanguage = $0.isEmpty ? nil : $0 })) {
                     ForEach(PlaylistStudioViewModel.languages, id: \.self) {
                         Text($0.isEmpty ? "No preference" : $0).tag($0)
                     }
+                } label: {
+                    IconRow(symbol: "globe", color: Color(hex: 0x11998E), title: "Preferred music language")
                 }
             }
 
             Section {
-                Toggle("Personalize with my MUSE activity", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { prefs.personalizationEnabled },
                     set: { value in
                         prefs.personalizationEnabled = value
                         if !value { prefs.storeAiConversations = false }
                         settings.personalizationEnabled = value
                         savePrefs()
-                    }))
+                    })) {
+                    IconRow(symbol: "brain.head.profile", color: MUSEColor.secondary,
+                            title: "AI personalization", subtitle: "Learn from my MUSE activity")
+                }
                 Toggle("Keep AI DJ conversations", isOn: Binding(
                     get: { prefs.storeAiConversations },
                     set: { prefs.storeAiConversations = $0; savePrefs() }))
                     .disabled(!prefs.personalizationEnabled)
-                NavigationLink("Taste Intelligence") { TasteView() }
+                NavigationLink { TasteView() } label: {
+                    IconRow(symbol: "chart.bar.xaxis", color: MUSEColor.primary,
+                            title: "Taste Intelligence", subtitle: "See and correct what MUSE inferred")
+                }
             } header: {
                 Text("AI personalization")
             } footer: {
@@ -62,7 +74,10 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Sync playlists to my MUSE account", isOn: $settings.syncPlaylists)
+                Toggle(isOn: $settings.syncPlaylists) {
+                    IconRow(symbol: "arrow.triangle.2.circlepath", color: MUSEColor.accent,
+                            title: "Sync playlists", subtitle: "Back up to your MUSE account")
+                }
                 Toggle("Remember my searches", isOn: Binding(
                     get: { prefs.recordSearchHistory },
                     set: { prefs.recordSearchHistory = $0; savePrefs() }))
@@ -78,12 +93,14 @@ struct SettingsView: View {
                 NavigationLink {
                     BrowserHandoffView()
                 } label: {
-                    LabeledContent("Open links in", value: settings.browserPreference.label)
+                    IconRow(symbol: "safari", color: Color(hex: 0xFB542B),
+                            title: "Open songs in \(settings.browserPreference.label)",
+                            subtitle: "Brave handoff · no ad or playback control")
                 }
             }
 
             Section {
-                Toggle("Weekly discovery reminder", isOn: Binding(
+                Toggle(isOn: Binding(
                     get: { settings.weeklyDiscoveryReminder },
                     set: { value in
                         Task {
@@ -94,7 +111,9 @@ struct SettingsView: View {
                                 settings.weeklyDiscoveryReminder = false
                             }
                         }
-                    }))
+                    })) {
+                    IconRow(symbol: "bell.badge", color: Color(hex: 0xF7971E), title: "Weekly discovery reminder")
+                }
             } header: {
                 Text("Notifications")
             } footer: {
@@ -105,7 +124,11 @@ struct SettingsView: View {
                 Button {
                     Task { await export() }
                 } label: {
-                    if isExporting { ProgressView() } else { Label("Prepare data export", systemImage: "square.and.arrow.up") }
+                    if isExporting {
+                        ProgressView()
+                    } else {
+                        IconRow(symbol: "square.and.arrow.up", color: MUSEColor.accent, title: "Export my data")
+                    }
                 }
                 if let exportURL {
                     ShareLink(item: exportURL) { Label("Share export file", systemImage: "doc") }

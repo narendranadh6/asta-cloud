@@ -190,3 +190,23 @@ def test_shape_query() -> None:
 def test_missing_key_rejected() -> None:
     with pytest.raises(ProviderConfigurationError):
         YouTubeDataAPIClient("")
+
+
+async def test_trending_uses_most_popular_chart_and_filters() -> None:
+    fake = FakeYouTube()
+    calls: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(dict(request.url.params))
+        return httpx.Response(200, json={
+            "nextPageToken": "T2",
+            "items": [fake.videos["aaaaaaaaaaa"], fake.videos["bbbbbbbbbbb"]],
+        })
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://yt.test")
+    page = await YouTubeDataAPIClient("test-key", http_client=http).trending(max_results=10)
+    assert calls[0]["chart"] == "mostPopular"
+    assert calls[0]["videoCategoryId"] == "10"
+    assert calls[0]["regionCode"] == "US"
+    assert [t.video_id for t in page.items] == ["aaaaaaaaaaa"]  # private one dropped
+    assert page.filtered_out == 1 and page.next_page_token == "T2"

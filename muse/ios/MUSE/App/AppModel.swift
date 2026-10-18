@@ -17,6 +17,8 @@ final class AppModel {
     /// Which metadata source the backend is serving (demo until confirmed otherwise).
     private(set) var provider: MetadataProvider?
     private(set) var aiPlanner: String?
+    /// A prompt another screen wants the AI DJ to run (e.g. "find similar" from Now in Brave).
+    var pendingDJPrompt: String?
 
     init(api: MusicAPI, settings: AppSettings, context: ModelContext, opener: URLOpening) {
         self.api = api

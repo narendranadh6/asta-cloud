@@ -42,7 +42,7 @@ struct PlaylistDetailView: View {
                     .swipeActions(edge: .leading) {
                         if !item.isDemo {
                             Button {
-                                Task { await handoff.open(item, using: app.handoff, haptics: settings.hapticsEnabled) }
+                                Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
                             } label: { Label("Open", systemImage: "arrow.up.forward.app") }
                                 .tint(MUSEColor.accent)
                         }
@@ -50,7 +50,7 @@ struct PlaylistDetailView: View {
                     .contextMenu {
                         if !item.isDemo {
                             Button("Open in \(settings.browserPreference.label)", systemImage: "arrow.up.forward.app") {
-                                Task { await handoff.open(item, using: app.handoff, haptics: settings.hapticsEnabled) }
+                                Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
                             }
                         }
                     }
@@ -142,7 +142,7 @@ struct PlaylistDetailView: View {
             HStack(spacing: Spacing.sm) {
                 if let first = playlist.orderedItems.first(where: { !$0.isDemo }) {
                     Button {
-                        Task { await handoff.open(first, using: app.handoff, haptics: settings.hapticsEnabled) }
+                        Task { await handoff.open(first, upNext: upNext(after: first), using: app.handoff, haptics: settings.hapticsEnabled) }
                     } label: {
                         Label("Open first song", systemImage: "arrow.up.forward.app")
                     }
@@ -160,6 +160,10 @@ struct PlaylistDetailView: View {
             Text(app.handoff.destinationDescription())
                 .font(.caption).foregroundStyle(MUSEColor.mutedText)
         }
+    }
+
+    private func upNext(after item: PlaylistItemEntity) -> [any TrackDisplayable] {
+        playlist.orderedItems.filter { $0.position > item.position }
     }
 
     private func saveYouTubeLink() {

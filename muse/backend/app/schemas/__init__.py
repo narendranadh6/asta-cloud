@@ -71,6 +71,15 @@ class SearchResponse(APIModel):
     cached: bool = False
 
 
+class TrendingResponse(APIModel):
+    items: list[Track]
+    next_page_token: str | None = None
+    prev_page_token: str | None = None
+    provider: Literal["youtube", "demo"]
+    cached: bool = False
+    source: str = "YouTube most popular music chart"
+
+
 class SuggestionsResponse(APIModel):
     query: str
     suggestions: list[str]

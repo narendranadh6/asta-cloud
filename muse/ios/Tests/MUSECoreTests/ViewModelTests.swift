@@ -164,3 +164,33 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(AppSettings(defaults: defaults).hasCompletedOnboarding)
     }
 }
+
+@MainActor
+final class DiscoverViewModelTests: XCTestCase {
+    func testLoadsAllShelvesAndFilters() async {
+        let api = MockMusicAPI()
+        let model = DiscoverViewModel()
+        await model.load(api: api, language: nil)
+        let trending = model.tracks(in: .trending)
+        XCTAssertFalse(trending.isEmpty)
+        XCTAssertEqual(trending.map(\.viewCount), trending.map(\.viewCount).sorted { ($0 ?? 0) > ($1 ?? 0) })
+        XCTAssertEqual(model.provider, .demo)
+        model.filter = .live
+        XCTAssertEqual(model.visibleShelves, [.live])
+    }
+
+    func testOneShelfFailingDoesNotBreakOthers() async {
+        let api = MockMusicAPI()
+        await api.setFailure(.offline)  // the first request to run fails
+        let model = DiscoverViewModel()
+        await model.load(api: api, language: "Telugu")
+        let failed = DiscoverViewModel.Shelf.allCases.filter {
+            if case .failed = model.shelves[$0] { return true } else { return false }
+        }
+        XCTAssertEqual(failed.count, 1)
+        await model.load(api: api, language: "Telugu")  // retry recovers
+        XCTAssertTrue(DiscoverViewModel.Shelf.allCases.allSatisfy {
+            if case .loaded = model.shelves[$0] { return true } else { return false }
+        })
+    }
+}

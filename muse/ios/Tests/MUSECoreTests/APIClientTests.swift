@@ -158,3 +158,15 @@ final class APIClientTests: XCTestCase {
                        "application/json")
     }
 }
+
+extension APIClientTests {
+    func testTrendingEndpoint() async throws {
+        let transport = FakeTransport()
+        transport.enqueue(status: 200, json: #"{"items":[],"next_page_token":"T2","prev_page_token":null,"provider":"youtube","cached":false,"source":"YouTube most popular music chart"}"#)
+        let (client, _) = makeClient(transport)
+        let response = try await client.trending(pageToken: nil, limit: 12)
+        XCTAssertEqual(response.nextPageToken, "T2")
+        XCTAssertEqual(response.provider, .youtube)
+        XCTAssertEqual(transport.recorded[0].url?.path, "/api/v1/discover/trending")
+    }
+}
