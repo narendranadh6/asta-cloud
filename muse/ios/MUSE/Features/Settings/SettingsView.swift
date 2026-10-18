@@ -21,9 +21,11 @@ struct SettingsView: View {
                     .textContentType(.givenName)
             }
 
-            Section("Appearance") {
+            Section {
                 Toggle("Neon glow effects", isOn: $settings.glowEffects)
                 Toggle("Haptic feedback", isOn: $settings.hapticsEnabled)
+            } header: {
+                Text("Appearance")
             } footer: {
                 Text("MUSE uses a dark theme. It follows iOS Reduce Motion, Reduce Transparency and text size settings.")
             }
