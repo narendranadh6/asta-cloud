@@ -182,7 +182,7 @@ struct SongDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             SectionHeader(title: "More from \(model.track.channelTitle)")
             if model.isLoadingRelated {
-                LoadingStateView(message: "Finding related music…")
+                SkeletonRail(style: .rows, count: 3)
             } else if model.related.isEmpty {
                 Text("No related music found.").font(.subheadline).foregroundStyle(HaloColor.mutedText)
             } else {
@@ -219,7 +219,7 @@ struct RecordingFactsCard: View {
         if isLoading {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 SectionHeader(title: "About this recording")
-                LoadingStateView(message: "Looking it up on MusicBrainz…")
+                SkeletonRail(style: .rows, count: 2)
             }
         } else if let metadata, let recording = metadata.recording, metadata.matched {
             VStack(alignment: .leading, spacing: Spacing.sm) {

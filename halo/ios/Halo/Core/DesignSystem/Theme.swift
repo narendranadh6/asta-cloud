@@ -41,6 +41,7 @@ enum HaloColor {
     }
 }
 
+/// 4-point spacing scale. Screen gutters use `md`; rails separate with `lg`.
 enum Spacing {
     static let xxs: CGFloat = 4
     static let xs: CGFloat = 8
@@ -48,18 +49,75 @@ enum Spacing {
     static let md: CGFloat = 16
     static let lg: CGFloat = 24
     static let xl: CGFloat = 32
-    static let cornerSmall: CGFloat = 10
-    static let corner: CGFloat = 18
-    static let cornerLarge: CGFloat = 28
+    static let xxl: CGFloat = 48
+    static let cornerSmall: CGFloat = Radius.small
+    static let corner: CGFloat = Radius.medium
+    static let cornerLarge: CGFloat = Radius.large
 }
 
+/// Corner radii. Always used with `.continuous` corners.
+enum Radius {
+    /// Rows, small artwork, inline notices.
+    static let small: CGFloat = 8
+    /// Cards and rail artwork.
+    static let medium: CGFloat = 14
+    /// Hero surfaces and sheets.
+    static let large: CGFloat = 22
+}
+
+/// Artwork sizes. One size per role so rails line up across Halo.
+enum ArtSize {
+    /// List rows.
+    static let row: CGFloat = 48
+    /// Compact cards (Sparks, mini-player).
+    static let compact: CGFloat = 64
+    /// Standard rail cards.
+    static let card: CGFloat = 140
+    /// Featured rail cards (mixes, new releases).
+    static let feature: CGFloat = 180
+    /// Round artist portraits in rails.
+    static let artist: CGFloat = 112
+}
+
+/// Surface elevations. Higher levels sit visually closer to the listener.
+enum Surface {
+    static let base = HaloColor.background
+    static let raised = HaloColor.surface
+    static let overlay = Color(hex: 0x2A2130)
+}
+
+/// Halo's type ramp: expanded SF for display, standard SF for reading. Every style is a
+/// Dynamic Type text style so it scales with the listener's settings.
 enum HaloFont {
-    static let hero = Font.system(.largeTitle, design: .rounded).weight(.bold)
-    static let title = Font.system(.title2, design: .rounded).weight(.bold)
-    static let section = Font.system(.title3, design: .rounded).weight(.semibold)
-    static let headline = Font.system(.headline, design: .rounded)
+    /// Screen heroes and greetings.
+    static let display = Font.system(.largeTitle, weight: .bold).width(.expanded)
+    static let hero = display
+    /// Screen and detail titles.
+    static let title = Font.system(.title2, weight: .bold).width(.expanded)
+    /// Rail and section headings.
+    static let section = Font.system(.title3, weight: .semibold).width(.expanded)
+    /// Card titles and emphasised rows.
+    static let headline = Font.system(.headline)
     static let body = Font.system(.body)
+    /// Secondary lines: artist names, counts, dates.
+    static let meta = Font.system(.subheadline)
     static let caption = Font.system(.caption)
+    /// Small uppercase labels (section eyebrows, badges).
+    static let eyebrow = Font.system(.caption2, weight: .bold).width(.expanded)
+}
+
+/// Motion tokens. Use `HaloMotion.animation(_:reduceMotion:)` so Reduce Motion is respected.
+enum HaloMotion {
+    /// Default for state changes and navigation-adjacent movement.
+    static let standard = Animation.spring(response: 0.38, dampingFraction: 0.86)
+    /// Press feedback and small toggles.
+    static let quick = Animation.easeOut(duration: 0.15)
+    /// Large surfaces (mini-player ↔ Now Playing, sheets).
+    static let emphasized = Animation.spring(response: 0.5, dampingFraction: 0.82)
+
+    static func animation(_ animation: Animation, reduceMotion: Bool) -> Animation {
+        reduceMotion ? .easeInOut(duration: 0.12) : animation
+    }
 }
 
 extension Color {

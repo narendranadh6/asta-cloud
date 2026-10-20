@@ -144,6 +144,9 @@ struct SettingsView: View {
                 Text("Halo is not affiliated with YouTube or Brave. It never streams, downloads or "
                      + "modifies YouTube content.")
                     .font(.footnote).foregroundStyle(HaloColor.mutedText)
+                #if DEBUG
+                NavigationLink("Design system") { DesignCatalogView() }
+                #endif
             }
         }
         .haloScreen()

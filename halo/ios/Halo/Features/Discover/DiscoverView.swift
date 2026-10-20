@@ -74,7 +74,7 @@ struct DiscoverView: View {
             SectionHeader(title: shelf.rawValue)
             switch model.shelves[shelf] {
             case .none, .loading:
-                LoadingStateView(message: "Loading \(shelf.rawValue.lowercased())…")
+                SkeletonRail(style: .card)
             case let .failed(error):
                 ErrorStateView(error: error) {
                     Task { await model.load(api: app.api, language: settings.preferredLanguage) }
@@ -102,7 +102,8 @@ struct DiscoverView: View {
 
     @ViewBuilder
     private var freshReleasesShelf: some View {
-        openDataShelf(title: "Fresh releases", state: model.freshReleases) { releases in
+        openDataShelf(title: "Fresh releases", eyebrow: "From ListenBrainz",
+                      state: model.freshReleases, skeleton: .feature) { releases in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: Spacing.sm) {
                     ForEach(releases) { release in
@@ -122,7 +123,8 @@ struct DiscoverView: View {
 
     @ViewBuilder
     private var mostListenedShelf: some View {
-        openDataShelf(title: "Most listened this week", state: model.mostListened) { recordings in
+        openDataShelf(title: "Most listened this week", eyebrow: "Open listening data",
+                      state: model.mostListened, skeleton: .rows) { recordings in
             VStack(spacing: Spacing.xs) {
                 ForEach(Array(recordings.enumerated()), id: \.element.id) { index, recording in
                     NavigationLink(value: SearchRoute(
@@ -140,17 +142,15 @@ struct DiscoverView: View {
     /// A ListenBrainz shelf. Hidden entirely when the server has ListenBrainz switched off.
     @ViewBuilder
     private func openDataShelf<Value: Collection, Content: View>(
-        title: String, state: DiscoverViewModel.OpenDataState<Value>,
+        title: String, eyebrow: String? = nil, state: DiscoverViewModel.OpenDataState<Value>,
+        skeleton: SkeletonRail.Style,
         @ViewBuilder content: @escaping (Value) -> Content
     ) -> some View {
         switch state {
         case .disabled:
             EmptyView()
         case .loading:
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                SectionHeader(title: title)
-                LoadingStateView(message: "Loading \(title.lowercased())…")
-            }
+            Rail(title: title, eyebrow: eyebrow) { SkeletonRail(style: skeleton) }
         case let .failed(error):
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 SectionHeader(title: title)
@@ -161,10 +161,7 @@ struct DiscoverView: View {
         case let .loaded(value) where value.isEmpty:
             EmptyView()
         case let .loaded(value):
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                SectionHeader(title: title)
-                content(value)
-            }
+            Rail(title: title, eyebrow: eyebrow) { content(value) }
         }
     }
 
@@ -190,7 +187,7 @@ struct DiscoverView: View {
 /// Large artwork card used in horizontal shelves.
 struct TrackCard: View {
     var track: any TrackDisplayable
-    var width: CGFloat = 150
+    var width: CGFloat = ArtSize.card
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -210,39 +207,12 @@ struct TrackCard: View {
 /// A new release from ListenBrainz, with Cover Art Archive artwork when there is some.
 struct FreshReleaseCard: View {
     var release: FreshRelease
-    var width: CGFloat = 150
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ZStack {
-                if release.coverArtURL != nil {
-                    ArtworkView(url: release.coverArtURL, size: width, cornerRadius: Spacing.corner)
-                } else {
-                    RoundedRectangle(cornerRadius: Spacing.corner, style: .continuous)
-                        .fill(HaloColor.neon)
-                        .frame(width: width, height: width)
-                        .overlay {
-                            Image(systemName: "sparkles").font(.largeTitle)
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
-                }
-            }
-            .overlay(alignment: .topLeading) {
-                if let type = release.releaseType {
-                    Text(type).font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(.black.opacity(0.55)))
-                        .foregroundStyle(.white).padding(6)
-                }
-            }
-            Text(release.releaseName).font(.subheadline.weight(.semibold))
-                .foregroundStyle(HaloColor.text).lineLimit(2)
-            Text(release.artistName).font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
-            Text(release.releaseDate).font(.caption2).foregroundStyle(HaloColor.mutedText)
-        }
-        .frame(width: width, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Finds this release on YouTube")
+        ArtworkCard(
+            title: release.releaseName, subtitle: "\(release.artistName) · \(release.releaseDate)",
+            artworkURL: release.coverArtURL, size: ArtSize.feature, badge: release.releaseType)
+            .accessibilityHint("Finds this release on YouTube")
     }
 }
 
