@@ -1,0 +1,114 @@
+name: Halo CI
+
+on:
+  push:
+    paths: ["halo/**", ".github/workflows/halo-ci.yml"]
+  pull_request:
+    paths: ["halo/**", ".github/workflows/halo-ci.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: halo/backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: halo
+          POSTGRES_PASSWORD: halo
+          POSTGRES_DB: halo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U halo" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      HALO_DATABASE_URL: postgresql+asyncpg://halo:halo@localhost:5432/halo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - run: ruff check app tests alembic
+      - run: mypy app
+      - name: Migrations (upgrade, drift check, downgrade, upgrade)
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+      - name: Tests (SQLite)
+        run: pytest -q
+      - name: Tests (PostgreSQL)
+        run: pytest -q
+        env:
+          HALO_TEST_DATABASE_URL: postgresql+asyncpg://halo:halo@localhost:5432/halo
+      - name: Docker image
+        working-directory: halo
+        run: docker build -t halo-api:ci backend
+
+  ios-core-linux:
+    runs-on: ubuntu-latest
+    container: swift:6.1-noble
+    defaults:
+      run:
+        working-directory: halo/ios
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build --build-tests
+      - run: swift test
+
+  ios-xcode:
+    runs-on: macos-15
+    permissions:
+      contents: write  # only to publish screenshots to the halo-screenshots branch
+    defaults:
+      run:
+        working-directory: halo/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate project
+        run: brew install xcodegen && xcodegen generate
+      - name: Start backend for UI tests
+        working-directory: halo/backend
+        run: |
+          python3 -m venv .venv && .venv/bin/pip install -q -e ".[dev]"
+          nohup .venv/bin/python -m tests.e2e_server > e2e.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
+      - name: Build and test on iOS Simulator
+        run: |
+          set -o pipefail
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -oE 'iPhone [0-9A-Za-z ]+' | sed 's/ *$//')
+          echo "Using simulator: $DEVICE"
+          xcodebuild test \
+            -project Halo.xcodeproj -scheme Halo \
+            -destination "platform=iOS Simulator,name=$DEVICE" \
+            CODE_SIGNING_ALLOWED=NO | tail -200
+        env:
+          TEST_RUNNER_HALO_SCREENSHOT_DIR: ${{ github.workspace }}/halo/ios/screenshots
+      - name: Upload simulator screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: halo-ios-screenshots
+          path: halo/ios/screenshots
+          if-no-files-found: warn
+      - name: Publish screenshots to halo-screenshots branch
+        if: always() && github.event_name == 'push'
+        working-directory: halo/ios
+        run: |
+          [ -d screenshots ] && ls screenshots/*.png >/dev/null 2>&1 || exit 0
+          cd screenshots
+          git init -q -b halo-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add *.png
+          git commit -q -m "Simulator screenshots for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" halo-screenshots

@@ -1,2 +1,0 @@
-// Production backend. Must be HTTPS (App Transport Security enforces it).
-MUSE_API_BASE_URL = https:/$()/api.muse.example
