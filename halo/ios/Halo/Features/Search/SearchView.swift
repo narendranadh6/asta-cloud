@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SearchView: View {
     @Environment(AppModel.self) private var app
+    @Environment(PlayerController.self) private var player
     @State private var model = SearchViewModel()
     @State private var trending: [Track] = []
     @Query(sort: \RecentSearchEntity.searchedAt, order: .reverse) private var recent: [RecentSearchEntity]
