@@ -63,8 +63,9 @@ async def test_new_listener_gets_generic_feed_in_score_order(app_factory: AppFac
     }
     assert [i["id"] for i in sections["moods"]["items"]][0] == "focused"
     trending = sections["trending"]
-    assert trending["source"] == "YouTube"
-    assert trending["items"] and all(i["track"]["video_id"] == i["id"] for i in trending["items"])
+    assert trending["source"] == "Audius"
+    assert trending["items"] and all(i["track"]["id"] == i["id"] for i in trending["items"])
+    assert all(i["track"]["stream_url"] for i in trending["items"])
     # ListenBrainz is off in tests, so its sections are simply absent.
     assert "fresh_releases" not in sections and "most_listened" not in sections
 
@@ -82,16 +83,16 @@ async def test_personalized_feed_uses_saves_and_preferences(app_factory: AppFact
             "/api/v1/recommendations/feedback",
             headers=auth,
             json={
-                "video_id": "tstAAAAAAA1",
+                "track_id": "audius:tstAAAAAAA1",
                 "rating": "save",
-                "channel_title": "Aarav Strings - Topic",
+                "artist": "Aarav  Strings",
             },
         )
         assert saved.status_code in (200, 201), saved.text
         feed = (await client.get("/api/v1/home", headers=auth)).json()
     sections = by_type(feed)
     assert feed["personalized"] is True
-    assert similar.seeds == ["Aarav Strings"]  # "- Topic" stripped
+    assert similar.seeds == ["Aarav Strings"]  # whitespace normalised
     because = sections["because_you_like"]
     assert feed["sections"][0]["type"] == "because_you_like"
     assert because["eyebrow"] == "Because you saved Aarav Strings"
@@ -129,7 +130,7 @@ async def test_failing_section_is_dropped_not_fatal(app_factory: AppFactory) -> 
         await client.post(
             "/api/v1/recommendations/feedback",
             headers=auth,
-            json={"video_id": "tstAAAAAAA1", "rating": "like", "channel_title": "Aarav Strings"},
+            json={"track_id": "audius:tstAAAAAAA1", "rating": "like", "artist": "Aarav Strings"},
         )
         response = await client.get("/api/v1/home", headers=auth)
     assert response.status_code == 200

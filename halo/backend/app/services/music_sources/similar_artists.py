@@ -2,7 +2,7 @@
 
 Used for candidate generation ("fans of X also listen to Y"), the same idea as the
 artist-similarity signals described for Spotify and Last.fm. Only artist *names* are
-taken from these services; every playable track still comes from verified YouTube
+taken from these services; every playable track still comes from the verified catalog
 results.
 
 * Last.fm ``artist.getSimilar`` (free API key): https://www.last.fm/api/show/artist.getSimilar

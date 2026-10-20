@@ -8,11 +8,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 
 from app.api.deps import (
+    CatalogDep,
     CurrentUser,
     PipelineDep,
     PlannerDep,
     RadioDep,
-    SearchServiceDep,
     SessionDep,
     SettingsDep,
 )
@@ -59,6 +59,13 @@ from app.schemas import (
 )
 from app.services.ai.intent import MusicIntent
 from app.services.ai.providers import PlanOverrides
+from app.services.catalog.base import (
+    CatalogError,
+    CatalogNotConfiguredError,
+    CatalogUnavailableError,
+    TrackUnavailableError,
+)
+from app.services.catalog.ids import TRACK_ID_PATTERN, is_valid_track_id
 from app.services.feed.builder import HomeFeedBuilder
 from app.services.music_sources.listenbrainz import (
     FreshRelease,
@@ -69,18 +76,10 @@ from app.services.music_sources.listenbrainz import (
 from app.services.music_sources.musicbrainz import (
     MusicBrainzClient,
     MusicBrainzUnavailableError,
-    parse_youtube_title,
+    clean_track_title,
 )
 from app.services.music_sources.radio import RadioStation, RadioUnavailableError
 from app.services.recommendations.pipeline import Candidate
-from app.services.youtube.base import (
-    ProviderConfigurationError,
-    ProviderUnavailableError,
-    QuotaExceededError,
-    VideoUnavailableError,
-    YouTubeError,
-)
-from app.services.youtube.ids import is_valid_video_id
 
 router = APIRouter(prefix="/api/v1")
 
@@ -89,50 +88,41 @@ AI_LIMIT = Depends(rate_limit("ai", "rate_limit_ai_per_minute"))
 DEFAULT_LIMIT = Depends(rate_limit("default", "rate_limit_default_per_minute"))
 AUTH_LIMIT = Depends(rate_limit("auth", "rate_limit_auth_per_minute"))
 
-VideoIdPath = Annotated[str, Path(min_length=11, max_length=11, pattern=r"^[A-Za-z0-9_-]{11}$")]
+TrackIdPath = Annotated[str, Path(min_length=3, max_length=60, pattern=TRACK_ID_PATTERN)]
+TrackIdQuery = Annotated[str, Query(min_length=3, max_length=60, pattern=TRACK_ID_PATTERN)]
 
 
-def translate_provider_error(exc: YouTubeError) -> AppError:
-    if isinstance(exc, QuotaExceededError):
-        return ServiceUnavailableError(
-            "Music search has reached its daily limit. Saved music still works; "
-            "please try searching again later.",
-            code="search_quota_exceeded",
-            headers={"Retry-After": "3600"},
-        )
-    if isinstance(exc, ProviderConfigurationError):
-        return ServiceUnavailableError(
-            str(exc) or "Music search is not configured correctly on the server.",
-            code="search_misconfigured",
-        )
-    if isinstance(exc, ProviderUnavailableError):
+def translate_catalog_error(exc: CatalogError) -> AppError:
+    if isinstance(exc, CatalogNotConfiguredError):
+        return ServiceUnavailableError(str(exc), code="catalog_not_configured")
+    if isinstance(exc, TrackUnavailableError):
+        return NotFoundError(str(exc), code="track_unavailable")
+    if isinstance(exc, CatalogUnavailableError):
         return UpstreamError(
-            "YouTube is not responding right now. Please retry in a moment.",
-            code="search_unavailable",
+            str(exc) or "Music sources are not responding right now. Please retry in a moment.",
+            code="catalog_unavailable",
             headers={"Retry-After": "5"},
         )
-    if isinstance(exc, VideoUnavailableError):
-        return NotFoundError(str(exc), code="video_unavailable")
     return UpstreamError("Music search failed. Please retry.", code="search_failed")
 
 
-async def verified_tracks(search: SearchServiceDep, video_ids: list[str]) -> list[Track]:
-    """Resolve ids through the provider. Unknown or unavailable ids are rejected."""
-    if not video_ids:
+async def verified_tracks(catalog: CatalogDep, track_ids: list[str]) -> list[Track]:
+    """Resolve ids through the catalog. Unknown or unavailable ids are rejected."""
+    if not track_ids:
         return []
     try:
-        found = await search.get_videos(video_ids)
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
-    missing = [vid for vid in video_ids if vid not in found]
+        found = await catalog.get_tracks(track_ids)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
+    missing = [tid for tid in track_ids if tid not in found]
     if missing:
         raise AppError(
             "Some songs could not be verified as available",
-            code="video_unavailable",
+            code="track_unavailable",
             status_code=422,
-            details={"video_ids": missing[:20]},
+            details={"track_ids": missing[:20]},
         )
-    return [found[vid] for vid in video_ids]
+    return [found[tid] for tid in track_ids]
 
 
 # --- Auth & account -------------------------------------------------------------------
@@ -197,14 +187,14 @@ async def delete_account(user: CurrentUser, session: SessionDep) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# --- Search & videos ------------------------------------------------------------------
+# --- Search & tracks ------------------------------------------------------------------
 
 
 @router.get("/search", response_model=SearchResponse, tags=["search"], dependencies=[SEARCH_LIMIT])
 async def search(
     user: CurrentUser,
     session: SessionDep,
-    search_service: SearchServiceDep,
+    catalog: CatalogDep,
     q: Annotated[str, Query(min_length=1, max_length=150)],
     kind: SearchKind = "song",
     page_token: Annotated[str | None, Query(max_length=200)] = None,
@@ -214,11 +204,9 @@ async def search(
     if not query:
         raise AppError("Search query must not be blank", code="validation_error", status_code=422)
     try:
-        result = await search_service.search(
-            query, kind=kind, page_token=page_token, max_results=limit
-        )
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
+        result = await catalog.search(query, kind=kind, page_token=page_token, max_results=limit)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
     if page_token is None:
         await user_repo.record_search(session, user.id, query, kind, len(result.page.items))
     return SearchResponse(
@@ -228,7 +216,7 @@ async def search(
         next_page_token=result.page.next_page_token,
         prev_page_token=result.page.prev_page_token,
         total_results_estimate=result.page.total_results_estimate,
-        provider=search_service.provider.name,
+        sources=result.page.sources,
         cached=result.cached,
     )
 
@@ -287,37 +275,35 @@ async def home(request: Request, user: CurrentUser, session: SessionDep) -> Home
     response_model=TrendingResponse,
     tags=["search"],
     dependencies=[SEARCH_LIMIT],
-    summary="Most popular music videos in the configured region (official YouTube chart)",
+    summary="Full tracks trending this week on Audius and Jamendo",
 )
 async def trending(
     user: CurrentUser,
-    search_service: SearchServiceDep,
-    page_token: Annotated[str | None, Query(max_length=200)] = None,
+    catalog: CatalogDep,
+    genre: Annotated[str | None, Query(max_length=40)] = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> TrendingResponse:
     try:
-        result = await search_service.trending(page_token=page_token, max_results=limit)
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
+        result = await catalog.trending(max_results=limit, genre=genre)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
     return TrendingResponse(
-        items=result.page.items,
-        next_page_token=result.page.next_page_token,
-        prev_page_token=result.page.prev_page_token,
-        provider=search_service.provider.name,
-        cached=result.cached,
+        items=result.page.items, sources=result.page.sources, cached=result.cached
     )
 
 
 @router.get(
-    "/videos/{video_id}", response_model=Track, tags=["search"], dependencies=[SEARCH_LIMIT]
+    "/tracks/{track_id}",
+    response_model=Track,
+    tags=["search"],
+    dependencies=[SEARCH_LIMIT],
+    summary="One track with a fresh stream URL; 404 track_unavailable if it was removed",
 )
-async def get_video(
-    video_id: VideoIdPath, user: CurrentUser, search_service: SearchServiceDep
-) -> Track:
+async def get_track(track_id: TrackIdPath, user: CurrentUser, catalog: CatalogDep) -> Track:
     try:
-        return await search_service.get_video(video_id)
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
+        return await catalog.get_track(track_id)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
 
 
 @router.get(
@@ -370,10 +356,10 @@ async def list_playlists(
     dependencies=[DEFAULT_LIMIT],
 )
 async def create_playlist(
-    body: PlaylistCreate, user: CurrentUser, session: SessionDep, search: SearchServiceDep
+    body: PlaylistCreate, user: CurrentUser, session: SessionDep, catalog: CatalogDep
 ) -> PlaylistDetail:
-    tracks = await verified_tracks(search, list(dict.fromkeys(body.video_ids)))
-    return await playlist_repo.create_playlist(session, user.id, body, tracks, search.provider.name)
+    tracks = await verified_tracks(catalog, list(dict.fromkeys(body.track_ids)))
+    return await playlist_repo.create_playlist(session, user.id, body, tracks)
 
 
 @router.get(
@@ -427,13 +413,13 @@ async def add_playlist_item(
     body: PlaylistItemCreate,
     user: CurrentUser,
     session: SessionDep,
-    search: SearchServiceDep,
+    catalog: CatalogDep,
 ) -> PlaylistDetail:
-    # Ownership is checked before spending provider quota.
+    # Ownership is checked before calling the music sources.
     await playlist_repo.get_playlist(session, user.id, playlist_id)
-    [track] = await verified_tracks(search, [body.video_id])
+    [track] = await verified_tracks(catalog, [body.track_id])
     return await playlist_repo.add_item(
-        session, user.id, playlist_id, track, search.provider.name, body.position, body.note
+        session, user.id, playlist_id, track, body.position, body.note
     )
 
 
@@ -468,19 +454,19 @@ async def reorder_playlist_items(
 
 
 async def colisten_candidates(
-    session: SessionDep, search: SearchServiceDep, seeds: list[str], limit: int = 25
+    session: SessionDep, catalog: CatalogDep, seeds: list[str], limit: int = 25
 ) -> list[Candidate]:
-    """Co-listening candidates, re-verified with the provider before use."""
+    """Co-listening candidates, re-verified with the catalog before use."""
     pairs = await rec_repo.co_listened(session, seeds, limit=limit)
     if not pairs:
         return []
     try:
-        verified = await search.get_videos([p.video_id for p in pairs])
-    except YouTubeError:
+        verified = await catalog.get_tracks([p.track_id for p in pairs])
+    except CatalogError:
         return []
     return [
         Candidate(
-            track=verified[p.video_id],
+            track=verified[p.track_id],
             query="co-listening",
             rank=rank,
             source="co_listen",
@@ -488,7 +474,7 @@ async def colisten_candidates(
             cf_score=min(p.score, 1.0),
         )
         for rank, p in enumerate(pairs)
-        if p.video_id in verified
+        if p.track_id in verified
     ]
 
 
@@ -497,13 +483,13 @@ async def _build_draft(
     text: str,
     source: str,
     overrides: PlanOverrides,
-    exclude_video_ids: set[str],
+    exclude_track_ids: set[str],
     history: list[dict[str, str]],
     user_id: uuid.UUID,
     session: SessionDep,
     planner: PlannerDep,
     pipeline: PipelineDep,
-    search: SearchServiceDep,
+    catalog: CatalogDep,
 ) -> PlaylistDraft:
     hints = await user_repo.preference_hints(session, user_id)
     prefs = await user_repo.get_preferences(session, user_id)
@@ -515,7 +501,7 @@ async def _build_draft(
     )
     personal = prefs.personalization_enabled
     extra = (
-        await colisten_candidates(session, search, await rec_repo.listener_seeds(session, user_id))
+        await colisten_candidates(session, catalog, await rec_repo.listener_seeds(session, user_id))
         if personal
         else []
     )
@@ -524,13 +510,13 @@ async def _build_draft(
             plan.intent,
             hints,
             feedback,
-            exclude_video_ids,
+            exclude_track_ids,
             extra_candidates=extra,
             ranker=await rec_repo.load_ranker(session),
             posteriors=await rec_repo.arm_posteriors(session, user_id if personal else None),
         )
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
 
     session_id: uuid.UUID | None = None
     if prefs.personalization_enabled:
@@ -540,7 +526,7 @@ async def _build_draft(
             request_text=text if prefs.store_ai_conversations else None,
             intent=plan.intent.summary_fields(),
             planner=plan.planner,
-            result_video_ids=[t.track.video_id for t in result.tracks],
+            result_track_ids=[t.track.id for t in result.tracks],
             result_details=result.details,
         )
         session.add(record)
@@ -560,7 +546,7 @@ async def _build_draft(
         tracks=result.tracks,
         total_duration_seconds=result.total_duration_seconds,
         target_duration_seconds=result.target_duration_seconds,
-        provider=search.provider.name,
+        sources=catalog.source_names,
         warnings=warnings,
     )
 
@@ -578,9 +564,9 @@ async def ai_playlist(
     session: SessionDep,
     planner: PlannerDep,
     pipeline: PipelineDep,
-    search: SearchServiceDep,
+    catalog: CatalogDep,
 ) -> PlaylistDraft:
-    exclude = {v for v in body.exclude_video_ids if is_valid_video_id(v)}
+    exclude = {t for t in body.exclude_track_ids if is_valid_track_id(t)}
     return await _build_draft(
         text=body.description,
         source="studio",
@@ -592,13 +578,13 @@ async def ai_playlist(
             duration_minutes=body.duration_minutes,
             discovery=body.discovery,
         ),
-        exclude_video_ids=exclude,
+        exclude_track_ids=exclude,
         history=[],
         user_id=user.id,
         session=session,
         planner=planner,
         pipeline=pipeline,
-        search=search,
+        catalog=catalog,
     )
 
 
@@ -609,32 +595,29 @@ async def ai_chat(
     session: SessionDep,
     planner: PlannerDep,
     pipeline: PipelineDep,
-    search: SearchServiceDep,
+    catalog: CatalogDep,
 ) -> AIChatResponse:
     history = [m.model_dump() for m in body.history]
     draft = await _build_draft(
         text=body.message,
         source="chat",
         overrides=PlanOverrides(),
-        exclude_video_ids=set(),
+        exclude_track_ids=set(),
         history=history,
         user_id=user.id,
         session=session,
         planner=planner,
         pipeline=pipeline,
-        search=search,
+        catalog=catalog,
     )
     if draft.tracks:
         minutes = draft.total_duration_seconds // 60
         reply = (
-            f"{draft.explanation} Here are {len(draft.tracks)} verified tracks "
-            f"(about {minutes} min). Edit the queue, then save it as a playlist."
+            f"{draft.explanation} Here are {len(draft.tracks)} songs "
+            f"(about {minutes} min). Play them now, edit the queue, or save it as a playlist."
         ).strip()
     else:
-        reply = (
-            "I couldn't find verified matches for that. Try naming a language, mood, "
-            "genre or artist."
-        )
+        reply = "I couldn't find songs for that. Try naming a language, mood, genre or artist."
     prefs = await user_repo.get_preferences(session, user.id)
     conversation_id: uuid.UUID | None = None
     stored = False
@@ -660,15 +643,15 @@ async def recommendation_feedback(
     if not prefs.personalization_enabled:
         # Accepted but not stored: personalization is off.
         return FeedbackResponse(
-            id=uuid.uuid4(), video_id=body.video_id, rating=body.rating, recorded=False
+            id=uuid.uuid4(), track_id=body.track_id, rating=body.rating, recorded=False
         )
     row = await user_repo.upsert_feedback(
-        session, user.id, body.video_id, body.rating, body.session_id, body.channel_title
+        session, user.id, body.track_id, body.rating, body.session_id, body.artist
     )
     await rec_repo.record_bandit_reward(
-        session, user.id, row.session_id, body.video_id, body.rating
+        session, user.id, row.session_id, body.track_id, body.rating
     )
-    return FeedbackResponse(id=row.id, video_id=row.video_id, rating=body.rating, recorded=True)
+    return FeedbackResponse(id=row.id, track_id=row.track_id, rating=body.rating, recorded=True)
 
 
 @router.get(
@@ -682,39 +665,39 @@ async def up_next(
     user: CurrentUser,
     session: SessionDep,
     pipeline: PipelineDep,
-    search: SearchServiceDep,
-    video_id: Annotated[str, Query(min_length=11, max_length=11, pattern=r"^[A-Za-z0-9_-]{11}$")],
+    catalog: CatalogDep,
+    track_id: TrackIdQuery,
     limit: Annotated[int, Query(ge=1, le=25)] = 10,
 ) -> UpNextResponse:
     try:
-        seed = await search.get_video(video_id)
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
+        seed = await catalog.get_track(track_id)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
     prefs = await user_repo.get_preferences(session, user.id)
     hints = await user_repo.preference_hints(session, user.id)
     personal = prefs.personalization_enabled
     intent = MusicIntent(
-        search_queries=[f"{seed.channel_title} songs"],
-        reference_artists=[seed.channel_title],
+        search_queries=[seed.artist],
+        reference_artists=[seed.artist],
         exclude_artists=hints.excluded_artists[:20],
         duration_minutes=max(10, limit * 4),
         discovery=prefs.discovery_preference,  # type: ignore[arg-type]
         playlist_title="Up next",
     )
-    extra = await colisten_candidates(session, search, [video_id])
+    extra = await colisten_candidates(session, catalog, [track_id])
     try:
         result = await pipeline.run(
             intent,
             hints,
             await user_repo.feedback_signals(session, user.id) if personal else None,
-            {video_id},
+            {track_id},
             extra_candidates=extra,
             ranker=await rec_repo.load_ranker(session),
             posteriors=await rec_repo.arm_posteriors(session, user.id if personal else None),
         )
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
-    return UpNextResponse(seed_video_id=video_id, tracks=result.tracks[:limit])
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
+    return UpNextResponse(seed_track_id=track_id, tracks=result.tracks[:limit])
 
 
 # --- MusicBrainz / ListenBrainz --------------------------------------------------------
@@ -748,15 +731,15 @@ def _listenbrainz(request: Request) -> ListenBrainzClient:
 async def track_metadata(
     request: Request,
     user: CurrentUser,
-    search: SearchServiceDep,
-    video_id: Annotated[str, Query(min_length=11, max_length=11, pattern=r"^[A-Za-z0-9_-]{11}$")],
+    catalog: CatalogDep,
+    track_id: TrackIdQuery,
 ) -> TrackMetadataResponse:
     musicbrainz = _musicbrainz(request)
     try:
-        track = await search.get_video(video_id)
-    except YouTubeError as exc:
-        raise translate_provider_error(exc) from exc
-    artist_name, title = parse_youtube_title(track.title, track.channel_title)
+        track = await catalog.get_track(track_id)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
+    artist_name, title = clean_track_title(track.title, track.artist)
     try:
         recording = await musicbrainz.match_recording(title, artist_name, track.duration_seconds)
         artist = None
@@ -769,7 +752,7 @@ async def track_metadata(
             headers={"Retry-After": "30"},
         ) from exc
     return TrackMetadataResponse(
-        video_id=video_id,
+        track_id=track_id,
         parsed_artist=artist_name,
         parsed_title=title,
         matched=recording is not None,

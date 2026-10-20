@@ -8,9 +8,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# YouTube API Services Developer Policies limit storage of non-authorized API data to
-# 30 days before it must be refreshed or deleted. Cache TTLs are clamped to this.
-YOUTUBE_MAX_RETENTION_SECONDS = 30 * 24 * 60 * 60
+# Track metadata is cached at most this long before it is refreshed from its source.
+CATALOG_MAX_CACHE_SECONDS = 30 * 24 * 60 * 60
 
 
 class Settings(BaseSettings):
@@ -30,13 +29,18 @@ class Settings(BaseSettings):
     jwt_issuer: str = "halo-api"
     access_token_ttl_days: int = Field(default=30, ge=1, le=365)
 
-    # YouTube Data API v3
-    youtube_api_key: SecretStr | None = None
-    youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
-    youtube_region_code: str = "US"
-    youtube_timeout_seconds: float = 8.0
-    youtube_search_cache_ttl_seconds: int = 6 * 60 * 60
-    youtube_video_cache_ttl_seconds: int = 24 * 60 * 60
+    # Playable catalog. Audio streams from the source straight to the listener's device.
+    # Audius: free full tracks, no key needed (a key only raises rate limits).
+    audius_enabled: bool = True
+    audius_api_key: SecretStr | None = None
+    audius_base_url: str = "https://api.audius.co/v1"
+    # Jamendo: free full Creative Commons tracks; needs a free client id (devportal.jamendo.com).
+    jamendo_client_id: SecretStr | None = None
+    # iTunes Search API: 30-second previews, labelled as previews and linked to Apple Music.
+    itunes_previews_enabled: bool = True
+    itunes_country: str = "IN"
+    catalog_search_ttl_seconds: int = 6 * 60 * 60
+    catalog_track_ttl_seconds: int = 24 * 60 * 60
 
     # Open music data (optional). Similar artists improve candidate generation.
     lastfm_api_key: SecretStr | None = None
@@ -47,7 +51,7 @@ class Settings(BaseSettings):
     musicbrainz_contact: str = "https://github.com/narendranadh6/asta-cloud"
     listenbrainz_enabled: bool = True
     listenbrainz_token: SecretStr | None = None
-    # YouTube lookups per playlist for ListenBrainz track picks (each search costs 100 units).
+    # Catalog lookups per request for ListenBrainz track picks.
     listenbrainz_track_lookups: int = Field(default=4, ge=0, le=10)
     # Home feed: section type -> base score. Higher ranks earlier; 0 or less removes the
     # section. JSON in the environment, e.g. HALO_HOME_SECTION_WEIGHTS='{"trending": 0}'.
@@ -76,10 +80,10 @@ class Settings(BaseSettings):
             raise ValueError("HALO_JWT_SECRET must not be empty (unset it to use the dev default)")
         return value
 
-    @field_validator("youtube_search_cache_ttl_seconds", "youtube_video_cache_ttl_seconds")
+    @field_validator("catalog_search_ttl_seconds", "catalog_track_ttl_seconds")
     @classmethod
     def _clamp_retention(cls, value: int) -> int:
-        return max(0, min(value, YOUTUBE_MAX_RETENTION_SECONDS))
+        return max(0, min(value, CATALOG_MAX_CACHE_SECONDS))
 
     def validate_for_production(self) -> None:
         if self.environment != "production":
@@ -89,8 +93,9 @@ class Settings(BaseSettings):
             problems.append("HALO_JWT_SECRET must be set")
         if len(self.jwt_secret.get_secret_value()) < 32:
             problems.append("HALO_JWT_SECRET must be at least 32 characters")
-        if not self.youtube_api_key or not self.youtube_api_key.get_secret_value().strip():
-            problems.append("HALO_YOUTUBE_API_KEY is required")
+        jamendo = self.jamendo_client_id.get_secret_value() if self.jamendo_client_id else ""
+        if not (self.audius_enabled or jamendo.strip() or self.itunes_previews_enabled):
+            problems.append("enable at least one music source (Audius, Jamendo or iTunes)")
         if self.debug:
             problems.append("HALO_DEBUG must be false")
         if problems:

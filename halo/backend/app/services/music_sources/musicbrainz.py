@@ -5,7 +5,7 @@ https://musicbrainz.org/doc/MusicBrainz_API (data is CC0). Rules followed here:
 * a descriptive User-Agent with contact details,
 * responses cached (metadata changes slowly), so repeat lookups don't hit the service.
 
-Halo uses MusicBrainz to identify what a YouTube upload actually is (the canonical recording,
+Halo uses MusicBrainz to identify what a track actually is (the canonical recording,
 album, release date, label, ISRC, genres) and to resolve artist MBIDs for ListenBrainz.
 """
 
@@ -98,21 +98,21 @@ _NOISE = re.compile(
     r"remaster(ed)?|live|from)[^)\]]*[\)\]]",
     re.IGNORECASE,
 )
-_SEPARATORS = (" - ", " – ", " — ")  # "Artist - Song"; " | " usually precedes a film/album
+_SEPARATORS = (" - ", " – ", " — ")
 
 
-def parse_youtube_title(title: str, channel: str) -> tuple[str, str]:
-    """Best-effort (artist, song) from a YouTube title such as "Artist - Song (Official Video)"."""
+def clean_track_title(title: str, artist: str) -> tuple[str, str]:
+    """(artist, song) for a MusicBrainz lookup. Strips "(Official Audio)"-style noise and
+    a leading "Artist - " that some uploads repeat in the title."""
     cleaned = _NOISE.sub("", title).strip().split(" | ")[0].strip()
-    channel_clean = re.sub(
-        r"\s*(- topic|vevo|official)\s*$", "", channel, flags=re.IGNORECASE
-    ).strip()
+    artist = " ".join(artist.split())
     for separator in _SEPARATORS:
         if separator in cleaned:
             left, right = cleaned.split(separator, 1)
             if left.strip() and right.strip():
-                return left.strip(), right.strip()
-    return channel_clean, cleaned
+                if not artist or left.strip().casefold() == artist.casefold():
+                    return left.strip(), right.strip()
+    return artist, cleaned
 
 
 def _lucene(value: str) -> str:

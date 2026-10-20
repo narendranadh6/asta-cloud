@@ -1,1 +1,1 @@
-"""Open music data sources used alongside YouTube (similar artists, live radio)."""
+"""Open music data sources used alongside the catalog (similar artists, live radio)."""

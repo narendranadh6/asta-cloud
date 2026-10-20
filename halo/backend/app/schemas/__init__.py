@@ -8,11 +8,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.catalog.ids import TrackSource, is_valid_track_id
 from app.services.music_sources.listenbrainz import PopularRecording
 from app.services.music_sources.musicbrainz import ArtistInfo, CanonicalRecording
-from app.services.youtube.ids import is_valid_playlist_id, is_valid_video_id
 
-SearchKind = Literal["song", "artist", "remix", "live"]
+SearchKind = Literal["song", "artist"]
 Discovery = Literal["familiar", "balanced", "discovery"]
 Rating = Literal["like", "dislike", "skip", "save"]
 MOODS = ("calm", "happy", "focused", "energetic", "romantic", "sleep", "workout", "travel")
@@ -26,40 +26,42 @@ class APIModel(BaseModel):
 # --- Tracks ---------------------------------------------------------------------------
 
 
-class Thumbnail(APIModel):
-    url: str
-    width: int | None = None
-    height: int | None = None
-
-
 class Attribution(APIModel):
-    """Source attribution that clients must display next to provider metadata."""
+    """Where a track comes from. Clients must show it next to the track."""
 
-    provider: Literal["youtube"]
+    provider: TrackSource
     label: str
     url: str | None = None
 
 
-class Track(APIModel):
-    video_id: str
-    title: str
-    channel_title: str
-    channel_id: str | None = None
-    description: str | None = None
-    thumbnails: dict[str, Thumbnail] = Field(default_factory=dict)
-    duration_seconds: int | None = None
-    published_at: datetime | None = None
-    view_count: int | None = None
-    is_live: bool = False
-    watch_url: str
-    attribution: Attribution
+class TrackLicense(APIModel):
+    """Creative Commons licence for Jamendo tracks (attribution is required)."""
 
-    @property
-    def best_thumbnail(self) -> str | None:
-        for key in ("maxres", "high", "medium", "standard", "default"):
-            if key in self.thumbnails:
-                return self.thumbnails[key].url
-        return None
+    name: str
+    url: str | None = None
+
+
+class Track(APIModel):
+    """A playable song. Audio streams directly from the source at ``stream_url``."""
+
+    id: str  # "<source>:<source id>", e.g. "audius:D7KyD"
+    source: TrackSource
+    source_id: str
+    title: str
+    artist: str
+    artist_id: str | None = None
+    album: str | None = None
+    artwork_url: str | None = None
+    duration_seconds: int | None = None
+    genre: str | None = None
+    mood: str | None = None
+    release_date: str | None = None
+    play_count: int | None = None
+    stream_url: str | None = None
+    is_preview: bool = False  # 30-second preview (iTunes), not the full song
+    license: TrackLicense | None = None
+    external_url: str | None = None  # the track's page at the source
+    attribution: Attribution
 
 
 class SearchResponse(APIModel):
@@ -69,7 +71,7 @@ class SearchResponse(APIModel):
     next_page_token: str | None = None
     prev_page_token: str | None = None
     total_results_estimate: int | None = None
-    provider: Literal["youtube"]
+    sources: list[str] = Field(default_factory=list)
     cached: bool = False
 
 
@@ -77,9 +79,9 @@ class TrendingResponse(APIModel):
     items: list[Track]
     next_page_token: str | None = None
     prev_page_token: str | None = None
-    provider: Literal["youtube"]
+    sources: list[str] = Field(default_factory=list)
     cached: bool = False
-    source: str = "YouTube most popular music chart"
+    source: str = "Trending on Audius and Jamendo this week"
 
 
 class SuggestionsResponse(APIModel):
@@ -108,13 +110,15 @@ class PlaylistItemOut(APIModel):
     id: uuid.UUID
     position: int
     note: str | None = None
-    video_id: str
+    track_id: str
     title: str
-    channel_title: str
-    thumbnail_url: str | None = None
+    artist: str
+    album: str | None = None
+    artwork_url: str | None = None
     duration_seconds: int | None = None
+    stream_url: str | None = None
+    is_preview: bool = False
     is_available: bool = True
-    watch_url: str
     added_at: datetime
 
 
@@ -124,8 +128,6 @@ class PlaylistSummary(APIModel):
     description: str | None = None
     mood: str | None = None
     is_ai_generated: bool
-    youtube_playlist_id: str | None = None
-    youtube_playlist_url: str | None = None
     item_count: int
     total_duration_seconds: int
     artwork_url: str | None = None
@@ -151,70 +153,52 @@ def _clean_name(value: str) -> str:
     return cleaned
 
 
-def _check_playlist_id(value: str | None) -> str | None:
-    if value is None or value == "":
-        return None
-    if not is_valid_playlist_id(value):
-        raise ValueError("not a valid YouTube playlist id")
-    return value
+def _check_track_ids(values: list[str]) -> list[str]:
+    for value in values:
+        if not is_valid_track_id(value):
+            raise ValueError(f"invalid track id: {value!r}")
+    return values
 
 
 class PlaylistCreate(APIModel):
     name: str = Field(min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=2000)
     mood: Mood | None = None
-    youtube_playlist_id: str | None = None
     is_ai_generated: bool = False
     recommendation_session_id: uuid.UUID | None = None
-    video_ids: list[str] = Field(default_factory=list, max_length=200)
+    track_ids: list[str] = Field(default_factory=list, max_length=200)
 
     @field_validator("name")
     @classmethod
     def _name(cls, value: str) -> str:
         return _clean_name(value)
 
-    @field_validator("youtube_playlist_id")
+    @field_validator("track_ids")
     @classmethod
-    def _youtube_playlist(cls, value: str | None) -> str | None:
-        return _check_playlist_id(value)
-
-    @field_validator("video_ids")
-    @classmethod
-    def _videos(cls, values: list[str]) -> list[str]:
-        for value in values:
-            if not is_valid_video_id(value):
-                raise ValueError(f"invalid YouTube video id: {value!r}")
-        return values
+    def _tracks(cls, values: list[str]) -> list[str]:
+        return _check_track_ids(values)
 
 
 class PlaylistUpdate(APIModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=2000)
     mood: Mood | None = None
-    youtube_playlist_id: str | None = None
 
     @field_validator("name")
     @classmethod
     def _name(cls, value: str | None) -> str | None:
         return None if value is None else _clean_name(value)
 
-    @field_validator("youtube_playlist_id")
-    @classmethod
-    def _youtube_playlist(cls, value: str | None) -> str | None:
-        return _check_playlist_id(value)
-
 
 class PlaylistItemCreate(APIModel):
-    video_id: str
+    track_id: str
     position: int | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=300)
 
-    @field_validator("video_id")
+    @field_validator("track_id")
     @classmethod
-    def _video(cls, value: str) -> str:
-        if not is_valid_video_id(value):
-            raise ValueError("invalid YouTube video id")
-        return value
+    def _track(cls, value: str) -> str:
+        return _check_track_ids([value])[0]
 
 
 class PlaylistReorder(APIModel):
@@ -226,7 +210,6 @@ class PlaylistReorder(APIModel):
 
 class ArtistPreferenceIn(APIModel):
     name: str = Field(min_length=1, max_length=200)
-    youtube_channel_id: str | None = Field(default=None, max_length=64)
 
 
 class PreferencesBody(APIModel):
@@ -264,15 +247,11 @@ class TasteSignal(APIModel):
 
 
 class TasteProfile(APIModel):
-    """Inferred from Halo activity only (saves, playlists, searches, feedback).
-
-    This is not playback history: Halo cannot see what was played in Brave.
-    """
+    """Inferred from Halo activity only (saves, playlists, searches, feedback)."""
 
     personalization_enabled: bool
     basis: str = (
-        "Inferred from your activity inside Halo: saved songs, playlists, searches and "
-        "feedback. Halo cannot see what you play in Brave or on YouTube."
+        "Inferred from your activity inside Halo: saved songs, playlists, searches and feedback."
     )
     top_artists: list[TasteSignal]
     top_terms: list[TasteSignal]
@@ -293,7 +272,7 @@ class AIPlaylistRequest(APIModel):
     energy: int | None = Field(default=None, ge=0, le=100)
     duration_minutes: int = Field(default=60, ge=10, le=300)
     discovery: Discovery = "balanced"
-    exclude_video_ids: list[str] = Field(default_factory=list, max_length=200)
+    exclude_track_ids: list[str] = Field(default_factory=list, max_length=200)
 
 
 class ChatMessage(APIModel):
@@ -326,7 +305,7 @@ class PlaylistDraft(APIModel):
     tracks: list[RecommendedTrack]
     total_duration_seconds: int
     target_duration_seconds: int
-    provider: Literal["youtube"]
+    sources: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -338,16 +317,16 @@ class AIChatResponse(APIModel):
 
 
 class UpNextResponse(APIModel):
-    """Songs to pick next after a handoff. The listener chooses; nothing auto-plays."""
+    """Songs to play next after the seed track."""
 
-    seed_video_id: str
+    seed_track_id: str
     tracks: list[RecommendedTrack]
 
 
 class TrackMetadataResponse(APIModel):
-    """Canonical facts about a YouTube song from MusicBrainz (CC0 data)."""
+    """Canonical facts about a song from MusicBrainz (CC0 data)."""
 
-    video_id: str
+    track_id: str
     parsed_artist: str
     parsed_title: str
     matched: bool
@@ -363,22 +342,20 @@ class ArtistProfileResponse(APIModel):
 
 
 class FeedbackRequest(APIModel):
-    video_id: str
+    track_id: str
     rating: Rating
     session_id: uuid.UUID | None = None
-    channel_title: str | None = Field(default=None, max_length=200)
+    artist: str | None = Field(default=None, max_length=200)
 
-    @field_validator("video_id")
+    @field_validator("track_id")
     @classmethod
-    def _video(cls, value: str) -> str:
-        if not is_valid_video_id(value):
-            raise ValueError("invalid YouTube video id")
-        return value
+    def _track(cls, value: str) -> str:
+        return _check_track_ids([value])[0]
 
 
 class FeedbackResponse(APIModel):
     id: uuid.UUID
-    video_id: str
+    track_id: str
     rating: Rating
     recorded: bool
 

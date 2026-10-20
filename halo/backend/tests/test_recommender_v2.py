@@ -79,16 +79,18 @@ def test_ranker_payload_rejects_junk() -> None:
 # --- Exploration slots -------------------------------------------------------------------
 
 
-def _track(i: int, channel: str, views: int = 10_000) -> Track:
-    vid = f"t{i:010d}"
+def _track(i: int, artist: str, plays: int = 10_000) -> Track:
+    sid = f"t{i:010d}"
     return Track(
-        video_id=vid,
+        id=f"audius:{sid}",
+        source="audius",
+        source_id=sid,
         title=f"Song {i}",
-        channel_title=channel,
+        artist=artist,
         duration_seconds=200,
-        view_count=views,
-        watch_url=f"https://www.youtube.com/watch?v={vid}",
-        attribution=Attribution(provider="youtube", label="YouTube"),
+        play_count=plays,
+        stream_url=f"https://stream.test/{sid}.mp3",
+        attribution=Attribution(provider="audius", label="Audius"),
     )
 
 
@@ -122,20 +124,20 @@ def test_rank_and_explore_reserves_spread_out_exploration_slots() -> None:
     assert all(chosen[i].source == "co_listen" for i in explore)
     assert all(chosen[i].reasons[0] == "Something new for you" for i in explore)
     assert explore[0] > 0 and explore != list(range(explore[0], explore[0] + len(explore)))
-    assert len({c.track.channel_title for c in chosen if c.explore}) == len(explore)
+    assert len({c.track.artist for c in chosen if c.explore}) == len(explore)
 
 
 # --- Co-listening (collaborative filtering) ---------------------------------------------
 
 
 async def _listener(
-    client: httpx.AsyncClient, video_ids: list[str], opted_in: bool
+    client: httpx.AsyncClient, track_ids: list[str], opted_in: bool
 ) -> dict[str, str]:
     auth = await register(client)
     await client.put(
         "/api/v1/preferences", headers=auth, json={"personalization_enabled": opted_in}
     )
-    await client.post("/api/v1/playlists", headers=auth, json={"name": "p", "video_ids": video_ids})
+    await client.post("/api/v1/playlists", headers=auth, json={"name": "p", "track_ids": track_ids})
     return auth
 
 
@@ -144,7 +146,7 @@ async def test_co_listening_needs_two_opted_in_listeners(app_factory: AppFactory
     async with client:
         auth = await register(client)
         found = await client.get("/api/v1/search", params={"q": "telugu", "limit": 6}, headers=auth)
-        a, b, c, d, e, f = [i["video_id"] for i in found.json()["items"]]
+        a, b, c, d, e, f = [i["id"] for i in found.json()["items"]]
         await _listener(client, [a, b, c], opted_in=True)
         await _listener(client, [a, b, d], opted_in=True)
         await _listener(client, [a, e], opted_in=True)  # a+e seen by one listener only
@@ -152,7 +154,7 @@ async def test_co_listening_needs_two_opted_in_listeners(app_factory: AppFactory
         await _listener(client, [a, f], opted_in=False)
     async with app.state.session_factory() as session:
         pairs = await rec_repo.co_listened(session, [a])
-    ids = [p.video_id for p in pairs]
+    ids = [p.track_id for p in pairs]
     assert ids[0] == b  # co-listened by two consenting listeners
     assert e not in ids and f not in ids  # single-listener and non-consenting pairs hidden
     assert c not in ids and d not in ids
@@ -176,7 +178,7 @@ async def test_feedback_credits_the_recommending_source(app_factory: AppFactory)
             "/api/v1/recommendations/feedback",
             headers=auth,
             json={
-                "video_id": track["track"]["video_id"],
+                "track_id": track["track"]["id"],
                 "rating": "like",
                 "session_id": chat["draft"]["session_id"],
             },
@@ -196,18 +198,18 @@ async def test_up_next_excludes_seed_and_uses_co_listening(app_factory: AppFacto
         found = (
             await client.get("/api/v1/search", params={"q": "hindi love", "limit": 3}, headers=auth)
         ).json()["items"]
-        seed, partner = found[0]["video_id"], found[2]["video_id"]
+        seed, partner = found[0]["id"], found[2]["id"]
         await _listener(client, [seed, partner], opted_in=True)
         await _listener(client, [seed, partner], opted_in=True)
         response = await client.get(
-            "/api/v1/recommendations/next", params={"video_id": seed, "limit": 8}, headers=auth
+            "/api/v1/recommendations/next", params={"track_id": seed, "limit": 8}, headers=auth
         )
         bad = await client.get(
-            "/api/v1/recommendations/next", params={"video_id": "bad"}, headers=auth
+            "/api/v1/recommendations/next", params={"track_id": "bad"}, headers=auth
         )
     body = response.json()
     assert response.status_code == 200, body
-    ids = [t["track"]["video_id"] for t in body["tracks"]]
+    ids = [t["track"]["id"] for t in body["tracks"]]
     assert seed not in ids and 0 < len(ids) <= 8
     assert partner in ids
     assert any(t["source"] == "co_listen" for t in body["tracks"])

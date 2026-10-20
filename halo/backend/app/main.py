@@ -19,6 +19,7 @@ from app.core.errors import install_error_handlers
 from app.core.security import bearer_token, decode_access_token
 from app.db.session import create_engine, create_session_factory
 from app.services.ai.providers import IntentPlanner, build_planner
+from app.services.catalog.service import CatalogService, build_catalog
 from app.services.feed.builder import HomeFeedBuilder
 from app.services.music_sources.discovery import ListenBrainzDiscovery
 from app.services.music_sources.listenbrainz import ListenBrainzClient
@@ -26,8 +27,6 @@ from app.services.music_sources.musicbrainz import MusicBrainzClient
 from app.services.music_sources.radio import RadioBrowserClient
 from app.services.music_sources.similar_artists import build_similar_artists
 from app.services.recommendations.pipeline import RecommendationPipeline
-from app.services.youtube.base import MetadataProvider
-from app.services.youtube.service import YouTubeSearchService, build_provider
 
 logger = logging.getLogger("halo")
 
@@ -35,7 +34,7 @@ logger = logging.getLogger("halo")
 def create_app(
     settings: Settings | None = None,
     *,
-    provider: MetadataProvider | None = None,
+    catalog: CatalogService | None = None,
     planner: IntentPlanner | None = None,
     store: KeyValueStore | None = None,
 ) -> FastAPI:
@@ -50,18 +49,12 @@ def create_app(
         if not isinstance(kv, MemoryStore) and not await kv.ping():
             logger.warning("Redis unreachable; falling back to in-process cache/rate limits")
             kv = MemoryStore()
-        metadata = provider or build_provider(settings)
-        search_service = YouTubeSearchService(
-            metadata,
-            kv,
-            search_ttl_seconds=settings.youtube_search_cache_ttl_seconds,
-            video_ttl_seconds=settings.youtube_video_cache_ttl_seconds,
-        )
+        music = catalog or build_catalog(settings, kv)
         app.state.settings = settings
         app.state.engine = engine
         app.state.session_factory = create_session_factory(engine)
         app.state.store = kv
-        app.state.search_service = search_service
+        app.state.catalog = music
         app.state.planner = planner or build_planner(settings)
         app.state.musicbrainz = (
             MusicBrainzClient(kv, contact=settings.musicbrainz_contact)
@@ -84,13 +77,13 @@ def create_app(
         app.state.similar_artists = build_similar_artists(settings, kv, first=app.state.discovery)
         app.state.radio = RadioBrowserClient(kv, base_url=settings.radio_browser_base_url)
         app.state.pipeline = RecommendationPipeline(
-            search_service,
+            music,
             similar_artists=app.state.similar_artists,
             track_discovery=app.state.discovery,
             track_lookups=settings.listenbrainz_track_lookups,
         )
         app.state.home_feed = HomeFeedBuilder(
-            search_service=search_service,
+            catalog=music,
             listenbrainz=app.state.listenbrainz,
             similar_artists=app.state.similar_artists,
             weights=settings.home_section_weights,
@@ -106,7 +99,7 @@ def create_app(
             for client in (app.state.musicbrainz, app.state.listenbrainz):
                 if client is not None:
                     await client.aclose()
-            await metadata.aclose()
+            await music.aclose()
             await kv.close()
             await engine.dispose()
 
@@ -114,8 +107,9 @@ def create_app(
         title=settings.api_title,
         version="0.1.0",
         description=(
-            "Halo discovers music metadata via the YouTube Data API and hands playback off "
-            "to an external browser. It never streams, downloads or modifies YouTube content."
+            "Halo plays free, licensed music: full tracks from Audius and Jamendo (Creative "
+            "Commons) and labelled 30-second previews from Apple. Audio streams from each "
+            "source directly to the listener; Halo never stores audio."
         ),
         lifespan=lifespan,
         docs_url="/docs" if settings.environment != "production" else None,
@@ -162,13 +156,13 @@ def create_app(
         except Exception:
             checks["database"] = "unavailable"
         checks["cache"] = "ok" if await request.app.state.store.ping() else "unavailable"
-        provider = request.app.state.search_service.provider
-        checks["youtube"] = "ok" if getattr(provider, "configured", True) else "not_configured"
-        healthy = checks["database"] == "ok" and checks["youtube"] == "ok"
+        catalog: CatalogService = request.app.state.catalog
+        checks["catalog"] = "ok" if catalog.configured else "not_configured"
+        healthy = checks["database"] == "ok" and checks["catalog"] == "ok"
         return {
             "status": "ok" if healthy else "degraded",
             "version": app.version,
-            "metadata_provider": request.app.state.search_service.provider.name,
+            "music_sources": catalog.source_names,
             "ai_planner": "llm" if request.app.state.planner.uses_llm else "heuristic",
             "checks": checks,
         }

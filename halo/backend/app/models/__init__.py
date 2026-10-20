@@ -1,4 +1,4 @@
-"""Relational models. YouTube content is stored only as references (IDs + minimal metadata)."""
+"""Relational models. Tracks are stored only as references (source ids + minimal metadata)."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -67,7 +68,7 @@ class UserPreferences(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class ArtistPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """An artist/channel the user marked as favorite or excluded (explicit, user-set)."""
+    """An artist the user marked as favorite or excluded (explicit, user-set)."""
 
     __tablename__ = "artist_preferences"
 
@@ -76,7 +77,6 @@ class ArtistPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     normalized_name: Mapped[str] = mapped_column(String(200), nullable=False)
-    youtube_channel_id: Mapped[str | None] = mapped_column(String(64))
     stance: Mapped[str] = mapped_column(String(16), nullable=False)  # favorite | excluded
 
     user: Mapped[User] = relationship(back_populates="artist_preferences")
@@ -89,20 +89,23 @@ class ArtistPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
 
 class TrackReference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """A pointer to provider content. Never holds audio or video data.
+    """A pointer to a track at its source (Audius, Jamendo, iTunes). Never holds audio.
 
-    Metadata is refreshed or purged within the provider's retention window
-    (see app.tasks.refresh_metadata).
+    Metadata is refreshed from the source periodically (see app.tasks.refresh_metadata).
     """
 
     __tablename__ = "track_references"
 
-    provider: Mapped[str] = mapped_column(String(16), nullable=False, default="youtube")
-    provider_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(16), nullable=False)  # source
+    provider_id: Mapped[str] = mapped_column(String(64), nullable=False)  # id at the source
     title: Mapped[str] = mapped_column(String(300), nullable=False)
-    channel_title: Mapped[str] = mapped_column(String(200), nullable=False)
-    channel_id: Mapped[str | None] = mapped_column(String(64))
-    thumbnail_url: Mapped[str | None] = mapped_column(String(500))
+    artist: Mapped[str] = mapped_column(String(200), nullable=False)
+    album: Mapped[str | None] = mapped_column(String(300))
+    artwork_url: Mapped[str | None] = mapped_column(String(500))
+    stream_url: Mapped[str | None] = mapped_column(String(1000))
+    is_preview: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
     metadata_fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -123,7 +126,6 @@ class Playlist(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     mood: Mapped[str | None] = mapped_column(String(32))
     is_ai_generated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    youtube_playlist_id: Mapped[str | None] = mapped_column(String(64))
     recommendation_session_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("recommendation_sessions.id", ondelete="SET NULL")
     )
@@ -184,8 +186,8 @@ class RecommendationSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     request_text: Mapped[str | None] = mapped_column(Text)
     intent: Mapped[dict[str, object]] = mapped_column(JSONType, default=dict, nullable=False)
     planner: Mapped[str] = mapped_column(String(16), nullable=False)  # llm | heuristic
-    result_video_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
-    # Per video: candidate source, ranking features and whether it was an exploration slot.
+    result_track_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    # Per track: candidate source, ranking features and whether it was an exploration slot.
     # Used to credit feedback to the right bandit arm and as ranker training data.
     result_details: Mapped[dict[str, object]] = mapped_column(
         JSONType, default=dict, nullable=False
@@ -203,14 +205,14 @@ class RecommendationFeedback(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     session_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("recommendation_sessions.id", ondelete="SET NULL")
     )
-    video_id: Mapped[str] = mapped_column(String(16), nullable=False)
-    channel_title: Mapped[str | None] = mapped_column(String(200))
+    track_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    artist: Mapped[str | None] = mapped_column(String(200))
     rating: Mapped[str] = mapped_column(String(16), nullable=False)
     weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
 
     __table_args__ = (
         CheckConstraint("rating IN ('like', 'dislike', 'skip', 'save')", name="rating"),
-        UniqueConstraint("user_id", "video_id", name="uq_feedback_user_video"),
+        UniqueConstraint("user_id", "track_id", name="uq_feedback_user_track"),
         Index("ix_recommendation_feedback_user_rating", "user_id", "rating"),
     )
 

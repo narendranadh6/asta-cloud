@@ -14,15 +14,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from app.schemas import HomeFeed, HomeItem, HomeSection
+from app.services.catalog.service import CatalogService
 from app.services.music_sources.listenbrainz import ListenBrainzClient
 from app.services.music_sources.similar_artists import SimilarArtistProvider
-from app.services.youtube.service import YouTubeSearchService
 
 logger = logging.getLogger("halo.feed")
 
@@ -56,13 +55,6 @@ MOODS: tuple[tuple[str, str, str], ...] = (
     ("travel", "Travel", "Explore the world"),
 )
 
-_CHANNEL_NOISE = re.compile(r"\s*(- topic|vevo|official)\s*$", re.IGNORECASE)
-
-
-def clean_channel(channel: str) -> str:
-    """'Artist - Topic' / 'ArtistVEVO' → 'Artist'."""
-    return _CHANNEL_NOISE.sub("", channel).strip()
-
 
 @dataclass(slots=True)
 class FeedContext:
@@ -82,13 +74,13 @@ class HomeFeedBuilder:
     def __init__(
         self,
         *,
-        search_service: YouTubeSearchService,
+        catalog: CatalogService,
         listenbrainz: ListenBrainzClient | None,
         similar_artists: SimilarArtistProvider | None,
         weights: dict[str, float] | None = None,
         timeout: float = SECTION_TIMEOUT_SECONDS,
     ) -> None:
-        self._search = search_service
+        self._catalog = catalog
         self._listenbrainz = listenbrainz
         self._similar = similar_artists
         self._weights = {**DEFAULT_WEIGHTS, **(weights or {})}
@@ -304,24 +296,24 @@ class HomeFeedBuilder:
         )
 
     async def _trending(self, context: FeedContext) -> HomeSection | None:
-        if not getattr(self._search.provider, "configured", True):
+        if not self._catalog.configured:
             return None
-        result = await self._search.trending(max_results=ITEMS_PER_SECTION)
+        result = await self._catalog.trending(max_results=ITEMS_PER_SECTION)
         return HomeSection(
             id="trending",
             type="trending",
             title="Trending now",
-            eyebrow="YouTube music chart",
+            eyebrow="Full songs, free to play",
             layout="rail",
-            source="YouTube",
+            source=" · ".join(s.title() for s in result.page.sources) or None,
             score=0,
             items=[
                 HomeItem(
                     kind="track",
-                    id=t.video_id,
+                    id=t.id,
                     title=t.title,
-                    subtitle=t.channel_title,
-                    artwork_url=t.best_thumbnail,
+                    subtitle=t.artist,
+                    artwork_url=t.artwork_url,
                     track=t,
                 )
                 for t in result.page.items

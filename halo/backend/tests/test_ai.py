@@ -153,12 +153,13 @@ async def test_llm_failure_falls_back_to_heuristic(response: str | Exception) ->
 # --- Pipeline stages --------------------------------------------------------------------
 
 
-def make_track(video_id: str, title: str, channel: str, *, duration: int = 200,
-               views: int = 1000, live: bool = False) -> Track:
+def make_track(source_id: str, title: str, artist: str, *, duration: int = 200,
+               plays: int = 1000, playable: bool = True, preview: bool = False) -> Track:
     return Track(
-        video_id=video_id, title=title, channel_title=channel, duration_seconds=duration,
-        view_count=views, is_live=live, watch_url=f"https://www.youtube.com/watch?v={video_id}",
-        attribution=Attribution(provider="youtube", label="YouTube"),
+        id=f"audius:{source_id}", source="audius", source_id=source_id, title=title,
+        artist=artist, duration_seconds=duration, play_count=plays, is_preview=preview,
+        stream_url=f"https://stream.test/{source_id}.mp3" if playable else None,
+        attribution=Attribution(provider="audius", label="Audius"),
     )
 
 
@@ -173,7 +174,7 @@ def test_filtering_rules() -> None:
         Candidate(make_track("bbbbbbbbbbb", "Excluded tune", "Bad Band"), "q", 1),
         Candidate(make_track("ccccccccccc", "Short", "C", duration=30), "q", 2),
         Candidate(make_track("ddddddddddd", "Jukebox", "D", duration=3600), "q", 3),
-        Candidate(make_track("eeeeeeeeeee", "Live now", "E", live=True), "q", 4),
+        Candidate(make_track("eeeeeeeeeee", "Gone", "E", playable=False), "q", 4),
         Candidate(make_track("fffffffffff", "Disliked", "F"), "q", 5),
         Candidate(make_track("ggggggggggg", "Skip me", "G"), "q", 6),
     ]
@@ -181,18 +182,18 @@ def test_filtering_rules() -> None:
         cands,
         intent(exclude_artists=["bad band"]),
         PreferenceHints(),
-        FeedbackSignals(disliked_video_ids={"fffffffffff"}),
-        {"ggggggggggg"},
+        FeedbackSignals(disliked_track_ids={"audius:fffffffffff"}),
+        {"audius:ggggggggggg"},
     )
-    assert [c.track.video_id for c in kept] == ["aaaaaaaaaaa"]
-    assert counts == {"duplicate": 1, "excluded_artist": 1, "duration": 2, "live_now": 1,
-                      "disliked": 1, "excluded_video": 1}
+    assert [c.track.id for c in kept] == ["audius:aaaaaaaaaaa"]
+    assert counts == {"duplicate": 1, "excluded_artist": 1, "duration": 2, "not_playable": 1,
+                      "disliked": 1, "excluded_track": 1}
 
 
 def test_scoring_respects_discovery_preference() -> None:
-    popular = Candidate(make_track("aaaaaaaaaaa", "Hit", "A", views=50_000_000), "q", 0)
-    obscure = Candidate(make_track("bbbbbbbbbbb", "Gem", "B", views=2_000), "q", 0)
-    middle = Candidate(make_track("ccccccccccc", "Mid", "C", views=200_000), "q", 0)
+    popular = Candidate(make_track("aaaaaaaaaaa", "Hit", "A", plays=50_000_000), "q", 0)
+    obscure = Candidate(make_track("bbbbbbbbbbb", "Gem", "B", plays=2_000), "q", 0)
+    middle = Candidate(make_track("ccccccccccc", "Mid", "C", plays=200_000), "q", 0)
     score_candidates([popular, obscure, middle], intent(discovery="discovery"),
                      PreferenceHints(), FeedbackSignals())
     assert obscure.score > popular.score
@@ -200,6 +201,13 @@ def test_scoring_respects_discovery_preference() -> None:
                      PreferenceHints(), FeedbackSignals())
     assert popular.score > obscure.score
     assert all(c.reasons for c in (popular, obscure, middle))
+
+
+def test_previews_score_below_full_songs() -> None:
+    full = Candidate(make_track("full0000001", "Song", "A"), "q", 0)
+    preview = Candidate(make_track("prev0000001", "Song Two", "B", preview=True), "q", 0)
+    score_candidates([full, preview], intent(), PreferenceHints(), FeedbackSignals())
+    assert full.score > preview.score
 
 
 def test_diversity_caps_channels_and_duplicates() -> None:
@@ -214,9 +222,9 @@ def test_diversity_caps_channels_and_duplicates() -> None:
     for c in cands:
         c.score = 1.0 - c.rank * 0.01
     chosen = diversify(cands, intent(discovery="balanced"), target_seconds=10_000)
-    channels = [c.track.channel_title for c in chosen]
+    channels = [c.track.artist for c in chosen]
     assert channels.count("Same Channel") == 3
-    assert sum(1 for c in chosen if c.track.video_id.startswith("dup")) == 1
+    assert sum(1 for c in chosen if c.track.source_id.startswith("dup")) == 1
     assert song_key(cands[-1].track) == song_key(cands[-2].track)
 
 
@@ -245,14 +253,15 @@ async def test_ai_playlist_returns_only_verified_tracks(app_factory: AppFactory)
         assert draft["planner"] == "heuristic"
         assert draft["tracks"], draft
         assert draft["session_id"] is None  # personalization off → nothing stored
-        ids = [t["track"]["video_id"] for t in draft["tracks"]]
-        verified = await app.state.search_service.get_videos(ids)
+        ids = [t["track"]["id"] for t in draft["tracks"]]
+        verified = await app.state.catalog.get_tracks(ids)
         assert set(ids) == set(verified)
+        assert all(t["track"]["stream_url"] for t in draft["tracks"])
         assert all(t["reasons"] for t in draft["tracks"])
 
         saved = await client.post(
             "/api/v1/playlists",
-            json={"name": draft["title"], "video_ids": ids, "is_ai_generated": True},
+            json={"name": draft["title"], "track_ids": ids, "is_ai_generated": True},
             headers=auth,
         )
         assert saved.status_code == 201
@@ -283,16 +292,16 @@ async def test_ai_chat_stores_conversation_only_with_consent(app_factory: AppFac
         assert body["draft"]["session_id"]
         feedback = await client.post(
             "/api/v1/recommendations/feedback",
-            json={"video_id": body["draft"]["tracks"][0]["track"]["video_id"],
+            json={"track_id": body["draft"]["tracks"][0]["track"]["id"],
                   "rating": "dislike", "session_id": body["draft"]["session_id"]},
             headers=auth,
         )
         assert feedback.json()["recorded"] is True
-        disliked = body["draft"]["tracks"][0]["track"]["video_id"]
+        disliked = body["draft"]["tracks"][0]["track"]["id"]
         third = await client.post(
             "/api/v1/ai/chat", json={"message": "a two-hour road trip"}, headers=auth
         )
-        assert disliked not in {t["track"]["video_id"] for t in third.json()["draft"]["tracks"]}
+        assert disliked not in {t["track"]["id"] for t in third.json()["draft"]["tracks"]}
 
 
 async def test_ai_with_failing_llm_still_works(app_factory: AppFactory) -> None:

@@ -1,7 +1,7 @@
-"""Refresh or purge stored track metadata older than the provider retention window.
+"""Refresh stored track metadata (titles, artwork, stream URLs) from each track's source.
 
-YouTube API Services Developer Policies require non-authorized API data to be refreshed
-or deleted within 30 days. Run this daily (cron, Kubernetes CronJob, etc.):
+Tracks removed at the source stay in playlists but are marked unavailable. Run daily
+(cron, Kubernetes CronJob, etc.):
 
     python -m app.tasks.refresh_metadata
 """
@@ -17,11 +17,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import TrackReference
-from app.services.youtube.base import MetadataProvider
+from app.services.catalog.ids import SOURCES, make_track_id
+from app.services.catalog.service import CatalogService
 
 logger = logging.getLogger("halo.tasks.refresh")
 
-REFRESH_AFTER = timedelta(days=25)  # refresh comfortably inside the 30-day window
+REFRESH_AFTER = timedelta(days=7)
 BATCH_SIZE = 50
 
 
@@ -32,7 +33,7 @@ class RefreshReport:
 
 
 async def refresh_stale_tracks(
-    session: AsyncSession, provider: MetadataProvider, *, now: datetime | None = None
+    session: AsyncSession, catalog: CatalogService, *, now: datetime | None = None
 ) -> RefreshReport:
     now = now or datetime.now(UTC)
     cutoff = now - REFRESH_AFTER
@@ -43,7 +44,8 @@ async def refresh_stale_tracks(
                 await session.execute(
                     select(TrackReference)
                     .where(
-                        TrackReference.provider == provider.name,
+                        TrackReference.provider.in_(catalog.source_names),
+                        TrackReference.provider.in_(SOURCES),
                         TrackReference.metadata_fetched_at < cutoff,
                     )
                     .limit(BATCH_SIZE)
@@ -52,23 +54,24 @@ async def refresh_stale_tracks(
         )
         if not stale:
             break
-        fresh = await provider.get_videos([t.provider_id for t in stale])
-        for ref in stale:
-            track = fresh.get(ref.provider_id)
+        ids = {make_track_id(r.provider, r.provider_id): r for r in stale}  # type: ignore[arg-type]
+        fresh = await catalog.get_tracks(list(ids))
+        for track_id, ref in ids.items():
+            track = fresh.get(track_id)
             ref.metadata_fetched_at = now
             if track is None:
-                # Keep the id (the user's playlist entry) but drop cached metadata.
+                # Keep the playlist entry, but it can no longer be played.
                 ref.is_available = False
-                ref.title = "Unavailable video"
-                ref.channel_title = "Unavailable"
-                ref.thumbnail_url = None
-                ref.duration_seconds = None
+                ref.stream_url = None
                 report.marked_unavailable += 1
             else:
                 ref.is_available = True
                 ref.title = track.title[:300]
-                ref.channel_title = track.channel_title[:200]
-                ref.thumbnail_url = track.best_thumbnail
+                ref.artist = track.artist[:200]
+                ref.album = track.album[:300] if track.album else None
+                ref.artwork_url = track.artwork_url
+                ref.stream_url = track.stream_url
+                ref.is_preview = track.is_preview
                 ref.duration_seconds = track.duration_seconds
                 report.refreshed += 1
         await session.commit()
@@ -76,19 +79,20 @@ async def refresh_stale_tracks(
 
 
 async def _main() -> None:
+    from app.core.cache import MemoryStore
     from app.core.config import get_settings
     from app.db.session import create_engine, create_session_factory
-    from app.services.youtube.service import build_provider
+    from app.services.catalog.service import build_catalog
 
     settings = get_settings()
     engine = create_engine(settings.database_url)
-    provider = build_provider(settings)
+    catalog = build_catalog(settings, MemoryStore())
     try:
         async with create_session_factory(engine)() as session:
-            report = await refresh_stale_tracks(session, provider)
+            report = await refresh_stale_tracks(session, catalog)
         logger.info("refreshed=%d unavailable=%d", report.refreshed, report.marked_unavailable)
     finally:
-        await provider.aclose()
+        await catalog.aclose()
         await engine.dispose()
 
 

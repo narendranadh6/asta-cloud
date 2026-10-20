@@ -67,7 +67,7 @@ class RateLimitedError(AppError):
 
 
 class UpstreamError(AppError):
-    """An external provider (YouTube, LLM) failed. Message must be safe to show users."""
+    """An external provider (music source, LLM) failed. Message must be safe to show users."""
 
     status_code = status.HTTP_502_BAD_GATEWAY
     code = "upstream_error"

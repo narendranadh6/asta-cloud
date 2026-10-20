@@ -29,7 +29,7 @@ from app.schemas import (
     TasteSignal,
 )
 from app.services.ai.heuristic import PreferenceHints
-from app.services.feed.builder import FeedContext, clean_channel
+from app.services.feed.builder import FeedContext
 from app.services.recommendations.pipeline import FeedbackSignals, normalize_name
 
 SEARCH_HISTORY_LIMIT = 200
@@ -79,11 +79,7 @@ async def preferences_out(session: AsyncSession, user_id: uuid.UUID) -> Preferen
     artists = await list_artist_preferences(session, user_id)
 
     def _artists(stance: str) -> list[ArtistPreferenceIn]:
-        return [
-            ArtistPreferenceIn(name=a.name, youtube_channel_id=a.youtube_channel_id)
-            for a in artists
-            if a.stance == stance
-        ]
+        return [ArtistPreferenceIn(name=a.name) for a in artists if a.stance == stance]
 
     return PreferencesOut(
         personalization_enabled=prefs.personalization_enabled,
@@ -137,7 +133,6 @@ async def replace_preferences(
                     user_id=user_id,
                     name=" ".join(artist.name.split()),
                     normalized_name=normalized,
-                    youtube_channel_id=artist.youtube_channel_id,
                     stance=stance,
                 )
             )
@@ -193,18 +188,18 @@ async def feed_context(session: AsyncSession, user_id: uuid.UUID) -> FeedContext
     context.languages = list(prefs.languages or [])
     latest = (
         await session.execute(
-            select(RecommendationFeedback.channel_title)
+            select(RecommendationFeedback.artist)
             .where(
                 RecommendationFeedback.user_id == user_id,
                 RecommendationFeedback.rating.in_(("like", "save")),
-                RecommendationFeedback.channel_title.is_not(None),
+                RecommendationFeedback.artist.is_not(None),
             )
             .order_by(RecommendationFeedback.updated_at.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
     if latest:
-        context.recent_liked_artist = clean_channel(latest) or None
+        context.recent_liked_artist = " ".join(latest.split()) or None
     return context
 
 
@@ -269,10 +264,10 @@ async def history_suggestions(
 async def upsert_feedback(
     session: AsyncSession,
     user_id: uuid.UUID,
-    video_id: str,
+    track_id: str,
     rating: str,
     session_id: uuid.UUID | None,
-    channel_title: str | None,
+    artist: str | None,
 ) -> RecommendationFeedback:
     if session_id is not None:
         owned = await session.get(RecommendationSession, session_id)
@@ -282,16 +277,16 @@ async def upsert_feedback(
         await session.execute(
             select(RecommendationFeedback).where(
                 RecommendationFeedback.user_id == user_id,
-                RecommendationFeedback.video_id == video_id,
+                RecommendationFeedback.track_id == track_id,
             )
         )
     ).scalar_one_or_none()
     if existing is None:
-        existing = RecommendationFeedback(user_id=user_id, video_id=video_id, rating=rating)
+        existing = RecommendationFeedback(user_id=user_id, track_id=track_id, rating=rating)
         session.add(existing)
     existing.rating = rating
     existing.session_id = session_id
-    existing.channel_title = channel_title
+    existing.artist = artist
     existing.updated_at = datetime.now(UTC)
     await session.flush()
     return existing
@@ -305,13 +300,13 @@ async def feedback_signals(session: AsyncSession, user_id: uuid.UUID) -> Feedbac
     ).scalars()
     signals = FeedbackSignals()
     for row in rows:
-        channel = normalize_name(row.channel_title or "")
+        artist = normalize_name(row.artist or "")
         if row.rating in ("like", "save"):
-            signals.liked_video_ids.add(row.video_id)
-            if channel:
-                signals.liked_channels.add(channel)
+            signals.liked_track_ids.add(row.track_id)
+            if artist:
+                signals.liked_artists.add(artist)
         elif row.rating == "dislike":
-            signals.disliked_video_ids.add(row.video_id)
+            signals.disliked_track_ids.add(row.track_id)
     return signals
 
 
@@ -325,13 +320,13 @@ async def taste_profile(session: AsyncSession, user_id: uuid.UUID) -> TasteProfi
 
     track_rows = (
         await session.execute(
-            select(TrackReference.channel_title)
+            select(TrackReference.artist)
             .join(PlaylistItem, PlaylistItem.track_id == TrackReference.id)
             .join(Playlist, Playlist.id == PlaylistItem.playlist_id)
             .where(Playlist.user_id == user_id)
         )
     ).scalars()
-    channel_counts: Counter[str] = Counter(track_rows)
+    artist_counts: Counter[str] = Counter(track_rows)
     feedback = list(
         (
             await session.execute(
@@ -340,12 +335,12 @@ async def taste_profile(session: AsyncSession, user_id: uuid.UUID) -> TasteProfi
         ).scalars()
     )
     for row in feedback:
-        if row.channel_title and row.rating in ("like", "save"):
-            channel_counts[row.channel_title] += 2
-        elif row.channel_title and row.rating == "dislike":
-            channel_counts[row.channel_title] -= 2
+        if row.artist and row.rating in ("like", "save"):
+            artist_counts[row.artist] += 2
+        elif row.artist and row.rating == "dislike":
+            artist_counts[row.artist] -= 2
     for fav in (a.name for a in artists if a.stance == "favorite"):
-        channel_counts[fav] += 3
+        artist_counts[fav] += 3
 
     searches = await list_search_history(session, user_id, limit=SEARCH_HISTORY_LIMIT)
     term_counts: Counter[str] = Counter()
@@ -360,7 +355,7 @@ async def taste_profile(session: AsyncSession, user_id: uuid.UUID) -> TasteProfi
     excluded_norm = {normalize_name(e) for e in excluded}
     top_artists = [
         TasteSignal(label=name, weight=float(count), evidence="saves, playlists and feedback")
-        for name, count in channel_counts.most_common(15)
+        for name, count in artist_counts.most_common(15)
         if count > 0 and normalize_name(name) not in excluded_norm
     ][:10]
     top_terms = [

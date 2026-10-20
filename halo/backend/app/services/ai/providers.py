@@ -22,7 +22,7 @@ from app.services.ai.intent import MusicIntent
 logger = logging.getLogger("halo.ai")
 
 SYSTEM_PROMPT = """You are Halo's music planning engine. Convert the listener's request into
-a JSON object describing their intent and 2-5 YouTube *search queries*.
+a JSON object describing their intent and 2-5 music *search queries*.
 
 Rules:
 - Output ONLY one JSON object, no prose, no markdown fences.

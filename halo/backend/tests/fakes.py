@@ -1,7 +1,7 @@
-"""In-memory metadata provider for tests only.
+"""In-memory catalog source for tests only.
 
-It stands in for the YouTube Data API so the suite runs without network or credentials.
-It is not importable from the application package and is never shipped.
+It stands in for Audius so the suite runs without network access. It lives in the test
+package, is never imported by the application, and is never shipped.
 """
 
 from __future__ import annotations
@@ -9,11 +9,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
-from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from app.schemas import Attribution, Thumbnail, Track
-from app.services.youtube.base import SearchPage
+from app.schemas import Attribution, Track
 
 FAKE_PREFIX = "tst"
 
@@ -40,52 +38,54 @@ _ERAS = ["2000s", "2010s", "2020s"]
 _VARIANTS = ["", " (Live Session)", " (Remix)"]
 
 
-def fake_video_id(seed: str) -> str:
+def fake_source_id(seed: str) -> str:
     digest = base64.urlsafe_b64encode(hashlib.sha256(seed.encode()).digest()).decode()
-    return (FAKE_PREFIX + digest.replace("=", ""))[:11]
+    return (FAKE_PREFIX + digest.replace("=", "").replace("-", "x").replace("_", "y"))[:10]
 
+
+def fake_track_id(seed: str) -> str:
+    return f"audius:{fake_source_id(seed)}"
 
 
 def _build_catalog() -> list[tuple[Track, set[str]]]:
     catalog: list[tuple[Track, set[str]]] = []
-    base_date = datetime(2004, 1, 1, tzinfo=UTC)
     index = 0
     for language in _LANGUAGES:
-        for style, mood, energy, tags in _STYLES:
+        for style, mood, _energy, tags in _STYLES:
             for artist_index, artist in enumerate(_ARTISTS[language]):
                 variant = _VARIANTS[(index + artist_index) % len(_VARIANTS)]
                 era = _ERAS[(index + artist_index) % len(_ERAS)]
                 title = f"{language} {style.title()} No. {artist_index + 1}{variant}"
-                video_id = fake_video_id(f"{language}|{style}|{artist}")
+                source_id = fake_source_id(f"{language}|{style}|{artist}")
                 tokens = {
-                    language.lower(), mood, era, *tags, *style.split(),
-                    *artist.lower().split()
+                    language.lower(),
+                    mood,
+                    era,
+                    *tags,
+                    *style.split(),
+                    *artist.lower().split(),
                 }
                 if "Live" in variant:
                     tokens.update({"live", "performance", "concert"})
                 if "Remix" in variant:
                     tokens.update({"remix", "edit"})
-                published = base_date + timedelta(days=index * 97 % 7000)
-                thumb = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+                page = f"https://audius.test/{source_id}"
                 catalog.append(
                     (
                         Track(
-                            video_id=video_id,
+                            id=f"audius:{source_id}",
+                            source="audius",
+                            source_id=source_id,
                             title=title,
-                            channel_title=artist,
-                            channel_id=None,
-                            description=f"Test catalog entry ({mood}, energy {energy}).",
-                            thumbnails={"high": Thumbnail(url=thumb, width=480, height=360)},
+                            artist=artist,
+                            artwork_url=f"https://art.test/{source_id}.jpg",
                             duration_seconds=150 + (index * 37) % 210,
-                            published_at=published,
-                            view_count=(index * 7919) % 5_000_000 + 1_000,
-                            is_live=False,
-                            watch_url=f"https://www.youtube.com/watch?v={video_id}",
-                            attribution=Attribution(
-                                provider="youtube",
-                                label="YouTube",
-                                url=f"https://www.youtube.com/watch?v={video_id}",
-                            ),
+                            genre=tags[0].title(),
+                            mood=mood.title(),
+                            play_count=(index * 7919) % 5_000_000 + 1_000,
+                            stream_url=f"https://stream.test/{source_id}.mp3",
+                            external_url=page,
+                            attribution=Attribution(provider="audius", label="Audius", url=page),
                         ),
                         tokens,
                     )
@@ -94,65 +94,44 @@ def _build_catalog() -> list[tuple[Track, set[str]]]:
     return catalog
 
 
-_CATALOG = _build_catalog()
+CATALOG = _build_catalog()
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
-class FakeMetadataProvider:
-    name: Literal["youtube"] = "youtube"
+class FakeCatalogSource:
+    """Behaves like AudiusSource over the fixed test catalog above."""
+
+    name: Literal["audius"] = "audius"
+    full_tracks = True
 
     def __init__(self) -> None:
         self.search_calls = 0
-        self.video_calls = 0
+        self.lookup_calls = 0
+        self.removed: set[str] = set()
 
     async def aclose(self) -> None:
         return None
 
-    async def search(
-        self, query: str, *, page_token: str | None = None, max_results: int = 20
-    ) -> SearchPage:
+    def _available(self) -> list[tuple[Track, set[str]]]:
+        return [(t, tokens) for t, tokens in CATALOG if t.source_id not in self.removed]
+
+    async def search(self, query: str, *, limit: int, offset: int = 0) -> list[Track]:
         self.search_calls += 1
         words = set(_WORD_RE.findall(query.lower()))
         scored: list[tuple[int, int, Track]] = []
-        for position, (track, tokens) in enumerate(_CATALOG):
+        for position, (track, tokens) in enumerate(self._available()):
             title_words = set(_WORD_RE.findall(track.title.lower()))
             score = len(words & tokens) * 2 + len(words & title_words)
             if score > 0:
                 scored.append((score, -position, track))
         scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        try:
-            offset = int(page_token) if page_token else 0
-        except ValueError:
-            offset = 0
-        max_results = max(1, min(max_results, 50))
-        page = [track for _, _, track in scored[offset : offset + max_results]]
-        next_offset = offset + max_results
-        return SearchPage(
-            items=page,
-            next_page_token=str(next_offset) if next_offset < len(scored) else None,
-            prev_page_token=str(max(0, offset - max_results)) if offset > 0 else None,
-            total_results_estimate=len(scored),
-        )
+        return [track for _, _, track in scored[offset : offset + limit]]
 
-    async def trending(
-        self, *, page_token: str | None = None, max_results: int = 20
-    ) -> SearchPage:
-        ranked = sorted((t for t, _ in _CATALOG), key=lambda t: t.view_count or 0, reverse=True)
-        try:
-            offset = int(page_token) if page_token else 0
-        except ValueError:
-            offset = 0
-        max_results = max(1, min(max_results, 50))
-        page = ranked[offset : offset + max_results]
-        next_offset = offset + max_results
-        return SearchPage(
-            items=page,
-            next_page_token=str(next_offset) if next_offset < len(ranked) else None,
-            prev_page_token=str(max(0, offset - max_results)) if offset > 0 else None,
-            total_results_estimate=len(ranked),
-        )
+    async def trending(self, *, limit: int, genre: str | None = None) -> list[Track]:
+        tracks = [t for t, _ in self._available() if not genre or t.genre == genre]
+        return sorted(tracks, key=lambda t: t.play_count or 0, reverse=True)[:limit]
 
-    async def get_videos(self, video_ids: list[str]) -> dict[str, Track]:
-        self.video_calls += 1
-        wanted = set(video_ids)
-        return {t.video_id: t for t, _ in _CATALOG if t.video_id in wanted}
+    async def get_tracks(self, source_ids: list[str]) -> dict[str, Track]:
+        self.lookup_calls += 1
+        wanted = set(source_ids)
+        return {t.source_id: t for t, _ in self._available() if t.source_id in wanted}

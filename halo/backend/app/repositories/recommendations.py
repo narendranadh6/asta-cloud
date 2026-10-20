@@ -24,10 +24,13 @@ from app.services.recommendations.ranker import RankerModel
 
 MIN_DISTINCT_USERS = 2  # a co-listen pair must come from at least this many listeners
 
+# Halo track id ("<source>:<id>") computed in SQL from the stored reference.
+TRACK_ID = TrackReference.provider.concat(":").concat(TrackReference.provider_id)
+
 
 @dataclass(slots=True)
 class CoListened:
-    video_id: str
+    track_id: str
     score: float
     seed_title: str
     listeners: int
@@ -44,7 +47,7 @@ def _opted_in_playlists():  # type: ignore[no-untyped-def]
 
 
 async def co_listened(
-    session: AsyncSession, seed_video_ids: list[str], *, limit: int = 30
+    session: AsyncSession, seed_track_ids: list[str], *, limit: int = 30
 ) -> list[CoListened]:
     """Item-to-item co-occurrence across opted-in listeners' playlists.
 
@@ -53,21 +56,21 @@ async def co_listened(
     co(a, b) / sqrt(n(a) * n(b)). Pairs seen by fewer than MIN_DISTINCT_USERS listeners
     are dropped so no single person's playlist can be read back through recommendations.
     """
-    seeds = list(dict.fromkeys(seed_video_ids))[:50]
+    seeds = list(dict.fromkeys(seed_track_ids))[:50]
     if not seeds:
         return []
     owners = _opted_in_playlists()
     seed_rows = (
-        select(PlaylistItem.playlist_id, TrackReference.provider_id, TrackReference.title)
+        select(PlaylistItem.playlist_id, TRACK_ID.label("track_id"), TrackReference.title)
         .join(TrackReference, TrackReference.id == PlaylistItem.track_id)
         .join(owners, owners.c.id == PlaylistItem.playlist_id)
-        .where(TrackReference.provider_id.in_(seeds))
+        .where(TRACK_ID.in_(seeds))
         .subquery()
     )
     pair_rows = (
         await session.execute(
             select(
-                TrackReference.provider_id,
+                TRACK_ID.label("track_id"),
                 func.count().label("co"),
                 func.count(func.distinct(owners.c.user_id)).label("users"),
                 func.min(seed_rows.c.title).label("seed_title"),
@@ -76,32 +79,32 @@ async def co_listened(
             .join(TrackReference, TrackReference.id == PlaylistItem.track_id)
             .join(owners, owners.c.id == PlaylistItem.playlist_id)
             .join(seed_rows, seed_rows.c.playlist_id == PlaylistItem.playlist_id)
-            .where(TrackReference.provider_id.not_in(seeds))
-            .group_by(TrackReference.provider_id)
+            .where(TRACK_ID.not_in(seeds))
+            .group_by(TRACK_ID)
         )
     ).all()
     candidates = [row for row in pair_rows if int(row.users) >= MIN_DISTINCT_USERS]
     if not candidates:
         return []
-    ids = [row.provider_id for row in candidates]
+    ids = [str(row.track_id) for row in candidates]
     popularity = dict(
         (
             await session.execute(
-                select(TrackReference.provider_id, func.count())
+                select(TRACK_ID, func.count())
                 .select_from(PlaylistItem)
                 .join(TrackReference, TrackReference.id == PlaylistItem.track_id)
                 .join(owners, owners.c.id == PlaylistItem.playlist_id)
-                .where(TrackReference.provider_id.in_(ids + seeds))
-                .group_by(TrackReference.provider_id)
+                .where(TRACK_ID.in_(ids + seeds))
+                .group_by(TRACK_ID)
             )
         ).all()
     )
     seed_count = sum(popularity.get(s, 0) for s in seeds) or 1
     scored = [
         CoListened(
-            video_id=row.provider_id,
+            track_id=str(row.track_id),
             score=round(
-                int(row.co) / math.sqrt(max(popularity.get(row.provider_id, 1), 1) * seed_count), 4
+                int(row.co) / math.sqrt(max(popularity.get(row.track_id, 1), 1) * seed_count), 4
             ),
             seed_title=str(row.seed_title),
             listeners=int(row.users),
@@ -117,7 +120,7 @@ async def listener_seeds(session: AsyncSession, user_id: uuid.UUID, limit: int =
     liked = (
         (
             await session.execute(
-                select(RecommendationFeedback.video_id)
+                select(RecommendationFeedback.track_id)
                 .where(
                     RecommendationFeedback.user_id == user_id,
                     RecommendationFeedback.rating.in_(("like", "save")),
@@ -132,7 +135,7 @@ async def listener_seeds(session: AsyncSession, user_id: uuid.UUID, limit: int =
     in_playlists = (
         (
             await session.execute(
-                select(TrackReference.provider_id)
+                select(TRACK_ID)
                 .join(PlaylistItem, PlaylistItem.track_id == TrackReference.id)
                 .join(Playlist, Playlist.id == PlaylistItem.playlist_id)
                 .where(Playlist.user_id == user_id)
@@ -170,7 +173,7 @@ async def record_bandit_reward(
     session: AsyncSession,
     user_id: uuid.UUID,
     session_id: uuid.UUID | None,
-    video_id: str,
+    track_id: str,
     rating: str,
 ) -> str | None:
     """Credit feedback to the source that produced the recommendation. Returns the arm."""
@@ -180,7 +183,7 @@ async def record_bandit_reward(
     rec = await session.get(RecommendationSession, session_id)
     if rec is None or rec.user_id != user_id:
         return None
-    detail = (rec.result_details or {}).get(video_id)
+    detail = (rec.result_details or {}).get(track_id)
     arm = detail.get("source") if isinstance(detail, dict) else None
     if arm not in ARMS:
         return None
@@ -230,7 +233,7 @@ async def training_examples(
     rows = (
         await session.execute(
             select(
-                RecommendationFeedback.video_id,
+                RecommendationFeedback.track_id,
                 RecommendationFeedback.rating,
                 RecommendationSession.result_details,
             )
@@ -241,9 +244,9 @@ async def training_examples(
         )
     ).all()
     examples: list[tuple[dict[str, float], int]] = []
-    for video_id, rating, details in rows:
+    for track_id, rating, details in rows:
         outcome = reward(rating)
-        detail = (details or {}).get(video_id)
+        detail = (details or {}).get(track_id)
         if outcome is None or not isinstance(detail, dict):
             continue
         features = detail.get("features")

@@ -19,26 +19,29 @@ from app.schemas import (
     PlaylistUpdate,
     Track,
 )
-from app.services.youtube.ids import playlist_url, watch_url
+from app.services.catalog.ids import make_track_id
 
 MAX_PLAYLIST_ITEMS = 500
 
 
-async def upsert_track(session: AsyncSession, track: Track, provider: str) -> TrackReference:
+async def upsert_track(session: AsyncSession, track: Track) -> TrackReference:
     ref = (
         await session.execute(
             select(TrackReference).where(
-                TrackReference.provider == provider, TrackReference.provider_id == track.video_id
+                TrackReference.provider == track.source,
+                TrackReference.provider_id == track.source_id,
             )
         )
     ).scalar_one_or_none()
     if ref is None:
-        ref = TrackReference(provider=provider, provider_id=track.video_id)
+        ref = TrackReference(provider=track.source, provider_id=track.source_id)
         session.add(ref)
     ref.title = track.title[:300]
-    ref.channel_title = track.channel_title[:200]
-    ref.channel_id = track.channel_id
-    ref.thumbnail_url = track.best_thumbnail
+    ref.artist = track.artist[:200]
+    ref.album = track.album[:300] if track.album else None
+    ref.artwork_url = track.artwork_url[:500] if track.artwork_url else None
+    ref.stream_url = track.stream_url[:1000] if track.stream_url else None
+    ref.is_preview = track.is_preview
     ref.duration_seconds = track.duration_seconds
     ref.metadata_fetched_at = datetime.now(UTC)
     ref.is_available = True
@@ -67,13 +70,15 @@ def _item_out(item: PlaylistItem) -> PlaylistItemOut:
         id=item.id,
         position=item.position,
         note=item.note,
-        video_id=track.provider_id,
+        track_id=make_track_id(track.provider, track.provider_id),  # type: ignore[arg-type]
         title=track.title,
-        channel_title=track.channel_title,
-        thumbnail_url=track.thumbnail_url,
+        artist=track.artist,
+        album=track.album,
+        artwork_url=track.artwork_url,
         duration_seconds=track.duration_seconds,
+        stream_url=track.stream_url,
+        is_preview=track.is_preview,
         is_available=track.is_available,
-        watch_url=watch_url(track.provider_id),
         added_at=item.created_at,
     )
 
@@ -85,13 +90,9 @@ def _summary_fields(playlist: Playlist, items: list[PlaylistItem]) -> dict[str, 
         "description": playlist.description,
         "mood": playlist.mood,
         "is_ai_generated": playlist.is_ai_generated,
-        "youtube_playlist_id": playlist.youtube_playlist_id,
-        "youtube_playlist_url": (
-            playlist_url(playlist.youtube_playlist_id) if playlist.youtube_playlist_id else None
-        ),
         "item_count": len(items),
         "total_duration_seconds": sum(i.track.duration_seconds or 0 for i in items),
-        "artwork_url": next((i.track.thumbnail_url for i in items if i.track.thumbnail_url), None),
+        "artwork_url": next((i.track.artwork_url for i in items if i.track.artwork_url), None),
         "created_at": playlist.created_at,
         "updated_at": playlist.updated_at,
     }
@@ -143,7 +144,6 @@ async def create_playlist(
     user_id: uuid.UUID,
     body: PlaylistCreate,
     tracks: list[Track],
-    provider: str,
 ) -> PlaylistDetail:
     session_id = body.recommendation_session_id
     if session_id is not None:
@@ -156,13 +156,12 @@ async def create_playlist(
         description=body.description,
         mood=body.mood,
         is_ai_generated=body.is_ai_generated,
-        youtube_playlist_id=body.youtube_playlist_id,
         recommendation_session_id=session_id,
     )
     session.add(playlist)
     await session.flush()
     for position, track in enumerate(tracks):
-        ref = await upsert_track(session, track, provider)
+        ref = await upsert_track(session, track)
         session.add(PlaylistItem(playlist_id=playlist.id, track_id=ref.id, position=position))
     await session.flush()
     return await get_playlist(session, user_id, playlist.id)
@@ -197,7 +196,6 @@ async def add_item(
     user_id: uuid.UUID,
     playlist_id: uuid.UUID,
     track: Track,
-    provider: str,
     position: int | None,
     note: str | None,
 ) -> PlaylistDetail:
@@ -207,7 +205,7 @@ async def add_item(
         raise AppError(
             f"A playlist can hold at most {MAX_PLAYLIST_ITEMS} songs", code="playlist_full"
         )
-    ref = await upsert_track(session, track, provider)
+    ref = await upsert_track(session, track)
     item = PlaylistItem(playlist_id=playlist.id, track_id=ref.id, position=len(items), note=note)
     item.track = ref
     index = len(items) if position is None else min(position, len(items))

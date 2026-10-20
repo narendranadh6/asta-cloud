@@ -11,3 +11,5 @@ ios/screenshots/
 
 # Local Redis snapshots
 dump.rdb
+# Local SQLite databases
+*.sqlite3

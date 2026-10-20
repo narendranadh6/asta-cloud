@@ -1,4 +1,4 @@
-"""End-to-end API tests against an in-memory fake YouTube provider and SQLite."""
+"""End-to-end API tests against an in-memory fake catalog source and SQLite."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ import httpx
 import jwt
 
 from tests.conftest import AppFactory, make_settings, register
-from tests.fakes import FakeMetadataProvider
+from tests.fakes import FakeCatalogSource
 
 
 async def search_ids(client: httpx.AsyncClient, auth: dict[str, str], q: str, n: int) -> list[str]:
     response = await client.get("/api/v1/search", params={"q": q, "limit": n}, headers=auth)
     assert response.status_code == 200, response.text
-    return [item["video_id"] for item in response.json()["items"]]
+    return [item["id"] for item in response.json()["items"]]
 
 
 async def test_health(client: httpx.AsyncClient) -> None:
@@ -23,8 +23,8 @@ async def test_health(client: httpx.AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["metadata_provider"] == "youtube"
-    assert body["checks"]["youtube"] == "ok"
+    assert body["music_sources"] == ["audius"]
+    assert body["checks"]["catalog"] == "ok"
     assert body["ai_planner"] == "heuristic"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
@@ -72,7 +72,7 @@ async def test_playlists_are_isolated_between_users(
         ("GET", f"/api/v1/playlists/{playlist_id}", None),
         ("PATCH", f"/api/v1/playlists/{playlist_id}", {"name": "stolen"}),
         ("DELETE", f"/api/v1/playlists/{playlist_id}", None),
-        ("POST", f"/api/v1/playlists/{playlist_id}/items", {"video_id": "dQw4w9WgXcQ"}),
+        ("POST", f"/api/v1/playlists/{playlist_id}/items", {"track_id": "audius:tstAAAA"}),
     ]:
         response = await client.request(method, path, json=body, headers=other)
         assert response.status_code == 404, (method, path)
@@ -94,16 +94,17 @@ async def test_search_with_pagination_and_attribution(
     body = first.json()
     assert first.status_code == 200
     assert len(body["items"]) == 5
-    assert body["provider"] == "youtube"
-    assert all(i["attribution"]["label"] == "YouTube" for i in body["items"])
+    assert body["sources"] == ["audius"]
+    assert all(i["attribution"]["label"] == "Audius" for i in body["items"])
+    assert all(i["stream_url"] and i["id"].startswith("audius:") for i in body["items"])
     assert body["next_page_token"]
     second = await client.get(
         "/api/v1/search",
         params={"q": "telugu melody", "limit": 5, "page_token": body["next_page_token"]},
         headers=auth,
     )
-    ids_one = {i["video_id"] for i in body["items"]}
-    ids_two = {i["video_id"] for i in second.json()["items"]}
+    ids_one = {i["id"] for i in body["items"]}
+    ids_two = {i["id"] for i in second.json()["items"]}
     assert ids_one.isdisjoint(ids_two)
 
 
@@ -135,33 +136,34 @@ async def test_search_history_and_suggestions(
     assert (await client.get("/api/v1/history/search", headers=auth)).json() == []
 
 
-async def test_video_details(client: httpx.AsyncClient, auth: dict[str, str]) -> None:
-    [video_id] = await search_ids(client, auth, "korean dance", 1)
-    response = await client.get(f"/api/v1/videos/{video_id}", headers=auth)
+async def test_track_details(client: httpx.AsyncClient, auth: dict[str, str]) -> None:
+    [track_id] = await search_ids(client, auth, "korean dance", 1)
+    response = await client.get(f"/api/v1/tracks/{track_id}", headers=auth)
     assert response.status_code == 200
-    assert response.json()["video_id"] == video_id
-    missing = await client.get("/api/v1/videos/AAAAAAAAAAA", headers=auth)
+    assert response.json()["id"] == track_id and response.json()["stream_url"]
+    missing = await client.get("/api/v1/tracks/audius:tstMissing", headers=auth)
     assert missing.status_code == 404
-    assert missing.json()["error"]["code"] == "video_unavailable"
-    invalid = await client.get("/api/v1/videos/bad!id", headers=auth)
-    assert invalid.status_code == 422
+    assert missing.json()["error"]["code"] == "track_unavailable"
+    for invalid in ("bad!id", "youtube:dQw4w9WgXcQ", "audius:"):
+        assert (await client.get(f"/api/v1/tracks/{invalid}", headers=auth)).status_code in (
+            404,
+            422,
+        )
 
 
-class QuotaProvider(FakeMetadataProvider):
-    async def search(self, query, *, page_token=None, max_results=20):  # type: ignore[no-untyped-def]
-        from app.services.youtube.base import QuotaExceededError
-
-        raise QuotaExceededError("quota")
+class DownSource(FakeCatalogSource):
+    async def search(self, query, *, limit, offset=0):  # type: ignore[no-untyped-def]
+        raise RuntimeError("down")
 
 
-async def test_provider_errors_are_structured(app_factory: AppFactory) -> None:
-    _, client = await app_factory(provider=QuotaProvider())
+async def test_source_errors_are_structured(app_factory: AppFactory) -> None:
+    _, client = await app_factory(sources=[DownSource()])
     async with client:
         auth = await register(client)
         response = await client.get("/api/v1/search", params={"q": "x"}, headers=auth)
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "search_quota_exceeded"
-    assert response.headers["Retry-After"] == "3600"
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "catalog_unavailable"
+    assert response.headers["Retry-After"] == "5"
     assert "request_id" in response.json()["error"]
 
 
@@ -202,23 +204,24 @@ async def test_playlist_crud_and_ordering(client: httpx.AsyncClient, auth: dict[
     ids = await search_ids(client, auth, "hindi love song", 4)
     created = await client.post(
         "/api/v1/playlists",
-        json={"name": "  Late   Night ", "mood": "romantic", "video_ids": ids[:3]},
+        json={"name": "  Late   Night ", "mood": "romantic", "track_ids": ids[:3]},
         headers=auth,
     )
     assert created.status_code == 201, created.text
     playlist = created.json()
     assert playlist["name"] == "Late Night"
-    assert [i["video_id"] for i in playlist["items"]] == ids[:3]
+    assert [i["track_id"] for i in playlist["items"]] == ids[:3]
+    assert all(i["stream_url"] and i["artist"] for i in playlist["items"])
     assert [i["position"] for i in playlist["items"]] == [0, 1, 2]
     assert playlist["item_count"] == 3
     assert playlist["total_duration_seconds"] > 0
     pid = playlist["id"]
 
     added = await client.post(
-        f"/api/v1/playlists/{pid}/items", json={"video_id": ids[3], "position": 1}, headers=auth
+        f"/api/v1/playlists/{pid}/items", json={"track_id": ids[3], "position": 1}, headers=auth
     )
     assert added.status_code == 201
-    assert [i["video_id"] for i in added.json()["items"]] == [ids[0], ids[3], ids[1], ids[2]]
+    assert [i["track_id"] for i in added.json()["items"]] == [ids[0], ids[3], ids[1], ids[2]]
 
     items = added.json()["items"]
     reversed_ids = [i["id"] for i in reversed(items)]
@@ -246,13 +249,10 @@ async def test_playlist_crud_and_ordering(client: httpx.AsyncClient, auth: dict[
 
     renamed = await client.patch(
         f"/api/v1/playlists/{pid}",
-        json={"name": "Renamed", "youtube_playlist_id": "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"},
+        json={"name": "Renamed", "mood": "calm"},
         headers=auth,
     )
-    assert renamed.json()["name"] == "Renamed"
-    assert renamed.json()["youtube_playlist_url"] == (
-        "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"
-    )
+    assert renamed.json()["name"] == "Renamed" and renamed.json()["mood"] == "calm"
 
     deleted = await client.delete(f"/api/v1/playlists/{pid}", headers=auth)
     assert deleted.status_code == 204
@@ -263,18 +263,15 @@ async def test_playlist_rejects_unverified_and_malformed_ids(
     client: httpx.AsyncClient, auth: dict[str, str]
 ) -> None:
     fabricated = await client.post(
-        "/api/v1/playlists", json={"name": "x", "video_ids": ["AAAAAAAAAAA"]}, headers=auth
+        "/api/v1/playlists", json={"name": "x", "track_ids": ["audius:tstNope"]}, headers=auth
     )
     assert fabricated.status_code == 422
-    assert fabricated.json()["error"]["code"] == "video_unavailable"
-    malformed = await client.post(
-        "/api/v1/playlists", json={"name": "x", "video_ids": ["javascript:1"]}, headers=auth
-    )
-    assert malformed.status_code == 422
-    bad_playlist = await client.post(
-        "/api/v1/playlists", json={"name": "x", "youtube_playlist_id": "evil&list"}, headers=auth
-    )
-    assert bad_playlist.status_code == 422
+    assert fabricated.json()["error"]["code"] == "track_unavailable"
+    for bad in ("javascript:1", "dQw4w9WgXcQ", "spotify:abc"):
+        malformed = await client.post(
+            "/api/v1/playlists", json={"name": "x", "track_ids": [bad]}, headers=auth
+        )
+        assert malformed.status_code == 422, bad
     blank = await client.post("/api/v1/playlists", json={"name": "   "}, headers=auth)
     assert blank.status_code == 422
 
@@ -326,14 +323,14 @@ async def test_preferences_roundtrip(client: httpx.AsyncClient, auth: dict[str, 
 async def test_taste_profile_and_reset(client: httpx.AsyncClient, auth: dict[str, str]) -> None:
     await client.put("/api/v1/preferences", json=PREFS, headers=auth)
     ids = await search_ids(client, auth, "telugu melody", 2)
-    await client.post("/api/v1/playlists", json={"name": "t", "video_ids": ids}, headers=auth)
+    await client.post("/api/v1/playlists", json={"name": "t", "track_ids": ids}, headers=auth)
     await client.post(
         "/api/v1/recommendations/feedback",
-        json={"video_id": ids[0], "rating": "like", "channel_title": "Aarav Strings"},
+        json={"track_id": ids[0], "rating": "like", "artist": "Aarav Strings"},
         headers=auth,
     )
     taste = (await client.get("/api/v1/preferences/taste", headers=auth)).json()
-    assert "cannot see what you play in Brave" in taste["basis"]
+    assert "activity inside Halo" in taste["basis"]
     assert taste["activity_counts"]["feedback"] == 1
     assert taste["activity_counts"]["searches"] == 1
     assert any(s["label"] == "Aarav Strings" for s in taste["top_artists"])
@@ -348,16 +345,16 @@ async def test_taste_profile_and_reset(client: httpx.AsyncClient, auth: dict[str
 async def test_feedback_not_stored_without_consent(
     client: httpx.AsyncClient, auth: dict[str, str]
 ) -> None:
-    [video_id] = await search_ids(client, auth, "lofi", 1)
+    [track_id] = await search_ids(client, auth, "lofi", 1)
     response = await client.post(
         "/api/v1/recommendations/feedback",
-        json={"video_id": video_id, "rating": "dislike"},
+        json={"track_id": track_id, "rating": "dislike"},
         headers=auth,
     )
     assert response.json()["recorded"] is False
     invalid = await client.post(
         "/api/v1/recommendations/feedback",
-        json={"video_id": video_id, "rating": "meh"},
+        json={"track_id": track_id, "rating": "meh"},
         headers=auth,
     )
     assert invalid.status_code == 422
@@ -366,7 +363,7 @@ async def test_feedback_not_stored_without_consent(
 async def test_export_and_delete_account(client: httpx.AsyncClient, auth: dict[str, str]) -> None:
     await client.put("/api/v1/preferences", json=PREFS, headers=auth)
     ids = await search_ids(client, auth, "spanish", 2)
-    await client.post("/api/v1/playlists", json={"name": "Export me", "video_ids": ids},
+    await client.post("/api/v1/playlists", json={"name": "Export me", "track_ids": ids},
                       headers=auth)
     export = await client.get("/api/v1/me/export", headers=auth)
     data = export.json()
@@ -392,8 +389,8 @@ async def test_trending_feed(client: httpx.AsyncClient, auth: dict[str, str]) ->
     first = await client.get("/api/v1/discover/trending", params={"limit": 5}, headers=auth)
     body = first.json()
     assert first.status_code == 200
-    assert len(body["items"]) == 5 and body["provider"] == "youtube"
-    views = [i["view_count"] for i in body["items"]]
+    assert len(body["items"]) == 5 and body["sources"] == ["audius"]
+    views = [i["play_count"] for i in body["items"]]
     assert views == sorted(views, reverse=True)
     again = await client.get("/api/v1/discover/trending", params={"limit": 5}, headers=auth)
     assert again.json()["cached"] is True
@@ -401,17 +398,15 @@ async def test_trending_feed(client: httpx.AsyncClient, auth: dict[str, str]) ->
     assert unauth.status_code == 401
 
 
-async def test_unconfigured_youtube_is_a_clear_error_not_fake_data(app_factory: AppFactory) -> None:
-    from app.services.youtube.service import UnconfiguredProvider
-
-    _, client = await app_factory(provider=UnconfiguredProvider())
+async def test_no_sources_is_a_clear_error_not_fake_data(app_factory: AppFactory) -> None:
+    _, client = await app_factory(sources=[])
     async with client:
         health = (await client.get("/health")).json()
         auth = await register(client)
         search = await client.get("/api/v1/search", params={"q": "x"}, headers=auth)
         trending = await client.get("/api/v1/discover/trending", headers=auth)
-    assert health["status"] == "degraded" and health["checks"]["youtube"] == "not_configured"
+    assert health["status"] == "degraded" and health["checks"]["catalog"] == "not_configured"
     assert search.status_code == 503
-    assert search.json()["error"]["code"] == "search_misconfigured"
-    assert "HALO_YOUTUBE_API_KEY" in search.json()["error"]["message"]
+    assert search.json()["error"]["code"] == "catalog_not_configured"
+    assert "HALO_AUDIUS_ENABLED" in search.json()["error"]["message"]
     assert trending.status_code == 503

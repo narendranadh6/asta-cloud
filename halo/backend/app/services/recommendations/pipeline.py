@@ -3,15 +3,15 @@
 request -> intent (LLM or heuristic)
 -> candidate generation from several sources:
      search (planner queries), similar_artist (open artist graphs), listenbrainz (popular
-     tracks by similar artists from ListenBrainz listening data, matched to YouTube),
+     tracks by similar artists from ListenBrainz listening data, matched in the catalog),
      co_listen (playlist co-occurrence across opted-in listeners, passed in by the caller)
 -> verified metadata retrieval -> filtering
 -> ranking (heuristic relevance + learnable feature weights)
 -> exploration budget chosen by Thompson sampling over sources
 -> diversity -> duration-fitted playlist -> feedback updates the bandit and ranker data
 
-Every track in the output came back from the metadata provider in this request (search
-results are verified through videos.list), so no id is ever invented.
+Every track in the output came back from the catalog (Audius, Jamendo, iTunes previews) in
+this request, so no id is ever invented and every track has a stream URL.
 """
 
 from __future__ import annotations
@@ -26,6 +26,8 @@ from dataclasses import dataclass, field
 from app.schemas import RecommendedTrack, Track
 from app.services.ai.heuristic import PreferenceHints
 from app.services.ai.intent import MusicIntent
+from app.services.catalog.base import CatalogError
+from app.services.catalog.service import CatalogService
 from app.services.music_sources.similar_artists import SimilarArtist
 from app.services.recommendations.bandit import (
     ArmPosterior,
@@ -33,8 +35,6 @@ from app.services.recommendations.bandit import (
     explore_quota,
 )
 from app.services.recommendations.ranker import RankerModel
-from app.services.youtube.base import YouTubeError
-from app.services.youtube.service import YouTubeSearchService
 
 logger = logging.getLogger("halo.recommendations")
 
@@ -66,10 +66,10 @@ def song_key(track: Track) -> str:
 
 @dataclass(slots=True)
 class FeedbackSignals:
-    liked_video_ids: set[str] = field(default_factory=set)
-    disliked_video_ids: set[str] = field(default_factory=set)
-    liked_channels: set[str] = field(default_factory=set)
-    disliked_channels: set[str] = field(default_factory=set)
+    liked_track_ids: set[str] = field(default_factory=set)
+    disliked_track_ids: set[str] = field(default_factory=set)
+    liked_artists: set[str] = field(default_factory=set)
+    disliked_artists: set[str] = field(default_factory=set)
 
 
 @dataclass(slots=True)
@@ -106,7 +106,7 @@ def filter_candidates(
     intent: MusicIntent,
     hints: PreferenceHints,
     feedback: FeedbackSignals,
-    exclude_video_ids: set[str],
+    exclude_track_ids: set[str],
 ) -> tuple[list[Candidate], dict[str, int]]:
     excluded_names = {normalize_name(a) for a in [*intent.exclude_artists, *hints.excluded_artists]}
     excluded_names.discard("")
@@ -115,34 +115,35 @@ def filter_candidates(
         "duplicate": 0,
         "excluded_artist": 0,
         "duration": 0,
-        "live_now": 0,
         "disliked": 0,
-        "excluded_video": 0,
+        "excluded_track": 0,
+        "not_playable": 0,
     }
     seen_ids: set[str] = set()
     kept: list[Candidate] = []
     for cand in candidates:
         track = cand.track
-        if track.video_id in seen_ids:
+        if track.id in seen_ids:
             counts["duplicate"] += 1
             continue
-        seen_ids.add(track.video_id)
-        if track.video_id in exclude_video_ids:
-            counts["excluded_video"] += 1
+        seen_ids.add(track.id)
+        if track.id in exclude_track_ids:
+            counts["excluded_track"] += 1
             continue
-        channel = normalize_name(track.channel_title)
+        artist = normalize_name(track.artist)
         title = normalize_name(track.title)
-        if any(name and (name in channel or name in title) for name in excluded_names):
+        if any(name and (name in artist or name in title) for name in excluded_names):
             counts["excluded_artist"] += 1
             continue
-        if track.video_id in feedback.disliked_video_ids:
+        if track.id in feedback.disliked_track_ids:
             counts["disliked"] += 1
             continue
-        if track.is_live:
-            counts["live_now"] += 1
+        if not track.stream_url:
+            counts["not_playable"] += 1
             continue
         duration = track.duration_seconds
-        if duration is not None and duration < MIN_TRACK_SECONDS:
+        # Previews report the full song's length; only full tracks can be too short.
+        if duration is not None and duration < MIN_TRACK_SECONDS and not track.is_preview:
             counts["duration"] += 1
             continue
         title_lower = track.title.lower()
@@ -175,33 +176,36 @@ def score_candidates(
     terms = _intent_terms(intent)
     favorites = {normalize_name(a) for a in [*hints.favorite_artists, *intent.reference_artists]}
     favorites.discard("")
-    views = [c.track.view_count for c in candidates if c.track.view_count]
+    views = [c.track.play_count for c in candidates if c.track.play_count]
     median_log_views = sorted(math.log10(v + 1) for v in views)[len(views) // 2] if views else 0.0
     for cand in candidates:
         track = cand.track
         reasons: list[str] = []
         score = 1.0 / (1.0 + cand.rank * 0.15)  # provider relevance for its query
-        text_words = set(_WORD.findall(f"{track.title} {track.channel_title}".lower()))
+        text = f"{track.title} {track.artist} {track.genre or ''} {track.mood or ''}"
+        text_words = set(_WORD.findall(text.lower()))
         overlap = terms & text_words
         if overlap:
             score += 0.12 * len(overlap)
             reasons.append("Matches " + ", ".join(sorted(overlap)[:3]))
-        channel = normalize_name(track.channel_title)
-        if any(fav and (fav in channel or fav in normalize_name(track.title)) for fav in favorites):
+        artist = normalize_name(track.artist)
+        if any(fav and (fav in artist or fav in normalize_name(track.title)) for fav in favorites):
             if intent.discovery == "discovery":
                 score -= 0.15
             else:
                 score += 0.35
-                reasons.append(f"From {track.channel_title}, an artist you like")
-        if track.video_id in feedback.liked_video_ids:
+                reasons.append(f"From {track.artist}, an artist you like")
+        if track.id in feedback.liked_track_ids:
             score += 0.3 if intent.discovery != "discovery" else -0.2
             reasons.append("You liked this before")
-        if channel in feedback.liked_channels:
+        if artist in feedback.liked_artists:
             score += 0.15
-        if channel in feedback.disliked_channels:
+        if artist in feedback.disliked_artists:
             score -= 0.4
-        if track.view_count and median_log_views:
-            delta = math.log10(track.view_count + 1) - median_log_views
+        if track.is_preview:
+            score -= 0.25  # a 30-second preview is a weaker pick than a full song
+        if track.play_count and median_log_views:
+            delta = math.log10(track.play_count + 1) - median_log_views
             if intent.discovery == "familiar":
                 score += 0.08 * delta
                 if delta > 0.5:
@@ -221,11 +225,11 @@ def score_candidates(
             "similar_artist": 1.0 if cand.source == "similar_artist" else 0.0,
             "co_listen": 1.0 if cand.source == "co_listen" else 0.0,
             "listenbrainz": 1.0 if cand.source == "listenbrainz" else 0.0,
-            "liked_channel": 1.0 if channel in feedback.liked_channels else 0.0,
+            "liked_channel": 1.0 if artist in feedback.liked_artists else 0.0,
         }
         popularity = (
-            math.log10(track.view_count + 1) - median_log_views
-            if track.view_count and median_log_views
+            math.log10(track.play_count + 1) - median_log_views
+            if track.play_count and median_log_views
             else 0.0
         )
         direction = {"familiar": 1.0, "discovery": -1.0}.get(intent.discovery, 0.0)
@@ -236,11 +240,11 @@ def score_candidates(
 def diversify(
     candidates: list[Candidate], intent: MusicIntent, target_seconds: int
 ) -> list[Candidate]:
-    """Greedy selection with per-channel caps and near-duplicate suppression."""
-    per_channel_cap = 2 if intent.discovery == "discovery" else 3
+    """Greedy selection with per-artist caps and near-duplicate suppression."""
+    per_artist_cap = 2 if intent.discovery == "discovery" else 3
     remaining = sorted(candidates, key=lambda c: c.score, reverse=True)
     chosen: list[Candidate] = []
-    channel_counts: dict[str, int] = {}
+    artist_counts: dict[str, int] = {}
     song_keys: set[str] = set()
     total = 0
     while remaining and len(chosen) < MAX_PLAYLIST_TRACKS and total < target_seconds:
@@ -250,9 +254,9 @@ def diversify(
             key = song_key(cand.track)
             if key and key in song_keys:
                 continue
-            channel = normalize_name(cand.track.channel_title)
-            used = channel_counts.get(channel, 0)
-            if used >= per_channel_cap:
+            artist = normalize_name(cand.track.artist)
+            used = artist_counts.get(artist, 0)
+            if used >= per_artist_cap:
                 continue
             value = cand.score - 0.2 * used
             if value > best_value:
@@ -261,8 +265,8 @@ def diversify(
             break
         cand = remaining.pop(best_index)
         chosen.append(cand)
-        channel = normalize_name(cand.track.channel_title)
-        channel_counts[channel] = channel_counts.get(channel, 0) + 1
+        artist = normalize_name(cand.track.artist)
+        artist_counts[artist] = artist_counts.get(artist, 0) + 1
         song_keys.add(song_key(cand.track))
         total += cand.track.duration_seconds or 210
     return chosen
@@ -287,7 +291,7 @@ def rank_and_explore(
     # Exploration only considers items the ranker alone would not have selected.
     pool = ranked[max(expected - quota, 0) :]
     picks: list[Candidate] = []
-    used_channels: set[str] = set()
+    used_artists: set[str] = set()
     for _ in range(quota):
         available = {c.source for c in pool if c not in picks}
         arm = choose_arm(posteriors, available, rng)
@@ -298,10 +302,10 @@ def rank_and_explore(
             for c in pool
             if c.source == arm
             and c not in picks
-            and normalize_name(c.track.channel_title) not in used_channels
+            and normalize_name(c.track.artist) not in used_artists
         ]
         # Prefer artists the listener hasn't marked as favorites: exploration should be new.
-        options.sort(key=lambda c: (normalize_name(c.track.channel_title) in favorites, -c.score))
+        options.sort(key=lambda c: (normalize_name(c.track.artist) in favorites, -c.score))
         if not options:
             pool = [c for c in pool if c.source != arm]
             continue
@@ -309,7 +313,7 @@ def rank_and_explore(
         choice.explore = True
         choice.reasons = ["Something new for you", *choice.reasons]
         picks.append(choice)
-        used_channels.add(normalize_name(choice.track.channel_title))
+        used_artists.add(normalize_name(choice.track.artist))
     explore_seconds = sum(c.track.duration_seconds or 210 for c in picks)
     exploit = diversify(
         [c for c in ranked if c not in picks], intent, max(target_seconds - explore_seconds, 0)
@@ -326,26 +330,26 @@ def rank_and_explore(
 class RecommendationPipeline:
     def __init__(
         self,
-        search: YouTubeSearchService,
+        catalog: CatalogService,
         *,
         similar_artists: object | None = None,
         track_discovery: object | None = None,
         track_lookups: int = 4,
         concurrency: int = 3,
     ) -> None:
-        self._search = search
+        self._catalog = catalog
         self._similar = similar_artists
         self._discovery = track_discovery
         self._track_lookups = track_lookups
         self._semaphore = asyncio.Semaphore(concurrency)
 
-    async def _match_on_youtube(self, artist: str, title: str) -> Track | None:
-        """Find the verified YouTube upload for a known song, or None if unsure."""
+    async def _match_in_catalog(self, artist: str, title: str) -> Track | None:
+        """Find a playable copy of a known song in the catalog, or None if unsure."""
         _, items, _ = await self._retrieve(f"{artist} {title}", 3)
         artist_words = set(normalize_name(artist).split())
         title_words = set(normalize_name(title).split()) - {"the", "a", "of"}
         for track in items:
-            text = set(normalize_name(f"{track.title} {track.channel_title}").split())
+            text = set(normalize_name(f"{track.title} {track.artist}").split())
             if artist_words & text and len(title_words & text) >= max(1, len(title_words) // 2):
                 return track
         return None
@@ -364,7 +368,7 @@ class RecommendationPipeline:
         )
         picks = [r for r in recordings if normalize_name(r.artist_name) not in excluded]
         matched = await asyncio.gather(
-            *(self._match_on_youtube(r.artist_name, r.title) for r in picks[: self._track_lookups])
+            *(self._match_in_catalog(r.artist_name, r.title) for r in picks[: self._track_lookups])
         )
         return [
             Candidate(
@@ -390,7 +394,7 @@ class RecommendationPipeline:
         for seed in seeds:
             similar: list[SimilarArtist] = await self._similar.similar(seed, limit=8)  # type: ignore[attr-defined]
             for artist in [a for a in similar if normalize_name(a.name) not in excluded][:2]:
-                out.append((f"{artist.name} songs", f"Similar to {seed}"))
+                out.append((artist.name, f"Similar to {seed}"))
         return out
 
     async def _retrieve(
@@ -398,9 +402,9 @@ class RecommendationPipeline:
     ) -> tuple[str, list[Track], str | None]:
         async with self._semaphore:
             try:
-                result = await self._search.search(query, max_results=limit)
+                result = await self._catalog.search(query, max_results=limit)
                 return query, result.page.items, None
-            except YouTubeError as exc:
+            except CatalogError as exc:
                 logger.warning("retrieval failed for one planner query: %s", type(exc).__name__)
                 return query, [], str(exc)
 
@@ -409,7 +413,7 @@ class RecommendationPipeline:
         intent: MusicIntent,
         hints: PreferenceHints,
         feedback: FeedbackSignals | None = None,
-        exclude_video_ids: set[str] | None = None,
+        exclude_track_ids: set[str] | None = None,
         *,
         extra_candidates: list[Candidate] | None = None,
         ranker: RankerModel | None = None,
@@ -426,7 +430,7 @@ class RecommendationPipeline:
         main_results = results[: len(intent.search_queries[:5])]
         warnings = sorted({err for _, _, err in main_results if err})
         if all(err for _, _, err in main_results) and not extra_candidates:
-            raise YouTubeError(warnings[0] if warnings else "Music search is unavailable")
+            raise CatalogError(warnings[0] if warnings else "Music search is unavailable")
 
         # Interleave queries so the first query does not dominate ties.
         candidates: list[Candidate] = []
@@ -448,7 +452,7 @@ class RecommendationPipeline:
         candidates.extend(extra_candidates or [])
 
         filtered, counts = filter_candidates(
-            candidates, intent, hints, feedback, exclude_video_ids or set()
+            candidates, intent, hints, feedback, exclude_track_ids or set()
         )
         score_candidates(filtered, intent, hints, feedback)
         favorites = {
@@ -465,7 +469,7 @@ class RecommendationPipeline:
         )
         total = sum(c.track.duration_seconds or 0 for c in chosen)
         if not chosen:
-            warnings.append("No verified results matched. Try a broader description.")
+            warnings.append("No songs matched. Try a broader description.")
         elif total < target * 0.8:
             warnings.append(
                 f"Only found about {total // 60} minutes of matching music "
@@ -484,7 +488,7 @@ class RecommendationPipeline:
                 for c in chosen
             ],
             details={
-                c.track.video_id: {"source": c.source, "explore": c.explore, "features": c.features}
+                c.track.id: {"source": c.source, "explore": c.explore, "features": c.features}
                 for c in chosen
             },
             total_duration_seconds=total,

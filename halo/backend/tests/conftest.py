@@ -12,7 +12,8 @@ from app.core.config import Settings
 from app.db.base import Base
 from app.main import create_app
 from app.services.ai.providers import IntentPlanner
-from tests.fakes import FakeMetadataProvider
+from app.services.catalog.service import CatalogService
+from tests.fakes import FakeCatalogSource
 
 TEST_DATABASE_URL = os.environ.get("HALO_TEST_DATABASE_URL", "sqlite+aiosqlite://")
 
@@ -46,12 +47,15 @@ async def app_factory() -> AsyncIterator[AppFactory]:
 
     async def _make(
         settings: Settings | None = None,
-        provider: Any = None,
+        sources: list[Any] | None = None,
         planner: IntentPlanner | None = None,
     ) -> tuple[Any, httpx.AsyncClient]:
+        catalog = CatalogService(
+            sources if sources is not None else [FakeCatalogSource()], MemoryStore()
+        )
         app = create_app(
             settings or make_settings(),
-            provider=provider or FakeMetadataProvider(),
+            catalog=catalog,
             planner=planner or IntentPlanner(None),
             store=MemoryStore(),
         )

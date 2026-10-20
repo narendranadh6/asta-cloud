@@ -32,7 +32,7 @@ async def enforce_rate_limit(request: Request, bucket: str, limit_per_minute: in
         count, reset_in = await store.incr_window(key, WINDOW_SECONDS)
     except Exception:
         # Fail open on store outages: availability over strictness for a music app,
-        # while upstream quota is still protected by the YouTube cache.
+        # while upstream services are still protected by the catalog cache.
         logger.warning("rate limit store unavailable", exc_info=True)
         return
     if count > limit_per_minute:

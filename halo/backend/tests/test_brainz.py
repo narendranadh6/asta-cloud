@@ -10,14 +10,13 @@ import time
 from typing import Any
 
 import httpx
-import pytest
 
 from app.core.cache import MemoryStore
 from app.services.ai.heuristic import PreferenceHints
 from app.services.ai.intent import MusicIntent
 from app.services.music_sources.discovery import ListenBrainzDiscovery
 from app.services.music_sources.listenbrainz import ListenBrainzClient, PopularRecording
-from app.services.music_sources.musicbrainz import MusicBrainzClient, parse_youtube_title
+from app.services.music_sources.musicbrainz import MusicBrainzClient
 from tests.conftest import AppFactory, register
 
 ARTIST = "8f6bd1e4-fbe1-4f50-aa9b-94c450ec0f11"
@@ -140,19 +139,6 @@ def make_mb(calls: list[str], interval: float = 0.0) -> MusicBrainzClient:
     return MusicBrainzClient(
         MemoryStore(), contact="https://example.test", http_client=http, min_interval=interval
     )
-
-
-@pytest.mark.parametrize(
-    ("title", "channel", "expected"),
-    [
-        ("Portishead - Glory Box (Official Video)", "Portishead", ("Portishead", "Glory Box")),
-        ("Glory Box [Remastered 2014]", "Portishead - Topic", ("Portishead", "Glory Box")),
-        ("Arijit Singh – Tum Hi Ho | Aashiqui 2", "T-Series", ("Arijit Singh", "Tum Hi Ho")),
-        ("Kesariya (Lyrical) | Brahmastra", "Sony Music India", ("Sony Music India", "Kesariya")),
-    ],
-)
-def test_parse_youtube_title(title: str, channel: str, expected: tuple[str, str]) -> None:
-    assert parse_youtube_title(title, channel) == expected
 
 
 async def test_musicbrainz_canonical_recording() -> None:
@@ -371,9 +357,9 @@ class FakeDiscovery:
         return []
 
 
-async def test_pipeline_adds_listenbrainz_picks_matched_on_youtube(app_factory: AppFactory) -> None:
+async def test_pipeline_adds_listenbrainz_picks_matched_in_catalog(app_factory: AppFactory) -> None:
     app, client = await app_factory()
-    # Songs that exist in the fake YouTube catalog, plus one that doesn't.
+    # Songs that exist in the fake catalog, plus one that doesn't.
     app.state.pipeline._discovery = FakeDiscovery(
         [
             PopularRecording(
@@ -394,7 +380,7 @@ async def test_pipeline_adds_listenbrainz_picks_matched_on_youtube(app_factory: 
             )
         ).json()
     picks = [t for t in draft["tracks"] if t["source"] == "listenbrainz"]
-    assert [p["track"]["channel_title"] for p in picks] == ["Saanjh Project"]
+    assert [p["track"]["artist"] for p in picks] == ["Saanjh Project"]
     assert "Popular with fans of Aarav Strings on ListenBrainz" in picks[0]["reasons"]
 
 
@@ -404,10 +390,12 @@ async def test_metadata_and_discovery_endpoints(app_factory: AppFactory) -> None
     app.state.listenbrainz = make_lb([], token="lb-token")
     async with client:
         auth = await register(client)
-        video = (
+        track_id = (
             await client.get("/api/v1/search", params={"q": "telugu", "limit": 1}, headers=auth)
-        ).json()["items"][0]["video_id"]
-        meta = await client.get("/api/v1/metadata/track", params={"video_id": video}, headers=auth)
+        ).json()["items"][0]["id"]
+        meta = await client.get(
+            "/api/v1/metadata/track", params={"track_id": track_id}, headers=auth
+        )
         artist = await client.get(
             "/api/v1/metadata/artist", params={"name": "Portishead"}, headers=auth
         )
