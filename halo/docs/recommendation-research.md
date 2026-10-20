@@ -29,7 +29,7 @@ Research date: October 2026.
 |---|---|
 | Candidate generation, then ranking | `pipeline.py` gathers candidates from three sources, then `rank_and_explore` ranks them |
 | Learned ranking over features | `ranker.py`: logistic regression over interpretable features (relevance, co-listening score, source, liked channel, popularity × discovery level). Retrained by `app/tasks/train_ranker.py` from logged feedback |
-| Watch next | `GET /api/v1/recommendations/next`, shown as "Up next — picked for you" on the Now in Brave screen |
+| Watch next | `GET /api/v1/recommendations/next`, shown as "Up next after this" on Song Details |
 | Bias awareness | Exploration slots (below) gather feedback on items the ranker would not have shown, which reduces the feedback-loop bias a pure ranker creates |
 
 Halo does **not** train deep networks. It doesn't have YouTube-scale data, and a small
@@ -89,17 +89,16 @@ and lets you correct what Halo has inferred.
 
 | API | What it gives | Key | Used by Halo | Notes |
 |---|---|---|---|---|
-| [YouTube Data API v3](https://developers.google.com/youtube/v3) | Search, video metadata, most-popular chart | Yes (free quota) | **Yes**: all songs | Playback via handoff only |
 | [Radio Browser](https://www.radio-browser.info/) | 50,000+ live radio stations with stream URLs, tags, language, country | No | **Yes**: Live Radio | Public-domain data, community run; send a User-Agent |
 | [Last.fm API](https://www.last.fm/api) | `artist.getSimilar`, `track.getSimilar`, tags | Yes (free) | **Yes**: similar artists | Optional (`HALO_LASTFM_API_KEY`) |
 | [Deezer API](https://developers.deezer.com/api) | Search, related artists, charts, 30 s previews | No | **Yes**: related artists fallback | No key needed |
 | [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) | Open music encyclopedia: artists, recordings, releases, labels, ISRCs, genres | No | **Yes**: canonical song facts, artist MBIDs | 1 request/second, descriptive User-Agent; CC0 |
 | [ListenBrainz](https://listenbrainz.readthedocs.io/) | Open listening data: fresh releases, charts, LB Radio, popularity | Token for popularity | **Yes**: Discover shelves, `listenbrainz` candidate source, similar artists | Open-data collaborative filtering |
-| [iTunes Search API](https://performance-partners.apple.com/search-api) | Catalog search, artwork, 30 s previews | No | Not yet | Previews must link back to Apple Music |
-| [Audius API](https://docs.audius.org/) | Full tracks uploaded by artists, trending | App name | Not yet | Candidate for licensed native playback |
-| [Jamendo API](https://developer.jamendo.com/v3.0) | Creative Commons full tracks | Client id | Not yet | Candidate for licensed native playback |
+| [iTunes Search API](https://performance-partners.apple.com/search-api) | Catalog search, artwork, 30 s previews | No | **Yes**: labelled previews | Previews must link back to Apple Music |
+| [Audius API](https://docs.audius.org/) | Full tracks uploaded by artists, trending | App name | **Yes**: full songs, trending | Default source, no key |
+| [Jamendo API](https://developer.jamendo.com/v3.0) | Creative Commons full tracks | Client id | **Yes**: full songs, trending | Show the CC licence per track; non-commercial by default |
 
-**Network note:** the development sandbox for this project could only reach Google's API.
+**Network note:** the original development sandbox for this project could reach only a few hosts.
 The Last.fm, Deezer and Radio Browser adapters are covered by tests against recorded
 response shapes. They work once the server can reach those hosts, which normal hosting
 allows.

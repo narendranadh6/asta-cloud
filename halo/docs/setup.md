@@ -11,12 +11,22 @@ docker compose up --build      # API on http://localhost:8000, runs migrations o
 curl localhost:8000/health
 ```
 
-Without Docker:
+Without Docker, PostgreSQL or Redis (SQLite file `halo-local.sqlite3`, in-process cache, real
+music from Audius and iTunes previews, plus Jamendo when its client id is set):
 
 ```bash
 cd halo/backend
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
+python -m app.local_server        # http://127.0.0.1:8000; HALO_PORT=8001 to change the port
+```
+
+`python -m tests.e2e_server` does the same on a fresh SQLite file; CI runs it for the iOS
+UI tests and screenshot tour.
+
+With your own PostgreSQL and Redis:
+
+```bash
 export HALO_DATABASE_URL=postgresql+asyncpg://halo:halo@localhost:5432/halo
 alembic upgrade head
 uvicorn app.main:app --reload
@@ -36,21 +46,25 @@ ruff check app tests alembic && mypy app
 | Variable | Needed for | How to get it |
 |---|---|---|
 | `HALO_JWT_SECRET` | Production auth (32+ chars) | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `HALO_YOUTUBE_API_KEY` | Music search (required) | Google Cloud Console → enable *YouTube Data API v3* → Credentials → API key. Restrict it to that API and to your server's IPs |
+| `HALO_AUDIUS_ENABLED` / `HALO_AUDIUS_API_KEY` | Full songs from Audius (on by default, no key) | The key is optional and only raises rate limits |
+| `HALO_JAMENDO_CLIENT_ID` | Full Creative Commons songs from Jamendo | Free: create an app at https://devportal.jamendo.com |
+| `HALO_ITUNES_PREVIEWS_ENABLED` / `HALO_ITUNES_COUNTRY` | 30-second previews (on by default, no key; store `IN`) | Two-letter store code. Previews are labelled and link to Apple Music |
 | `HALO_LASTFM_API_KEY` | Optional: similar artists for recommendations | https://www.last.fm/api/account/create (free). Deezer related artists work without a key (`HALO_DEEZER_ENABLED=true`) |
 | `HALO_MUSICBRAINZ_ENABLED` / `HALO_MUSICBRAINZ_CONTACT` | Canonical song metadata (on by default, no key) | MusicBrainz asks for a contact URL or email in the User-Agent; set `HALO_MUSICBRAINZ_CONTACT` to yours. Requests are limited to 1/s per process |
 | `HALO_LISTENBRAINZ_ENABLED` / `HALO_LISTENBRAINZ_TOKEN` | Fresh releases, charts and artist radio (on by default) | The token is optional; it unlocks per-artist popularity. Get one at https://listenbrainz.org/settings/ |
-| `HALO_LISTENBRAINZ_TRACK_LOOKUPS` | How many ListenBrainz picks per request are matched on YouTube (default 4, max 10) | Each costs one YouTube search (100 quota units) |
+| `HALO_LISTENBRAINZ_TRACK_LOOKUPS` | How many ListenBrainz picks per request are matched in the catalog (default 4, max 10) | Each costs one catalog search |
 | `HALO_RADIO_BROWSER_BASE_URL` | Optional: live radio directory mirror | Defaults to `https://de1.api.radio-browser.info` |
 | `HALO_LLM_PROVIDER` / `HALO_LLM_API_KEY` / `HALO_LLM_MODEL` | Optional AI planner | `anthropic` (default model `claude-sonnet-5-5`) or `openai` (any OpenAI-compatible `/chat/completions`, set `HALO_LLM_BASE_URL` if needed) |
 
-The server must be able to reach `www.googleapis.com`, `musicbrainz.org`,
-`api.listenbrainz.org`, `coverartarchive.org`, `api.deezer.com`, `ws.audioscrobbler.com` and
-`de1.api.radio-browser.info`. Each open source degrades on its own if unreachable.
+The server must be able to reach `api.audius.co`, `api.jamendo.com`, `itunes.apple.com`,
+`musicbrainz.org`, `api.listenbrainz.org`, `coverartarchive.org`, `api.deezer.com`,
+`ws.audioscrobbler.com` and `de1.api.radio-browser.info`. Each source degrades on its own if
+unreachable (a failing music source is skipped with a warning).
 
-Without a YouTube key the API still starts, but search endpoints return
-`503 search_misconfigured` and the app shows a setup notice. Without an LLM key the
-deterministic planner is used.
+`HALO_YOUTUBE_API_KEY` is no longer used; remove it from old `.env` files. With every music
+source switched off the API still starts, but catalog endpoints return
+`503 catalog_not_configured` and the app shows a setup notice. Without an LLM key the
+deterministic planner is used. Source terms: [music-sources.md](music-sources.md).
 
 Never commit `.env`. In production, inject secrets from your platform's secret manager.
 
@@ -82,7 +96,8 @@ xcodebuild test -project Halo.xcodeproj -scheme Halo \
   -destination 'platform=iOS Simulator,name=iPhone 16'   # adds SwiftData tests
 ```
 
-Then run the real-device checklist in [brave-integration.md](brave-integration.md).
+On a real iPhone, also check background audio, lock-screen and Control Center controls,
+AirPlay, and that previews show the Preview label and **Listen on Apple Music**.
 
 ## 4. Deployment
 
@@ -90,9 +105,9 @@ Then run the real-device checklist in [brave-integration.md](brave-integration.m
   uvicorn on port 8000 as a non-root user.
 * Put it behind TLS (load balancer, Fly.io, Cloud Run, ECS and so on). Set
   `HALO_ENVIRONMENT=production`. The app refuses to start without a strong `HALO_JWT_SECRET`,
-  and without `HALO_YOUTUBE_API_KEY`. `/docs` is disabled in production.
+  or with every music source switched off. `/docs` is disabled in production.
 * Managed PostgreSQL and Redis: set `HALO_DATABASE_URL` and `HALO_REDIS_URL`.
-* Schedule `python -m app.tasks.refresh_metadata` daily (YouTube 30-day storage rule) and
+* Schedule `python -m app.tasks.refresh_metadata` daily (refreshes stream URLs and drops removed tracks) and
   `python -m app.tasks.train_ranker` daily or weekly (retrains the ranker from feedback).
 * Run more than one replica only with Redis configured, so rate limits are shared.
 
@@ -105,6 +120,7 @@ Then run the real-device checklist in [brave-integration.md](brave-integration.m
 5. App Privacy answers should match `PrivacyInfo.xcprivacy`: user ID, search history and
    user content, linked, used for app functionality and personalization, **not** used for
    tracking.
-6. App Review notes: explain that playback opens in the user's browser, that Halo uses the
-   YouTube Data API for metadata only, and that it doesn't download or modify content.
-7. Complete the Brave real-device checklist on at least one device before external testing.
+6. App Review notes: explain that Halo streams free, artist-published (Audius) and Creative
+   Commons (Jamendo) songs, that iTunes previews are labelled and link to Apple Music, and
+   that it doesn't download audio. `UIBackgroundModes` includes `audio` for the player.
+7. Run the real-device playback checks above on at least one device before external testing.

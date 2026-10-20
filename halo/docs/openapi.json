@@ -2,7 +2,7 @@
  "openapi": "3.1.0",
  "info": {
   "title": "Halo API",
-  "description": "Halo discovers music metadata via the YouTube Data API and hands playback off to an external browser. It never streams, downloads or modifies YouTube content.",
+  "description": "Halo plays free, licensed music: full tracks from Audius and Jamendo (Creative Commons) and labelled 30-second previews from Apple. Audio streams from each source directly to the listener; Halo never stores audio.",
   "version": "0.1.0"
  },
  "paths": {
@@ -240,9 +240,7 @@
       "schema": {
        "enum": [
         "song",
-        "artist",
-        "remix",
-        "live"
+        "artist"
        ],
        "type": "string",
        "default": "song",
@@ -445,24 +443,24 @@
     "tags": [
      "search"
     ],
-    "summary": "Most popular music videos in the configured region (official YouTube chart)",
+    "summary": "Full tracks trending this week on Audius and Jamendo",
     "operationId": "trending_api_v1_discover_trending_get",
     "parameters": [
      {
-      "name": "page_token",
+      "name": "genre",
       "in": "query",
       "required": false,
       "schema": {
        "anyOf": [
         {
          "type": "string",
-         "maxLength": 200
+         "maxLength": 40
         },
         {
          "type": "null"
         }
        ],
-       "title": "Page Token"
+       "title": "Genre"
       }
      },
      {
@@ -518,24 +516,24 @@
     }
    }
   },
-  "/api/v1/videos/{video_id}": {
+  "/api/v1/tracks/{track_id}": {
    "get": {
     "tags": [
      "search"
     ],
-    "summary": "Get Video",
-    "operationId": "get_video_api_v1_videos__video_id__get",
+    "summary": "One track with a fresh stream URL; 404 track_unavailable if it was removed",
+    "operationId": "get_track_api_v1_tracks__track_id__get",
     "parameters": [
      {
-      "name": "video_id",
+      "name": "track_id",
       "in": "path",
       "required": true,
       "schema": {
        "type": "string",
-       "minLength": 11,
-       "maxLength": 11,
-       "pattern": "^[A-Za-z0-9_-]{11}$",
-       "title": "Video Id"
+       "minLength": 3,
+       "maxLength": 60,
+       "pattern": "^(audius|jamendo|itunes):([A-Za-z0-9_-]{1,40})$",
+       "title": "Track Id"
       }
      },
      {
@@ -1382,15 +1380,15 @@
     "operationId": "up_next_api_v1_recommendations_next_get",
     "parameters": [
      {
-      "name": "video_id",
+      "name": "track_id",
       "in": "query",
       "required": true,
       "schema": {
        "type": "string",
-       "minLength": 11,
-       "maxLength": 11,
-       "pattern": "^[A-Za-z0-9_-]{11}$",
-       "title": "Video Id"
+       "minLength": 3,
+       "maxLength": 60,
+       "pattern": "^(audius|jamendo|itunes):([A-Za-z0-9_-]{1,40})$",
+       "title": "Track Id"
       }
      },
      {
@@ -1455,15 +1453,15 @@
     "operationId": "track_metadata_api_v1_metadata_track_get",
     "parameters": [
      {
-      "name": "video_id",
+      "name": "track_id",
       "in": "query",
       "required": true,
       "schema": {
        "type": "string",
-       "minLength": 11,
-       "maxLength": 11,
-       "pattern": "^[A-Za-z0-9_-]{11}$",
-       "title": "Video Id"
+       "minLength": 3,
+       "maxLength": 60,
+       "pattern": "^(audius|jamendo|itunes):([A-Za-z0-9_-]{1,40})$",
+       "title": "Track Id"
       }
      },
      {
@@ -2217,13 +2215,13 @@
       "title": "Discovery",
       "default": "balanced"
      },
-     "exclude_video_ids": {
+     "exclude_track_ids": {
       "items": {
        "type": "string"
       },
       "type": "array",
       "maxItems": 200,
-      "title": "Exclude Video Ids"
+      "title": "Exclude Track Ids"
      }
     },
     "type": "object",
@@ -2380,18 +2378,6 @@
       "maxLength": 200,
       "minLength": 1,
       "title": "Name"
-     },
-     "youtube_channel_id": {
-      "anyOf": [
-       {
-        "type": "string",
-        "maxLength": 64
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Youtube Channel Id"
      }
     },
     "type": "object",
@@ -2437,7 +2423,11 @@
     "properties": {
      "provider": {
       "type": "string",
-      "const": "youtube",
+      "enum": [
+       "audius",
+       "jamendo",
+       "itunes"
+      ],
       "title": "Provider"
      },
      "label": {
@@ -2462,7 +2452,7 @@
      "label"
     ],
     "title": "Attribution",
-    "description": "Source attribution that clients must display next to provider metadata."
+    "description": "Where a track comes from. Clients must show it next to the track."
    },
    "CanonicalRecording": {
     "properties": {
@@ -2575,9 +2565,9 @@
    },
    "FeedbackRequest": {
     "properties": {
-     "video_id": {
+     "track_id": {
       "type": "string",
-      "title": "Video Id"
+      "title": "Track Id"
      },
      "rating": {
       "type": "string",
@@ -2601,7 +2591,7 @@
       ],
       "title": "Session Id"
      },
-     "channel_title": {
+     "artist": {
       "anyOf": [
        {
         "type": "string",
@@ -2611,12 +2601,12 @@
         "type": "null"
        }
       ],
-      "title": "Channel Title"
+      "title": "Artist"
      }
     },
     "type": "object",
     "required": [
-     "video_id",
+     "track_id",
      "rating"
     ],
     "title": "FeedbackRequest"
@@ -2628,9 +2618,9 @@
       "format": "uuid",
       "title": "Id"
      },
-     "video_id": {
+     "track_id": {
       "type": "string",
-      "title": "Video Id"
+      "title": "Track Id"
      },
      "rating": {
       "type": "string",
@@ -2650,7 +2640,7 @@
     "type": "object",
     "required": [
      "id",
-     "video_id",
+     "track_id",
      "rating",
      "recorded"
     ],
@@ -3024,17 +3014,6 @@
       ],
       "title": "Mood"
      },
-     "youtube_playlist_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Youtube Playlist Id"
-     },
      "is_ai_generated": {
       "type": "boolean",
       "title": "Is Ai Generated",
@@ -3052,13 +3031,13 @@
       ],
       "title": "Recommendation Session Id"
      },
-     "video_ids": {
+     "track_ids": {
       "items": {
        "type": "string"
       },
       "type": "array",
       "maxItems": 200,
-      "title": "Video Ids"
+      "title": "Track Ids"
      }
     },
     "type": "object",
@@ -3103,28 +3082,6 @@
      "is_ai_generated": {
       "type": "boolean",
       "title": "Is Ai Generated"
-     },
-     "youtube_playlist_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Youtube Playlist Id"
-     },
-     "youtube_playlist_url": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Youtube Playlist Url"
      },
      "item_count": {
       "type": "integer",
@@ -3233,10 +3190,12 @@
       "type": "integer",
       "title": "Target Duration Seconds"
      },
-     "provider": {
-      "type": "string",
-      "const": "youtube",
-      "title": "Provider"
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
      },
      "warnings": {
       "items": {
@@ -3256,16 +3215,15 @@
      "queries",
      "tracks",
      "total_duration_seconds",
-     "target_duration_seconds",
-     "provider"
+     "target_duration_seconds"
     ],
     "title": "PlaylistDraft"
    },
    "PlaylistItemCreate": {
     "properties": {
-     "video_id": {
+     "track_id": {
       "type": "string",
-      "title": "Video Id"
+      "title": "Track Id"
      },
      "position": {
       "anyOf": [
@@ -3294,7 +3252,7 @@
     },
     "type": "object",
     "required": [
-     "video_id"
+     "track_id"
     ],
     "title": "PlaylistItemCreate"
    },
@@ -3320,19 +3278,19 @@
       ],
       "title": "Note"
      },
-     "video_id": {
+     "track_id": {
       "type": "string",
-      "title": "Video Id"
+      "title": "Track Id"
      },
      "title": {
       "type": "string",
       "title": "Title"
      },
-     "channel_title": {
+     "artist": {
       "type": "string",
-      "title": "Channel Title"
+      "title": "Artist"
      },
-     "thumbnail_url": {
+     "album": {
       "anyOf": [
        {
         "type": "string"
@@ -3341,7 +3299,18 @@
         "type": "null"
        }
       ],
-      "title": "Thumbnail Url"
+      "title": "Album"
+     },
+     "artwork_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url"
      },
      "duration_seconds": {
       "anyOf": [
@@ -3354,14 +3323,26 @@
       ],
       "title": "Duration Seconds"
      },
+     "stream_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stream Url"
+     },
+     "is_preview": {
+      "type": "boolean",
+      "title": "Is Preview",
+      "default": false
+     },
      "is_available": {
       "type": "boolean",
       "title": "Is Available",
       "default": true
-     },
-     "watch_url": {
-      "type": "string",
-      "title": "Watch Url"
      },
      "added_at": {
       "type": "string",
@@ -3373,10 +3354,9 @@
     "required": [
      "id",
      "position",
-     "video_id",
+     "track_id",
      "title",
-     "channel_title",
-     "watch_url",
+     "artist",
      "added_at"
     ],
     "title": "PlaylistItemOut"
@@ -3468,28 +3448,6 @@
       "type": "boolean",
       "title": "Is Ai Generated"
      },
-     "youtube_playlist_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Youtube Playlist Id"
-     },
-     "youtube_playlist_url": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Youtube Playlist Url"
-     },
      "item_count": {
       "type": "integer",
       "title": "Item Count"
@@ -3579,17 +3537,6 @@
        }
       ],
       "title": "Mood"
-     },
-     "youtube_playlist_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Youtube Playlist Id"
      }
     },
     "type": "object",
@@ -4176,9 +4123,7 @@
       "type": "string",
       "enum": [
        "song",
-       "artist",
-       "remix",
-       "live"
+       "artist"
       ],
       "title": "Kind"
      },
@@ -4222,10 +4167,12 @@
       ],
       "title": "Total Results Estimate"
      },
-     "provider": {
-      "type": "string",
-      "const": "youtube",
-      "title": "Provider"
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
      },
      "cached": {
       "type": "boolean",
@@ -4237,8 +4184,7 @@
     "required": [
      "query",
      "kind",
-     "items",
-     "provider"
+     "items"
     ],
     "title": "SearchResponse"
    },
@@ -4272,7 +4218,7 @@
      "basis": {
       "type": "string",
       "title": "Basis",
-      "default": "Inferred from your activity inside Halo: saved songs, playlists, searches and feedback. Halo cannot see what you play in Brave or on YouTube."
+      "default": "Inferred from your activity inside Halo: saved songs, playlists, searches and feedback."
      },
      "top_artists": {
       "items": {
@@ -4328,7 +4274,7 @@
      "activity_counts"
     ],
     "title": "TasteProfile",
-    "description": "Inferred from Halo activity only (saves, playlists, searches, feedback).\n\nThis is not playback history: Halo cannot see what was played in Brave."
+    "description": "Inferred from Halo activity only (saves, playlists, searches, feedback)."
    },
    "TasteSignal": {
     "properties": {
@@ -4352,41 +4298,6 @@
      "evidence"
     ],
     "title": "TasteSignal"
-   },
-   "Thumbnail": {
-    "properties": {
-     "url": {
-      "type": "string",
-      "title": "Url"
-     },
-     "width": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Width"
-     },
-     "height": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Height"
-     }
-    },
-    "type": "object",
-    "required": [
-     "url"
-    ],
-    "title": "Thumbnail"
    },
    "TokenResponse": {
     "properties": {
@@ -4421,19 +4332,32 @@
    },
    "Track": {
     "properties": {
-     "video_id": {
+     "id": {
       "type": "string",
-      "title": "Video Id"
+      "title": "Id"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "audius",
+       "jamendo",
+       "itunes"
+      ],
+      "title": "Source"
+     },
+     "source_id": {
+      "type": "string",
+      "title": "Source Id"
      },
      "title": {
       "type": "string",
       "title": "Title"
      },
-     "channel_title": {
+     "artist": {
       "type": "string",
-      "title": "Channel Title"
+      "title": "Artist"
      },
-     "channel_id": {
+     "artist_id": {
       "anyOf": [
        {
         "type": "string"
@@ -4442,9 +4366,9 @@
         "type": "null"
        }
       ],
-      "title": "Channel Id"
+      "title": "Artist Id"
      },
-     "description": {
+     "album": {
       "anyOf": [
        {
         "type": "string"
@@ -4453,14 +4377,18 @@
         "type": "null"
        }
       ],
-      "title": "Description"
+      "title": "Album"
      },
-     "thumbnails": {
-      "additionalProperties": {
-       "$ref": "#/components/schemas/Thumbnail"
-      },
-      "type": "object",
-      "title": "Thumbnails"
+     "artwork_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url"
      },
      "duration_seconds": {
       "anyOf": [
@@ -4473,19 +4401,40 @@
       ],
       "title": "Duration Seconds"
      },
-     "published_at": {
+     "genre": {
       "anyOf": [
        {
-        "type": "string",
-        "format": "date-time"
+        "type": "string"
        },
        {
         "type": "null"
        }
       ],
-      "title": "Published At"
+      "title": "Genre"
      },
-     "view_count": {
+     "mood": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mood"
+     },
+     "release_date": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Date"
+     },
+     "play_count": {
       "anyOf": [
        {
         "type": "integer"
@@ -4494,16 +4443,44 @@
         "type": "null"
        }
       ],
-      "title": "View Count"
+      "title": "Play Count"
      },
-     "is_live": {
+     "stream_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Stream Url"
+     },
+     "is_preview": {
       "type": "boolean",
-      "title": "Is Live",
+      "title": "Is Preview",
       "default": false
      },
-     "watch_url": {
-      "type": "string",
-      "title": "Watch Url"
+     "license": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/TrackLicense"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "external_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "External Url"
      },
      "attribution": {
       "$ref": "#/components/schemas/Attribution"
@@ -4511,19 +4488,46 @@
     },
     "type": "object",
     "required": [
-     "video_id",
+     "id",
+     "source",
+     "source_id",
      "title",
-     "channel_title",
-     "watch_url",
+     "artist",
      "attribution"
     ],
-    "title": "Track"
+    "title": "Track",
+    "description": "A playable song. Audio streams directly from the source at ``stream_url``."
+   },
+   "TrackLicense": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "TrackLicense",
+    "description": "Creative Commons licence for Jamendo tracks (attribution is required)."
    },
    "TrackMetadataResponse": {
     "properties": {
-     "video_id": {
+     "track_id": {
       "type": "string",
-      "title": "Video Id"
+      "title": "Track Id"
      },
      "parsed_artist": {
       "type": "string",
@@ -4565,13 +4569,13 @@
     },
     "type": "object",
     "required": [
-     "video_id",
+     "track_id",
      "parsed_artist",
      "parsed_title",
      "matched"
     ],
     "title": "TrackMetadataResponse",
-    "description": "Canonical facts about a YouTube song from MusicBrainz (CC0 data)."
+    "description": "Canonical facts about a song from MusicBrainz (CC0 data)."
    },
    "TrendingResponse": {
     "properties": {
@@ -4604,10 +4608,12 @@
       ],
       "title": "Prev Page Token"
      },
-     "provider": {
-      "type": "string",
-      "const": "youtube",
-      "title": "Provider"
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
      },
      "cached": {
       "type": "boolean",
@@ -4617,21 +4623,20 @@
      "source": {
       "type": "string",
       "title": "Source",
-      "default": "YouTube most popular music chart"
+      "default": "Trending on Audius and Jamendo this week"
      }
     },
     "type": "object",
     "required": [
-     "items",
-     "provider"
+     "items"
     ],
     "title": "TrendingResponse"
    },
    "UpNextResponse": {
     "properties": {
-     "seed_video_id": {
+     "seed_track_id": {
       "type": "string",
-      "title": "Seed Video Id"
+      "title": "Seed Track Id"
      },
      "tracks": {
       "items": {
@@ -4643,11 +4648,11 @@
     },
     "type": "object",
     "required": [
-     "seed_video_id",
+     "seed_track_id",
      "tracks"
     ],
     "title": "UpNextResponse",
-    "description": "Songs to pick next after a handoff. The listener chooses; nothing auto-plays."
+    "description": "Songs to play next after the seed track."
    },
    "ValidationError": {
     "properties": {

@@ -23,7 +23,7 @@ shows every token and component on one screen.
 
 ## Components
 * **Rail**: title, optional eyebrow saying *why* the rail exists, optional "See all". Halo's unit of discovery.
-* **ArtworkCard**, **ArtistBubble** (round with halo ring), **TrackCard** (YouTube attribution), **TrackRow**.
+* **ArtworkCard**, **ArtistBubble** (round with halo ring), **TrackCard** (Preview badge on 30-second previews), **SourceBadge** (Preview or source label), **TrackRow**.
 * **SkeletonRail / SkeletonRow / SkeletonBlock**: placeholders at the real card sizes, so content doesn't
   shift when it arrives; the shimmer is off with Reduce Motion.
 * **EmptyStateView**: always offers a next step. **ErrorStateView**: offline-aware, with retry.

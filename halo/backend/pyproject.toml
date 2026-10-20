@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "halo-backend"
 version = "0.1.0"
-description = "Halo backend: YouTube metadata discovery, playlists, and AI playlist planning."
+description = "Halo backend: free music catalog (Audius, Jamendo, iTunes previews), playlists, and AI playlist planning."
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
