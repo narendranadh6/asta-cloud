@@ -100,7 +100,7 @@ struct AIDJView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                Text("I plan searches, check real YouTube results, rank them and explain why. "
+                Text("I plan searches across free full songs, rank them and explain why. "
                      + "You edit the queue before saving.")
                     .font(.caption).foregroundStyle(HaloColor.mutedText)
             }

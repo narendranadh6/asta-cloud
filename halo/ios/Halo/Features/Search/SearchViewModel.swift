@@ -20,7 +20,7 @@ final class SearchViewModel {
     private(set) var nextPageToken: String?
     private(set) var isLoadingMore = false
     private(set) var loadMoreError: Error?
-    private(set) var provider: MetadataProvider?
+    private(set) var sources: [String] = []
     private(set) var suggestions: [String] = []
     private(set) var lastSubmitted: (query: String, kind: SearchKind)?
 
@@ -48,7 +48,7 @@ final class SearchViewModel {
             guard current == generation else { return }  // a newer search superseded this one
             results = response.items
             nextPageToken = response.nextPageToken
-            provider = response.provider
+            sources = response.sources
             phase = response.items.isEmpty ? .empty : .loaded
             onRecord?(trimmed, kind)
         } catch is CancellationError {
@@ -69,8 +69,8 @@ final class SearchViewModel {
             let response = try await api.search(
                 query: last.query, kind: last.kind, pageToken: token, limit: Self.pageSize)
             guard current == generation else { return }
-            let existing = Set(results.map(\.videoId))
-            results.append(contentsOf: response.items.filter { !existing.contains($0.videoId) })
+            let existing = Set(results.map(\.id))
+            results.append(contentsOf: response.items.filter { !existing.contains($0.id) })
             nextPageToken = response.nextPageToken
         } catch {
             guard current == generation else { return }

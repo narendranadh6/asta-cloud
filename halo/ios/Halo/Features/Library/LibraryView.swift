@@ -8,6 +8,7 @@ struct LibraryView: View {
     }
 
     @Environment(AppModel.self) private var app
+    @Environment(PlayerController.self) private var player
     @State private var segment: Segment = .playlists
     @State private var filter = ""
     @State private var showingNewPlaylist = false
@@ -108,15 +109,23 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var songs: some View {
-        let items = savedTracks.filter { matches($0.title) || matches($0.channelTitle) }
+        let items = savedTracks.filter { matches($0.title) || matches($0.artist) }
+        let playable = items.filter(\.isAvailable).map(Track.init(entity:))
         if items.isEmpty {
             ContentUnavailableView("No saved songs", systemImage: "heart",
                                    description: Text("Tap the heart on any song to save it here."))
                 .listRowBackground(Color.clear)
         }
+        if !playable.isEmpty {
+            PlayButton(tracks: playable, title: "Play saved songs")
+                .listRowBackground(Color.clear)
+        }
         ForEach(items) { entity in
             NavigationLink(value: Track(entity: entity)) {
-                TrackRow(track: entity, subtitle: entity.isAvailable ? nil : "Unavailable on YouTube")
+                TrackRow(track: entity, subtitle: entity.isAvailable ? nil : "No longer available") {
+                    let index = playable.firstIndex { $0.id == entity.trackID } ?? 0
+                    player.play(playable, startAt: index)
+                }
             }
             .listRowBackground(Color.clear)
             .swipeActions {

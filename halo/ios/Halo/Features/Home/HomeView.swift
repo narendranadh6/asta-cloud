@@ -6,6 +6,7 @@ struct HomeView: View {
 
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
+    @Environment(PlayerController.self) private var player
     @Query(filter: #Predicate<TrackEntity> { $0.isAvailable },
            sort: \TrackEntity.lastViewedAt, order: .reverse)
     private var discovered: [TrackEntity]
@@ -142,9 +143,12 @@ struct HomeView: View {
         Rail(title: section.title, eyebrow: section.eyebrow) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: Spacing.sm) {
-                    ForEach(discovered.prefix(12)) { entity in
-                        NavigationLink(value: Track(entity: entity)) { TrackCard(track: entity) }
-                            .buttonStyle(.plain)
+                    let recent = discovered.prefix(12).map(Track.init(entity:))
+                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, track in
+                        NavigationLink(value: track) {
+                            TrackCard(track: track) { player.play(recent, startAt: index) }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }

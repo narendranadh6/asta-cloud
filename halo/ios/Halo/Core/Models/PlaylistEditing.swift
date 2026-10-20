@@ -71,10 +71,10 @@ public enum DurationFormatter {
 public enum PlaylistSyncPlanner {
     public struct RemoteEntry: Equatable, Sendable {
         public var itemID: UUID
-        public var videoID: String
-        public init(itemID: UUID, videoID: String) {
+        public var trackID: String
+        public init(itemID: UUID, trackID: String) {
             self.itemID = itemID
-            self.videoID = videoID
+            self.trackID = trackID
         }
     }
 
@@ -83,19 +83,19 @@ public enum PlaylistSyncPlanner {
         public var additions: [String]
     }
 
-    /// Matches entries as multisets so duplicate videos are handled correctly.
+    /// Matches entries as multisets so duplicate tracks are handled correctly.
     public static func plan(local: [String], remote: [RemoteEntry]) -> Plan {
         var available: [String: [UUID]] = [:]
         for entry in remote {
-            available[entry.videoID, default: []].append(entry.itemID)
+            available[entry.trackID, default: []].append(entry.itemID)
         }
         var additions: [String] = []
-        for videoID in local {
-            if var ids = available[videoID], !ids.isEmpty {
+        for trackID in local {
+            if var ids = available[trackID], !ids.isEmpty {
                 ids.removeFirst()
-                available[videoID] = ids
+                available[trackID] = ids
             } else {
-                additions.append(videoID)
+                additions.append(trackID)
             }
         }
         let leftover = Set(available.values.flatMap { $0 })
@@ -107,13 +107,13 @@ public enum PlaylistSyncPlanner {
     public static func order(local: [String], remote: [RemoteEntry]) -> [UUID]? {
         var pools: [String: [UUID]] = [:]
         for entry in remote {
-            pools[entry.videoID, default: []].append(entry.itemID)
+            pools[entry.trackID, default: []].append(entry.itemID)
         }
         var ordered: [UUID] = []
-        for videoID in local {
-            guard var ids = pools[videoID], !ids.isEmpty else { return nil }
+        for trackID in local {
+            guard var ids = pools[trackID], !ids.isEmpty else { return nil }
             ordered.append(ids.removeFirst())
-            pools[videoID] = ids
+            pools[trackID] = ids
         }
         return ordered.count == remote.count ? ordered : nil
     }

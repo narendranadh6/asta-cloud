@@ -40,12 +40,12 @@ final class APIClientTests: XCTestCase {
         transport.enqueue(status: 200, data: try Fixture.data("search"))
         let (client, _) = makeClient(transport)
         let response = try await client.search(
-            query: "tum hi ho & more", kind: .remix, pageToken: "PAGE2", limit: 10)
+            query: "tum hi ho & more", kind: .artist, pageToken: "PAGE2", limit: 10)
         XCTAssertEqual(response.items.count, 3)
         let components = URLComponents(url: transport.recorded[0].url!, resolvingAgainstBaseURL: false)!
         let query = Dictionary(uniqueKeysWithValues: components.queryItems!.map { ($0.name, $0.value!) })
         XCTAssertEqual(query["q"], "tum hi ho & more")
-        XCTAssertEqual(query["kind"], "remix")
+        XCTAssertEqual(query["kind"], "artist")
         XCTAssertEqual(query["page_token"], "PAGE2")
         XCTAssertEqual(query["limit"], "10")
     }
@@ -55,24 +55,27 @@ final class APIClientTests: XCTestCase {
         transport.enqueue(status: 404, data: try Fixture.data("error"))
         let (client, _) = makeClient(transport)
         do {
-            _ = try await client.video(id: "AAAAAAAAAAA")
+            _ = try await client.track(id: "audius:gone")
             XCTFail("expected error")
         } catch let error as APIError {
-            XCTAssertEqual(error.code, "video_unavailable")
+            XCTAssertEqual(error.code, "track_unavailable")
             XCTAssertEqual(error.status, 404)
             XCTAssertEqual(error.errorDescription,
-                           "This video is unavailable, private, or region-blocked")
+                           "This song is no longer available from its source")
         }
+        XCTAssertEqual(transport.recorded.last?.url?.path, "/api/v1/tracks/audius:gone")
     }
 
-    func testInvalidVideoIDNeverHitsNetwork() async {
+    func testInvalidTrackIDNeverHitsNetwork() async {
         let transport = FakeTransport()
         let (client, _) = makeClient(transport)
-        do {
-            _ = try await client.video(id: "../etc")
-            XCTFail("expected error")
-        } catch {
-            XCTAssertTrue(transport.recorded.isEmpty)
+        for bad in ["../etc", "audius:../x", "youtube:dQw4w9WgXcQ"] {
+            do {
+                _ = try await client.track(id: bad)
+                XCTFail("expected error")
+            } catch {
+                XCTAssertTrue(transport.recorded.isEmpty)
+            }
         }
     }
 
@@ -149,10 +152,10 @@ final class APIClientTests: XCTestCase {
         transport.enqueue(status: 201, data: try Fixture.data("playlist"))
         let (client, _) = makeClient(transport)
         _ = try await client.createPlaylist(PlaylistCreateRequest(
-            name: "Evening", isAiGenerated: true, videoIds: ["dQw4w9WgXcQ"]))
+            name: "Evening", isAiGenerated: true, trackIds: ["audius:D7KyD"]))
         let body = try XCTUnwrap(transport.recorded[0].httpBody)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
-        XCTAssertEqual(json["video_ids"] as? [String], ["dQw4w9WgXcQ"])
+        XCTAssertEqual(json["track_ids"] as? [String], ["audius:D7KyD"])
         XCTAssertEqual(json["is_ai_generated"] as? Bool, true)
         XCTAssertEqual(transport.recorded[0].value(forHTTPHeaderField: "Content-Type"),
                        "application/json")
@@ -162,12 +165,13 @@ final class APIClientTests: XCTestCase {
 extension APIClientTests {
     func testTrendingEndpoint() async throws {
         let transport = FakeTransport()
-        transport.enqueue(status: 200, json: #"{"items":[],"next_page_token":"T2","prev_page_token":null,"provider":"youtube","cached":false,"source":"YouTube most popular music chart"}"#)
+        transport.enqueue(status: 200, json: #"{"items":[],"next_page_token":null,"prev_page_token":null,"sources":["audius","jamendo"],"cached":false,"source":"Trending on Audius and Jamendo this week"}"#)
         let (client, _) = makeClient(transport)
-        let response = try await client.trending(pageToken: nil, limit: 12)
-        XCTAssertEqual(response.nextPageToken, "T2")
-        XCTAssertEqual(response.provider, .youtube)
-        XCTAssertEqual(transport.recorded[0].url?.path, "/api/v1/discover/trending")
+        let response = try await client.trending(genre: "Lo-Fi", limit: 12)
+        XCTAssertEqual(response.sources, ["audius", "jamendo"])
+        let url = URLComponents(url: transport.recorded[0].url!, resolvingAgainstBaseURL: false)!
+        XCTAssertEqual(url.path, "/api/v1/discover/trending")
+        XCTAssertEqual(url.queryItems?.first { $0.name == "genre" }?.value, "Lo-Fi")
     }
 }
 
@@ -177,16 +181,16 @@ extension APIClientTests {
         transport.enqueue(status: 200, data: try Fixture.data("upnext"))
         transport.enqueue(status: 200, json: "[]")
         let (client, _) = makeClient(transport)
-        _ = try await client.upNext(videoID: "dQw4w9WgXcQ", limit: 5)
+        _ = try await client.upNext(trackID: "audius:D7KyD", limit: 5)
         _ = try await client.radioStations(tag: "jazz", language: nil, query: "", limit: 20)
         let first = URLComponents(url: transport.recorded[0].url!, resolvingAgainstBaseURL: false)!
         XCTAssertEqual(first.path, "/api/v1/recommendations/next")
-        XCTAssertEqual(first.queryItems?.first(where: { $0.name == "video_id" })?.value, "dQw4w9WgXcQ")
+        XCTAssertEqual(first.queryItems?.first(where: { $0.name == "track_id" })?.value, "audius:D7KyD")
         let second = URLComponents(url: transport.recorded[1].url!, resolvingAgainstBaseURL: false)!
         XCTAssertEqual(second.path, "/api/v1/radio/stations")
         XCTAssertEqual(Set(second.queryItems!.map(\.name)), ["limit", "tag"])  // empty q omitted
         do {
-            _ = try await client.upNext(videoID: "bad", limit: 5)
+            _ = try await client.upNext(trackID: "bad", limit: 5)
             XCTFail("expected validation error")
         } catch {
             XCTAssertEqual(transport.recorded.count, 2)

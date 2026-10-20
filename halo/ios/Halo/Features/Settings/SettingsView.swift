@@ -89,14 +89,18 @@ struct SettingsView: View {
                      + "anonymous device account.")
             }
 
-            Section("Browser") {
-                NavigationLink {
-                    BrowserHandoffView()
-                } label: {
-                    IconRow(symbol: "safari", color: Color(hex: 0xFB542B),
-                            title: "Open songs in \(settings.browserPreference.label)",
-                            subtitle: "Brave handoff · no ad or playback control")
+            Section {
+                Toggle(isOn: Binding(get: { settings.includePreviews },
+                                     set: { settings.includePreviews = $0 })) {
+                    IconRow(symbol: "30.circle", color: HaloColor.gold,
+                            title: "Show 30-second previews",
+                            subtitle: "Apple Music previews of songs not free in full")
                 }
+            } header: {
+                Text("Playback")
+            } footer: {
+                Text("Full songs stream free from Audius and Jamendo. Songs that are only available "
+                     + "as 30-second previews are always labelled Preview.")
             }
 
             Section {
@@ -138,11 +142,13 @@ struct SettingsView: View {
             }
 
             Section("About") {
-                LabeledContent("Music metadata", value: app.searchConfigured
-                               ? "YouTube Data API" : "Not set up on the server")
+                LabeledContent("Music sources", value: app.catalogConfigured
+                               ? sourceNames : "Not set up on the server")
                 LabeledContent("AI planner", value: app.aiPlanner == "llm" ? "LLM + verification" : "Built-in")
-                Text("Halo is not affiliated with YouTube or Brave. It never streams, downloads or "
-                     + "modifies YouTube content.")
+                Text("Full songs are free, artist-published tracks from Audius and Creative Commons "
+                     + "music from Jamendo. Previews courtesy of Apple Music. Song facts from "
+                     + "MusicBrainz; discovery data from ListenBrainz. Halo streams audio from each "
+                     + "source and never downloads it.")
                     .font(.footnote).foregroundStyle(HaloColor.mutedText)
                 #if DEBUG
                 NavigationLink("Design system") { DesignCatalogView() }
@@ -185,6 +191,11 @@ struct SettingsView: View {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    private var sourceNames: String {
+        let names = app.musicSources.map { $0 == "itunes" ? "Apple previews" : $0.capitalized }
+        return names.isEmpty ? "Audius" : names.joined(separator: ", ")
     }
 
     private func export() async {

@@ -8,9 +8,9 @@ struct RootView: View {
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(PlayerController.self) private var player
     @State private var selection: AppTab = .home
-    @State private var handoff = HandoffController()
-    @State private var showingNowInBrave = false
+    @State private var showingNowPlaying = false
 
     var body: some View {
         Group {
@@ -20,7 +20,6 @@ struct RootView: View {
                 OnboardingView()
             }
         }
-        .environment(handoff)
         .task { await app.bootstrap() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active, settings.syncPlaylists {
@@ -32,24 +31,14 @@ struct RootView: View {
                 Task { await app.sync.syncPending() }
             }
         }
-        .alert(
-            "Couldn't open link",
-            isPresented: Binding(
-                get: { handoff.lastError != nil }, set: { if !$0 { handoff.lastError = nil } }),
-            presenting: handoff.lastError
-        ) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { error in
-            Text(error.localizedDescription)
-        }
-        .sheet(isPresented: $showingNowInBrave) {
-            NowInBraveView(selectTab: { tab in
-                showingNowInBrave = false
+        .sheet(isPresented: $showingNowPlaying) {
+            NowPlayingView(selectTab: { tab in
+                showingNowPlaying = false
                 selection = tab
             })
-            .environment(handoff)
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+            .presentationBackground(HaloColor.background)
         }
     }
 
@@ -62,8 +51,9 @@ struct RootView: View {
                 tab(.library) { LibraryView() }
                 tab(.settings) { SettingsView() }
             }
-            if let context = handoff.nowInBrave {
-                NowInBraveMiniBar(context: context) { showingNowInBrave = true }
+            if player.item != nil {
+                MiniPlayer { showingNowPlaying = true }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             HaloTabBar(selection: $selection)
         }
@@ -141,75 +131,5 @@ struct HaloTabBar: View {
     private func select(_ tab: AppTab) {
         if selection != tab { Haptics.tap(enabled: settings.hapticsEnabled) }
         selection = tab
-    }
-}
-
-/// What Halo knows after a handoff: which song it opened and what could come next.
-/// It deliberately has no playback state — Halo can't see inside Brave.
-struct NowInBraveContext: Equatable {
-    var track: Track
-    var upNext: [Track]
-    var openedAt: Date
-    var openedWith: HandoffResult.Opener
-}
-
-/// Shared handoff entry point so every screen reports results and errors the same way.
-@MainActor
-@Observable
-final class HandoffController {
-    var lastError: Error?
-    var lastResult: HandoffResult?
-    var isOpening = false
-    private(set) var nowInBrave: NowInBraveContext?
-
-    /// Opens a track. `upNext` is the rest of the list it came from, so the user can pick
-    /// the next song themselves — Halo can't auto-advance in Brave.
-    func open(_ track: any TrackDisplayable, upNext: [any TrackDisplayable] = [],
-              using service: BraveBrowserHandoffService, haptics: Bool) async {
-        guard let result = await run(haptics: haptics, {
-            try await service.openYouTubeVideo(id: track.videoId)
-        }) else { return }
-        nowInBrave = NowInBraveContext(
-            track: Self.track(from: track),
-            upNext: upNext.filter { $0.videoId != track.videoId }.prefix(20)
-                .map(Self.track(from:)),
-            openedAt: .now,
-            openedWith: result.openedWith)
-    }
-
-    func openPlaylist(id: String, using service: BraveBrowserHandoffService, haptics: Bool) async {
-        _ = await run(haptics: haptics) { try await service.openYouTubePlaylist(id: id) }
-    }
-
-    /// Opens the chosen "up next" song and keeps the remainder of the list.
-    func openNext(_ track: Track, using service: BraveBrowserHandoffService, haptics: Bool) async {
-        let remaining = nowInBrave?.upNext.filter { $0.videoId != track.videoId } ?? []
-        await open(track, upNext: remaining, using: service, haptics: haptics)
-    }
-
-    func clearNowInBrave() {
-        nowInBrave = nil
-    }
-
-    private func run(haptics: Bool, _ action: () async throws -> HandoffResult) async
-        -> HandoffResult?
-    {
-        isOpening = true
-        defer { isOpening = false }
-        do {
-            let result = try await action()
-            lastResult = result
-            Haptics.tap(enabled: haptics)
-            return result
-        } catch {
-            lastError = error
-            Haptics.warning(enabled: haptics)
-            return nil
-        }
-    }
-
-    private static func track(from item: any TrackDisplayable) -> Track {
-        if let track = item as? Track { return track }
-        return Track(reference: item, provider: .youtube)
     }
 }

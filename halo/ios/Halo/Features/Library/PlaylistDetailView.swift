@@ -4,31 +4,25 @@ import SwiftUI
 struct PlaylistDetailView: View {
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
-    @Environment(HandoffController.self) private var handoff
+    @Environment(PlayerController.self) private var player
     @Environment(\.dismiss) private var dismiss
     @Bindable var playlist: PlaylistEntity
 
     @State private var renaming = false
     @State private var draftName = ""
     @State private var draftDetails = ""
-    @State private var linkingYouTube = false
-    @State private var youtubeLinkText = ""
-    @State private var linkError = false
     @State private var addingSongs = false
     @State private var confirmDelete = false
 
     var body: some View {
         List {
             header.listRowBackground(Color.clear)
-            Section {
-                PlaybackBoundaryNote().listRowBackground(Color.clear)
-            }
             Section("Songs") {
                 if playlist.items.isEmpty {
                     ContentUnavailableView("Empty playlist", systemImage: "music.note",
                                            description: Text("Add songs from search or the AI DJ."))
                 }
-                ForEach(playlist.orderedItems) { item in
+                ForEach(Array(playlist.orderedItems.enumerated()), id: \.element.id) { index, item in
                     NavigationLink(value: Track(item: item)) {
                         HStack(spacing: Spacing.sm) {
                             Text("\(item.position + 1)")
@@ -36,18 +30,22 @@ struct PlaylistDetailView: View {
                                 .foregroundStyle(HaloColor.mutedText)
                                 .frame(width: 24)
                                 .accessibilityHidden(true)
-                            TrackRow(track: item)
+                            TrackRow(track: item) { play(startAt: index) }
                         }
                     }
                     .swipeActions(edge: .leading) {
                         Button {
-                            Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
-                        } label: { Label("Open", systemImage: "arrow.up.forward.app") }
+                            player.playNext(Track(item: item))
+                        } label: { Label("Play next", systemImage: "text.line.first.and.arrowtriangle.forward") }
                             .tint(HaloColor.accent)
                     }
                     .contextMenu {
-                        Button("Open in \(settings.browserPreference.label)", systemImage: "arrow.up.forward.app") {
-                            Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
+                        Button("Play", systemImage: "play.fill") { play(startAt: index) }
+                        Button("Play next", systemImage: "text.line.first.and.arrowtriangle.forward") {
+                            player.playNext(Track(item: item))
+                        }
+                        Button("Add to queue", systemImage: "text.append") {
+                            player.addToQueue([Track(item: item)])
                         }
                     }
                 }
@@ -76,10 +74,6 @@ struct PlaylistDetailView: View {
                         draftDetails = playlist.details ?? ""
                         renaming = true
                     }
-                    Button("Link YouTube playlist", systemImage: "link") {
-                        youtubeLinkText = playlist.youtubePlaylistID ?? ""
-                        linkingYouTube = true
-                    }
                     Button("Delete playlist", systemImage: "trash", role: .destructive) {
                         confirmDelete = true
                     }
@@ -95,16 +89,6 @@ struct PlaylistDetailView: View {
                 app.playlistChanged(playlist)
             }
             Button("Cancel", role: .cancel) {}
-        }
-        .alert("Link a YouTube playlist", isPresented: $linkingYouTube) {
-            TextField("Playlist URL or ID", text: $youtubeLinkText)
-            Button("Save") { saveYouTubeLink() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Paste a public YouTube playlist link to open it in your browser in one tap.")
-        }
-        .alert("That isn't a valid YouTube playlist link.", isPresented: $linkError) {
-            Button("OK", role: .cancel) {}
         }
         .confirmationDialog("Delete \(playlist.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
@@ -135,45 +119,24 @@ struct PlaylistDetailView: View {
             if let details = playlist.details, !details.isEmpty {
                 Text(details).font(.subheadline).foregroundStyle(HaloColor.mutedText)
             }
-            HStack(spacing: Spacing.sm) {
-                if let first = playlist.orderedItems.first {
+            if !playlist.items.isEmpty {
+                HStack(spacing: Spacing.sm) {
+                    PlayButton(tracks: tracks)
                     Button {
-                        Task { await handoff.open(first, upNext: upNext(after: first), using: app.handoff, haptics: settings.hapticsEnabled) }
+                        player.play(tracks.shuffled())
                     } label: {
-                        Label("Open first song", systemImage: "arrow.up.forward.app")
-                    }
-                    .buttonStyle(NeonButtonStyle())
-                }
-                if let youtubeID = playlist.youtubePlaylistID {
-                    Button {
-                        Task { await handoff.openPlaylist(id: youtubeID, using: app.handoff, haptics: settings.hapticsEnabled) }
-                    } label: {
-                        Label("YouTube playlist", systemImage: "list.and.film")
+                        Label("Shuffle", systemImage: "shuffle").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(NeonButtonStyle(prominent: false))
                 }
             }
-            Text(app.handoff.destinationDescription())
-                .font(.caption).foregroundStyle(HaloColor.mutedText)
         }
     }
 
-    private func upNext(after item: PlaylistItemEntity) -> [any TrackDisplayable] {
-        playlist.orderedItems.filter { $0.position > item.position }
-    }
+    private var tracks: [Track] { playlist.orderedItems.map(Track.init(item:)) }
 
-    private func saveYouTubeLink() {
-        let text = youtubeLinkText.trimmingCharacters(in: .whitespacesAndNewlines)
-        var id = text
-        if let components = URLComponents(string: text),
-           let list = components.queryItems?.first(where: { $0.name == "list" })?.value {
-            id = list
-        }
-        if app.library.setYouTubePlaylistID(id.isEmpty ? nil : id, on: playlist) {
-            app.playlistChanged(playlist)
-        } else {
-            linkError = true
-        }
+    private func play(startAt index: Int) {
+        player.play(tracks, startAt: index)
     }
 }
 
@@ -205,11 +168,11 @@ struct AddSongsSheet: View {
                         Button {
                             app.library.add(track, to: playlist)
                             app.playlistChanged(playlist)
-                            added.insert(track.videoId)
+                            added.insert(track.id)
                         } label: {
                             HStack {
                                 TrackRow(track: track)
-                                Image(systemName: added.contains(track.videoId) ? "checkmark.circle.fill" : "plus.circle")
+                                Image(systemName: added.contains(track.id) ? "checkmark.circle.fill" : "plus.circle")
                                     .foregroundStyle(HaloColor.primary)
                             }
                         }

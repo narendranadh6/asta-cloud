@@ -125,11 +125,11 @@ struct OnboardingView: View {
                 .foregroundStyle(HaloColor.neon)
                 .accessibilityHidden(true)
             Text("Welcome to Halo").font(HaloFont.hero).foregroundStyle(HaloColor.text)
-            Text("Find music with AI, organize playlists, and listen on YouTube in Brave. "
+            Text("Find music with AI, build playlists, and play songs right here in Halo. "
                  + "Halo has no ads and only learns from what you do inside Halo.")
                 .foregroundStyle(HaloColor.mutedText)
-            NoticeBanner(text: "Songs play in your browser, not inside Halo. Halo can't control "
-                         + "playback, skip ads, or auto-advance songs there.")
+            NoticeBanner(text: "Full songs come from independent artists on Audius and Jamendo. "
+                         + "Mainstream hits play as 30-second Apple Music previews.")
         case .languages:
             title("Which languages do you listen to?")
             FlowLayout {
@@ -178,8 +178,8 @@ struct OnboardingView: View {
         case .consent:
             title("Personalize Halo?")
             Text("If you agree, Halo uses your choices here plus your saves, playlists, searches "
-                 + "and ratings inside Halo to tune AI suggestions. It never sees what you play in "
-                 + "Brave. You can turn this off or reset it anytime in Settings.")
+                 + "and ratings inside Halo to tune AI suggestions. It never leaves your account or "
+                 + "goes to advertisers. You can turn this off or reset it anytime in Settings.")
                 .foregroundStyle(HaloColor.mutedText)
             Toggle("Personalize with my Halo activity", isOn: $model.personalization)
                 .padding(Spacing.md)

@@ -27,11 +27,6 @@
 	<!-- Backend base URL, set per configuration in Config/*.xcconfig -->
 	<key>HaloAPIBaseURL</key>
 	<string>$(HALO_API_BASE_URL)</string>
-	<!-- Required for canOpenURL(brave://) detection. Only Brave is queried. -->
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>brave</string>
-	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- Allows http://localhost / *.local during development only. Production uses HTTPS. -->

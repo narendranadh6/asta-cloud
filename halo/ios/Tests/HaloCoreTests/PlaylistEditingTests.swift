@@ -66,10 +66,10 @@ final class PlaylistEditingTests: XCTestCase {
     func testSyncPlannerHandlesDuplicatesAndOrder() {
         let a1 = UUID(), b1 = UUID(), a2 = UUID(), c1 = UUID()
         let remote = [
-            PlaylistSyncPlanner.RemoteEntry(itemID: a1, videoID: "aaaaaaaaaaa"),
-            PlaylistSyncPlanner.RemoteEntry(itemID: b1, videoID: "bbbbbbbbbbb"),
-            PlaylistSyncPlanner.RemoteEntry(itemID: a2, videoID: "aaaaaaaaaaa"),
-            PlaylistSyncPlanner.RemoteEntry(itemID: c1, videoID: "ccccccccccc"),
+            PlaylistSyncPlanner.RemoteEntry(itemID: a1, trackID: "aaaaaaaaaaa"),
+            PlaylistSyncPlanner.RemoteEntry(itemID: b1, trackID: "bbbbbbbbbbb"),
+            PlaylistSyncPlanner.RemoteEntry(itemID: a2, trackID: "aaaaaaaaaaa"),
+            PlaylistSyncPlanner.RemoteEntry(itemID: c1, trackID: "ccccccccccc"),
         ]
         let local = ["ccccccccccc", "aaaaaaaaaaa", "ddddddddddd"]
         let plan = PlaylistSyncPlanner.plan(local: local, remote: remote)
@@ -78,9 +78,9 @@ final class PlaylistEditingTests: XCTestCase {
 
         let d1 = UUID()
         let afterSync = [
-            PlaylistSyncPlanner.RemoteEntry(itemID: a1, videoID: "aaaaaaaaaaa"),
-            PlaylistSyncPlanner.RemoteEntry(itemID: c1, videoID: "ccccccccccc"),
-            PlaylistSyncPlanner.RemoteEntry(itemID: d1, videoID: "ddddddddddd"),
+            PlaylistSyncPlanner.RemoteEntry(itemID: a1, trackID: "aaaaaaaaaaa"),
+            PlaylistSyncPlanner.RemoteEntry(itemID: c1, trackID: "ccccccccccc"),
+            PlaylistSyncPlanner.RemoteEntry(itemID: d1, trackID: "ddddddddddd"),
         ]
         XCTAssertEqual(PlaylistSyncPlanner.order(local: local, remote: afterSync), [c1, a1, d1])
         XCTAssertNil(PlaylistSyncPlanner.order(local: ["aaaaaaaaaaa"], remote: afterSync))

@@ -36,7 +36,7 @@ final class PlaylistStudioViewModel {
             energy: useEnergy ? Int(energy) : nil,
             durationMinutes: min(max(durationMinutes, 10), 300),
             discovery: discovery,
-            excludeVideoIds: Array(excluding.prefix(200)))
+            excludeTrackIds: Array(excluding.prefix(200)))
     }
 
     func generate(api: MusicAPI) async {

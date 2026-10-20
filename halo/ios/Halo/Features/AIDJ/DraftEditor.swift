@@ -3,7 +3,7 @@ import SwiftUI
 struct DraftEditorView: View {
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
-    @Environment(HandoffController.self) private var handoff
+    @Environment(PlayerController.self) private var player
     @Environment(\.dismiss) private var dismiss
     @Binding var draft: EditableDraft
     var onRegenerate: (() async -> Void)?
@@ -16,6 +16,8 @@ struct DraftEditorView: View {
     var body: some View {
         List {
             Section {
+                PlayButton(tracks: draft.queue.items.map(\.track), title: "Play all")
+                    .listRowBackground(Color.clear)
                 TextField("Playlist name", text: $draft.title)
                     .font(HaloFont.title)
                     .foregroundStyle(HaloColor.text)
@@ -36,23 +38,19 @@ struct DraftEditorView: View {
                     ContentUnavailableView("No songs left", systemImage: "music.note",
                                            description: Text("Regenerate to get new picks."))
                 }
-                ForEach(draft.queue.items) { item in
-                    row(item)
+                ForEach(Array(draft.queue.items.enumerated()), id: \.element.id) { index, item in
+                    row(item, index: index)
                 }
                 .onMove { draft.queue.move(fromOffsets: $0, toOffset: $1) }
                 .onDelete { draft.queue.remove(atOffsets: $0) }
             } header: {
                 Text("Queue · \(draft.queue.count) songs")
             } footer: {
-                Text("Every song is a verified YouTube result. Searched for: "
-                     + draft.queries.joined(separator: " · "))
+                Text("Every song comes from Halo's catalog (" + draft.sources.joined(separator: ", ")
+                     + "). Searched for: " + draft.queries.joined(separator: " · "))
                     .font(.caption2)
             }
             .listRowBackground(Color.clear)
-
-            Section {
-                PlaybackBoundaryNote().listRowBackground(Color.clear)
-            }
         }
         .listStyle(.insetGrouped)
         .haloScreen()
@@ -87,20 +85,21 @@ struct DraftEditorView: View {
             + "\(DurationFormatter.approximate(draft.targetSeconds)) target · \(planner)"
     }
 
-    private func row(_ item: RecommendedTrack) -> some View {
+    private func row(_ item: RecommendedTrack, index: Int) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            NavigationLink(value: item.track) { TrackRow(track: item.track) }
+            NavigationLink(value: item.track) {
+                TrackRow(track: item.track) {
+                    player.play(draft.queue.items.map(\.track), startAt: index)
+                }
+            }
             if let reason = item.reasons.first {
                 Text(reason).font(.caption).foregroundStyle(HaloColor.secondary)
             }
         }
         .swipeActions(edge: .leading) {
             Button {
-                Task {
-                    await handoff.open(item.track, upNext: upNext(after: item.track.videoId),
-                                       using: app.handoff, haptics: settings.hapticsEnabled)
-                }
-            } label: { Label("Open", systemImage: "arrow.up.forward.app") }
+                player.playNext(item.track)
+            } label: { Label("Play next", systemImage: "text.line.first.and.arrowtriangle.forward") }
                 .tint(HaloColor.accent)
             if settings.personalizationEnabled {
                 Button { rate(item, .like) } label: { Label("Like", systemImage: "hand.thumbsup") }
@@ -122,17 +121,11 @@ struct DraftEditorView: View {
         }
     }
 
-    private func upNext(after videoID: String) -> [any TrackDisplayable] {
-        let tracks = draft.queue.items.map(\.track)
-        guard let index = tracks.firstIndex(where: { $0.videoId == videoID }) else { return tracks }
-        return Array(tracks[(index + 1)...])
-    }
-
     private func rate(_ item: RecommendedTrack, _ rating: FeedbackRating) {
         feedback[item.id] = rating
         let request = FeedbackRequest(
-            videoId: item.track.videoId, rating: rating, sessionId: draft.sessionID,
-            channelTitle: item.track.channelTitle)
+            trackId: item.track.id, rating: rating, sessionId: draft.sessionID,
+            artist: item.track.artist)
         Task { _ = try? await app.api.sendFeedback(request) }
     }
 

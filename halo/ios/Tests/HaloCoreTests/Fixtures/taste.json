@@ -1,10 +1,10 @@
 {
  "personalization_enabled": true,
- "basis": "Inferred from your activity inside Halo: saved songs, playlists, searches and feedback. Halo cannot see what you play in Brave or on YouTube.",
+ "basis": "Inferred from your activity inside Halo: saved songs, playlists, searches and feedback.",
  "top_artists": [
   {
    "label": "Aarav Strings",
-   "weight": 4.0,
+   "weight": 6.0,
    "evidence": "saves, playlists and feedback"
   },
   {
@@ -21,23 +21,29 @@
  "top_terms": [
   {
    "label": "telugu",
-   "weight": 1.0,
-   "evidence": "searched 1\u00d7"
+   "weight": 2.0,
+   "evidence": "searched 2\u00d7"
   },
   {
-   "label": "melody",
+   "label": "samajavaragamana",
    "weight": 1.0,
    "evidence": "searched 1\u00d7"
   }
  ],
  "declared_languages": [
-  "Telugu"
+  "Telugu",
+  "Hindi"
  ],
- "declared_genres": [],
- "excluded_artists": [],
+ "declared_genres": [
+  "melody"
+ ],
+ "excluded_artists": [
+  "Velvet Atlas",
+  "Northern Static"
+ ],
  "activity_counts": {
   "playlists": 1,
-  "searches": 1,
-  "feedback": 0
+  "searches": 2,
+  "feedback": 1
  }
 }

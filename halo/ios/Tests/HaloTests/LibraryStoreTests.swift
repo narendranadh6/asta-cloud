@@ -14,17 +14,18 @@ final class LibraryStoreTests: XCTestCase {
         store = LibraryStore(context: container.mainContext)
     }
 
-    private func track(_ index: Int, provider: MetadataProvider = .youtube) -> Track {
-        let id = String(format: "trk%08d", index)
-        return Track(videoId: id, title: "Song \(index)", channelTitle: "Artist \(index % 3)",
-                     durationSeconds: 200, watchUrl: "https://www.youtube.com/watch?v=\(id)",
-                     attribution: Attribution(provider: provider, label: "YouTube"))
+    private func track(_ index: Int) -> Track {
+        let id = String(format: "trk%05d", index)
+        return Track(id: "audius:\(id)", source: .audius, sourceId: id, title: "Song \(index)",
+                     artist: "Artist \(index % 3)", durationSeconds: 200,
+                     streamUrl: "https://api.audius.co/v1/tracks/\(id)/stream?app_name=Halo",
+                     attribution: Attribution(provider: .audius, label: "Audius"))
     }
 
     func testCreatePlaylistPersistsOrder() throws {
         let playlist = store.createPlaylist(name: "  Road   Trip ", tracks: (0..<4).map { track($0) })
         XCTAssertEqual(playlist.name, "Road Trip")
-        XCTAssertEqual(playlist.orderedItems.map(\.videoId), (0..<4).map { track($0).videoId })
+        XCTAssertEqual(playlist.orderedItems.map(\.trackID), (0..<4).map { track($0).id })
         XCTAssertEqual(playlist.totalDurationSeconds, 800)
 
         // Survives a fresh context on the same container (simulated relaunch of the store).
@@ -49,9 +50,9 @@ final class LibraryStoreTests: XCTestCase {
     func testSaveToggleAndDiscovered() {
         let song = track(1)
         store.recordDiscovered(song)
-        XCTAssertFalse(store.isSaved(videoId: song.videoId))
+        XCTAssertFalse(store.isSaved(trackID: song.id))
         store.setSaved(true, track: song)
-        XCTAssertTrue(store.isSaved(videoId: song.videoId))
+        XCTAssertTrue(store.isSaved(trackID: song.id))
         XCTAssertEqual(store.savedTracks().count, 1)
         store.setSaved(false, track: song)
         XCTAssertTrue(store.savedTracks().isEmpty)
@@ -65,12 +66,13 @@ final class LibraryStoreTests: XCTestCase {
         XCTAssertEqual(all.filter { $0.query.lowercased() == "query 39" }.count, 1)
     }
 
-    func testYouTubePlaylistIDValidation() {
-        let playlist = store.createPlaylist(name: "Linked")
-        XCTAssertFalse(store.setYouTubePlaylistID("evil&list=1", on: playlist))
-        XCTAssertNil(playlist.youtubePlaylistID)
-        XCTAssertTrue(store.setYouTubePlaylistID("PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf", on: playlist))
-        XCTAssertEqual(playlist.youtubePlaylistID, "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf")
+    func testPlaylistItemsKeepWhatThePlayerNeeds() throws {
+        let playlist = store.createPlaylist(name: "Offline-safe", tracks: [track(1)])
+        let item = try XCTUnwrap(playlist.orderedItems.first)
+        let restored = Track(item: item)
+        XCTAssertEqual(restored.id, track(1).id)
+        XCTAssertEqual(restored.streamURL, track(1).streamURL)
+        XCTAssertFalse(restored.isPreview)
     }
 
     func testRetentionPurgesOldDiscoveriesAndRefreshesMetadata() async throws {
@@ -82,10 +84,10 @@ final class LibraryStoreTests: XCTestCase {
         XCTAssertNotNil(stale.modelContext)
         let api = FakeMusicAPI(catalog: [])
         await store.enforceRetention(using: api)
-        XCTAssertNil(store.trackEntity(videoId: track(1).videoId))
-        let kept = try XCTUnwrap(store.trackEntity(videoId: track(2).videoId))
+        XCTAssertNil(store.trackEntity(trackID: track(1).id))
+        let kept = try XCTUnwrap(store.trackEntity(trackID: track(2).id))
         XCTAssertFalse(kept.isAvailable)  // mock returns 404 → marked unavailable
-        XCTAssertNil(kept.artworkURLString)
+        XCTAssertNil(kept.streamURLString)  // can no longer play
     }
 
     func testWipeAndExport() throws {
@@ -112,7 +114,7 @@ final class LibraryStoreTests: XCTestCase {
         store.add(catalog[3], to: playlist, at: 0)
         try await sync.sync(playlist)
         let remote = try await api.playlist(id: remoteID)
-        XCTAssertEqual(remote.items?.map(\.videoId), playlist.orderedItems.map(\.videoId))
+        XCTAssertEqual(remote.items?.map(\.trackID), playlist.orderedItems.map(\.trackID))
     }
 }
 #endif

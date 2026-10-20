@@ -3,6 +3,7 @@ import SwiftUI
 struct DiscoverView: View {
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
+    @Environment(PlayerController.self) private var player
     @State private var model = DiscoverViewModel()
 
     var body: some View {
@@ -53,15 +54,15 @@ struct DiscoverView: View {
             HStack(spacing: Spacing.sm) {
                 Button { model.filter = .trending } label: {
                     ArtTile(gradient: HaloColor.neon, symbol: "chart.line.uptrend.xyaxis",
-                            title: "Top on YouTube", subtitle: "Most popular music")
+                            title: "Trending", subtitle: "Full songs, free")
                 }
-                Button { model.filter = .live } label: {
-                    ArtTile(gradient: HaloColor.moodGradient(.energetic), symbol: "music.mic",
-                            title: "Live", subtitle: "Concerts & sessions")
+                Button { model.filter = .genres } label: {
+                    ArtTile(gradient: HaloColor.moodGradient(.energetic), symbol: "waveform",
+                            title: "Genres", subtitle: "Electronic, hip-hop, lo-fi")
                 }
-                Button { model.filter = .remixes } label: {
-                    ArtTile(gradient: HaloColor.cool, symbol: "dial.high",
-                            title: "Remixes", subtitle: "Fresh edits")
+                Button { model.filter = .new } label: {
+                    ArtTile(gradient: HaloColor.cool, symbol: "sparkles",
+                            title: "New", subtitle: "Fresh releases")
                 }
             }
             .buttonStyle(.plain)
@@ -84,14 +85,16 @@ struct DiscoverView: View {
             case let .loaded(tracks):
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: Spacing.sm) {
-                        ForEach(tracks) { track in
-                            NavigationLink(value: track) { TrackCard(track: track) }
-                                .buttonStyle(.plain)
+                        ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                            NavigationLink(value: track) {
+                                TrackCard(track: track) { player.play(tracks, startAt: index) }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-                if shelf == .trending {
-                    Text("Source: YouTube most popular music chart.")
+                if shelf == .trending, !model.sources.isEmpty {
+                    Text("Trending this week on \(model.sources.map(\.capitalized).joined(separator: " and ")).")
                         .font(.caption2).foregroundStyle(HaloColor.mutedText)
                 }
             }
@@ -116,7 +119,7 @@ struct DiscoverView: View {
                 }
             }
             Text("Source: ListenBrainz fresh releases. Cover art: Cover Art Archive. "
-                 + "Tap to find it on YouTube.")
+                 + "Tap to find a playable copy.")
                 .font(.caption2).foregroundStyle(HaloColor.mutedText)
         }
     }
@@ -188,19 +191,38 @@ struct DiscoverView: View {
 struct TrackCard: View {
     var track: any TrackDisplayable
     var width: CGFloat = ArtSize.card
+    /// Shows a play button on the artwork; tapping elsewhere still navigates.
+    var onPlay: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ArtworkView(url: track.artworkURL, size: width, cornerRadius: Spacing.corner)
                 .overlay(alignment: .topLeading) {
-                    AttributionBadge().padding(6)
+                    if track.isPreview {
+                        SourceBadge(isPreview: true, source: .itunes).padding(6)
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if let onPlay {
+                        Button(action: onPlay) {
+                            Image(systemName: "play.fill")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .frame(width: 40, height: 40)
+                                .background(Circle().fill(HaloColor.neon))
+                                .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(8)
+                        .accessibilityLabel("Play \(track.title)")
+                    }
                 }
             Text(track.title).font(.subheadline.weight(.semibold))
                 .foregroundStyle(HaloColor.text).lineLimit(2)
-            Text(track.channelTitle).font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
+            Text(track.artist).font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
         }
         .frame(width: width, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -212,7 +234,7 @@ struct FreshReleaseCard: View {
         ArtworkCard(
             title: release.releaseName, subtitle: "\(release.artistName) · \(release.releaseDate)",
             artworkURL: release.coverArtURL, size: ArtSize.feature, badge: release.releaseType)
-            .accessibilityHint("Finds this release on YouTube")
+            .accessibilityHint("Finds a playable copy of this release")
     }
 }
 

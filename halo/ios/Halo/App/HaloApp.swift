@@ -26,14 +26,14 @@ struct HaloApp: App {
         }
         _settings = State(initialValue: settings)
         _model = State(initialValue: AppModel(
-            api: AppModel.makeAPI(), settings: settings, context: container.mainContext,
-            opener: UIApplicationURLOpener()))
+            api: AppModel.makeAPI(), settings: settings, context: container.mainContext))
     }
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(model)
+                .environment(model.player)
                 .environment(settings)
                 .preferredColorScheme(.dark)
                 .tint(HaloColor.primary)

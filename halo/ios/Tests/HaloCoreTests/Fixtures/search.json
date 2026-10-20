@@ -1,83 +1,86 @@
 {
- "query": "telugu melody",
+ "query": "telugu samajavaragamana",
  "kind": "song",
  "items": [
   {
-   "video_id": "tstrp_mppSC",
-   "title": "Telugu Melody No. 1",
-   "channel_title": "Aarav Strings",
-   "channel_id": null,
-   "description": "Test catalog entry (calm, energy 70).",
-   "thumbnails": {
-    "high": {
-     "url": "https://i.ytimg.com/vi/tstrp_mppSC/hqdefault.jpg",
-     "width": 480,
-     "height": 360
-    }
-   },
-   "duration_seconds": 150,
-   "published_at": "2004-01-01T00:00:00Z",
-   "view_count": 1000,
-   "is_live": false,
-   "watch_url": "https://www.youtube.com/watch?v=tstrp_mppSC",
+   "id": "itunes:1440833098",
+   "source": "itunes",
+   "source_id": "1440833098",
+   "title": "Telugu Samajavaragamana",
+   "artist": "Sid Sriram",
+   "artist_id": null,
+   "album": "Ala Vaikunthapurramuloo",
+   "artwork_url": "https://is1.mzstatic.com/x/600x600bb.jpg",
+   "duration_seconds": 229,
+   "genre": "Telugu",
+   "mood": null,
+   "release_date": "2019-09-28",
+   "play_count": null,
+   "stream_url": "https://audio-ssl.itunes.apple.com/x.m4a",
+   "is_preview": true,
+   "license": null,
+   "external_url": "https://music.apple.com/in/album/x?i=1440833098",
    "attribution": {
-    "provider": "youtube",
-    "label": "YouTube",
-    "url": "https://www.youtube.com/watch?v=tstrp_mppSC"
+    "provider": "itunes",
+    "label": "Preview courtesy of Apple Music",
+    "url": "https://music.apple.com/in/album/x?i=1440833098"
    }
   },
   {
-   "video_id": "tstXsmfEf6h",
-   "title": "Telugu Melody No. 2 (Remix)",
-   "channel_title": "Keerthi Waves",
-   "channel_id": null,
-   "description": "Test catalog entry (calm, energy 70).",
-   "thumbnails": {
-    "high": {
-     "url": "https://i.ytimg.com/vi/tstXsmfEf6h/hqdefault.jpg",
-     "width": 480,
-     "height": 360
-    }
-   },
-   "duration_seconds": 187,
-   "published_at": "2004-04-07T00:00:00Z",
-   "view_count": 8919,
-   "is_live": false,
-   "watch_url": "https://www.youtube.com/watch?v=tstXsmfEf6h",
+   "id": "audius:tstY0DDvON",
+   "source": "audius",
+   "source_id": "tstY0DDvON",
+   "title": "Telugu Lofi No. 2 (Remix)",
+   "artist": "Keerthi Waves",
+   "artist_id": null,
+   "album": null,
+   "artwork_url": "https://art.test/tstY0DDvON.jpg",
+   "duration_seconds": 298,
+   "genre": "Lofi",
+   "mood": "Focused",
+   "release_date": null,
+   "play_count": 32676,
+   "stream_url": "https://stream.test/tstY0DDvON.mp3",
+   "is_preview": false,
+   "license": null,
+   "external_url": "https://audius.test/tstY0DDvON",
    "attribution": {
-    "provider": "youtube",
-    "label": "YouTube",
-    "url": "https://www.youtube.com/watch?v=tstXsmfEf6h"
+    "provider": "audius",
+    "label": "Audius",
+    "url": "https://audius.test/tstY0DDvON"
    }
   },
   {
-   "video_id": "tstVbVxPwrF",
-   "title": "Telugu Melody No. 3 (Live Session)",
-   "channel_title": "Godavari Collective",
-   "channel_id": null,
-   "description": "Test catalog entry (calm, energy 70).",
-   "thumbnails": {
-    "high": {
-     "url": "https://i.ytimg.com/vi/tstVbVxPwrF/hqdefault.jpg",
-     "width": 480,
-     "height": 360
-    }
-   },
-   "duration_seconds": 224,
-   "published_at": "2004-07-13T00:00:00Z",
-   "view_count": 16838,
-   "is_live": false,
-   "watch_url": "https://www.youtube.com/watch?v=tstVbVxPwrF",
+   "id": "audius:tsto8s0i2J",
+   "source": "audius",
+   "source_id": "tsto8s0i2J",
+   "title": "Telugu Lofi No. 1",
+   "artist": "Aarav Strings",
+   "artist_id": null,
+   "album": null,
+   "artwork_url": "https://art.test/tsto8s0i2J.jpg",
+   "duration_seconds": 261,
+   "genre": "Lofi",
+   "mood": "Focused",
+   "release_date": null,
+   "play_count": 24757,
+   "stream_url": "https://stream.test/tsto8s0i2J.mp3",
+   "is_preview": false,
+   "license": null,
+   "external_url": "https://audius.test/tsto8s0i2J",
    "attribution": {
-    "provider": "youtube",
-    "label": "YouTube",
-    "url": "https://www.youtube.com/watch?v=tstVbVxPwrF"
+    "provider": "audius",
+    "label": "Audius",
+    "url": "https://audius.test/tsto8s0i2J"
    }
   }
  ],
- "next_page_token": "3",
+ "next_page_token": "5",
  "prev_page_token": null,
- "total_results_estimate": 39,
- "provider": "youtube",
+ "total_results_estimate": null,
+ "sources": [
+  "audius",
+  "itunes"
+ ],
  "cached": false
 }

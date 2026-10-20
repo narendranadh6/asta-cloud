@@ -17,41 +17,42 @@ final class SongDetailViewModel {
         self.track = track
     }
 
-    /// Refreshes metadata (verifies the video is still available) and loads related music.
+    /// Refreshes the track (fresh stream URL, still available?) and loads songs to play next.
     func load(api: MusicAPI) async {
         async let canonicalLoad: Void = loadCanonical(api: api)
         do {
-            track = try await api.video(id: track.videoId)
-        } catch let error as APIError where error.code == "video_unavailable" {
+            track = try await api.track(id: track.id)
+        } catch let error as APIError where error.code == "track_unavailable" {
             unavailable = true
         } catch {}
         isLoadingRelated = true
         defer { isLoadingRelated = false }
-        // YouTube removed relatedToVideoId search in 2023; related music is the channel's
-        // other songs, which is real data rather than a guess.
-        if let response = try? await api.search(
-            query: track.channelTitle, kind: .artist, pageToken: nil, limit: 10) {
-            related = response.items.filter { $0.videoId != track.videoId }
+        // Co-listening, same and similar artists, ranked by the recommender.
+        if let response = try? await api.upNext(trackID: track.id, limit: 10) {
+            related = response.tracks.map(\.track).filter { $0.id != track.id }
+        } else if let response = try? await api.search(
+            query: track.artist, kind: .artist, pageToken: nil, limit: 10) {
+            related = response.items.filter { $0.id != track.id }
         }
         await canonicalLoad
     }
 
     private func loadCanonical(api: MusicAPI) async {
         defer { isLoadingCanonical = false }
-        canonical = try? await api.trackMetadata(videoID: track.videoId)
+        canonical = try? await api.trackMetadata(trackID: track.id)
     }
 
     func send(_ rating: FeedbackRating, api: MusicAPI) async {
         feedback = rating
         _ = try? await api.sendFeedback(FeedbackRequest(
-            videoId: track.videoId, rating: rating, channelTitle: track.channelTitle))
+            trackId: track.id, rating: rating, artist: track.artist))
     }
 }
 
 struct SongDetailView: View {
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
-    @Environment(HandoffController.self) private var handoff
+    @Environment(PlayerController.self) private var player
     @Query(sort: \PlaylistEntity.updatedAt, order: .reverse) private var playlists: [PlaylistEntity]
     @State private var model: SongDetailViewModel
     @State private var isSaved = false
@@ -66,18 +67,31 @@ struct SongDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                ArtworkView(url: model.track.artworkURL, size: nil, cornerRadius: Spacing.cornerLarge)
-                    .aspectRatio(16 / 9, contentMode: .fit)
+                ArtworkView(url: model.track.artworkURL, size: nil, cornerRadius: Radius.large)
+                    .aspectRatio(1, contentMode: .fit)
+                    .frame(maxWidth: 320)
                     .frame(maxWidth: .infinity)
                     .shadow(color: HaloColor.primary.opacity(0.35), radius: 24, y: 12)
                 header
                 if model.unavailable {
-                    NoticeBanner(text: "YouTube reports this video is unavailable, private, or "
-                                 + "blocked in your region.", systemImage: "exclamationmark.triangle")
+                    NoticeBanner(text: "This song is no longer available from its source.",
+                                 systemImage: "exclamationmark.triangle")
                 }
-                HandoffButton(track: model.track)
+                PlayButton(tracks: [model.track] + model.related,
+                           title: model.track.isPreview ? "Play 30-second preview" : "Play")
+                    .disabled(model.unavailable)
+                queueActions
                 actions
-                PlaybackBoundaryNote()
+                if model.track.isPreview, let url = model.track.externalURL {
+                    NoticeBanner(
+                        text: "Only a 30-second preview of this song is available in Halo.",
+                        systemImage: "info.circle")
+                    Link(destination: url) {
+                        Label("Listen on Apple Music", systemImage: "apple.logo")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(NeonButtonStyle(prominent: false))
+                }
                 RecordingFactsCard(isLoading: model.isLoadingCanonical, metadata: model.canonical)
                 relatedSection
             }
@@ -87,7 +101,7 @@ struct SongDetailView: View {
         .navigationTitle("Song")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            isSaved = app.library.isSaved(videoId: model.track.videoId)
+            isSaved = app.library.isSaved(trackID: model.track.id)
             app.library.recordDiscovered(model.track)
             await model.load(api: app.api)
         }
@@ -117,26 +131,64 @@ struct SongDetailView: View {
             Text(model.track.title)
                 .font(HaloFont.title)
                 .foregroundStyle(HaloColor.text)
-            Text(model.track.channelTitle)
+            Text(model.track.artist)
                 .font(.headline)
                 .foregroundStyle(HaloColor.mutedText)
             HStack(spacing: Spacing.xs) {
-                AttributionBadge()
-                if let seconds = model.track.durationSeconds {
+                SourceBadge(isPreview: model.track.isPreview, source: model.track.source)
+                if let seconds = model.track.durationSeconds, !model.track.isPreview {
                     Text(DurationFormatter.clock(seconds)).monospacedDigit()
                 }
-                if let views = model.track.viewCount {
-                    Text("\(views.formatted(.number.notation(.compactName))) views")
+                if let genre = model.track.genre { Text(genre) }
+                if let plays = model.track.playCount {
+                    Text("\(plays.formatted(.number.notation(.compactName))) plays")
                 }
-                if let date = model.track.publishedAt {
-                    Text(date.formatted(.dateTime.year()))
+                if let year = model.track.releaseDate?.prefix(4), !year.isEmpty {
+                    Text(year)
                 }
             }
             .font(.caption)
             .foregroundStyle(HaloColor.mutedText)
-            Text("Source: YouTube. Title, channel and artwork are YouTube metadata.")
-                .font(.caption2)
-                .foregroundStyle(HaloColor.mutedText)
+            sourceLine
+        }
+    }
+
+    /// Attribution and licence the sources require.
+    @ViewBuilder
+    private var sourceLine: some View {
+        let track = model.track
+        HStack(spacing: 4) {
+            if let license = track.license {
+                Text("\(license.name) · ")
+            }
+            if let url = track.externalURL {
+                Link(track.attribution.label, destination: url).tint(HaloColor.accent)
+            } else {
+                Text(track.attribution.label)
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(HaloColor.mutedText)
+    }
+
+    private var queueActions: some View {
+        HStack(spacing: Spacing.sm) {
+            Button {
+                player.playNext(model.track)
+                addedConfirmation = "Plays next"
+            } label: {
+                Label("Play next", systemImage: "text.line.first.and.arrowtriangle.forward")
+                    .frame(maxWidth: .infinity)
+            }
+            Button {
+                player.addToQueue([model.track])
+                addedConfirmation = "Added to queue"
+            } label: {
+                Label("Add to queue", systemImage: "text.append").frame(maxWidth: .infinity)
+            }
+        }
+        .buttonStyle(NeonButtonStyle(prominent: false))
+        .disabled(model.track.streamURL == nil || model.unavailable)
         }
     }
 
@@ -180,15 +232,17 @@ struct SongDetailView: View {
     @ViewBuilder
     private var relatedSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            SectionHeader(title: "More from \(model.track.channelTitle)")
+            SectionHeader(title: "Up next after this")
             if model.isLoadingRelated {
                 SkeletonRail(style: .rows, count: 3)
             } else if model.related.isEmpty {
                 Text("No related music found.").font(.subheadline).foregroundStyle(HaloColor.mutedText)
             } else {
-                ForEach(model.related) { track in
-                    NavigationLink(value: track) { TrackRow(track: track) }
-                        .buttonStyle(.plain)
+                ForEach(Array(model.related.enumerated()), id: \.element.id) { index, track in
+                    NavigationLink(value: track) {
+                        TrackRow(track: track) { player.play(model.related, startAt: index) }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -267,7 +321,7 @@ struct RecordingFactsCard: View {
                 .padding(Spacing.md)
                 .haloCard()
                 Text("Data: MusicBrainz (CC0). Cover art: Cover Art Archive. Matched from the "
-                     + "YouTube title, so it can occasionally be a different version.")
+                     + "song's title and artist, so it can occasionally be a different version.")
                     .font(.caption2).foregroundStyle(HaloColor.mutedText)
             }
         } else if metadata != nil {

@@ -52,19 +52,22 @@ actor FakeMusicAPI: MusicAPI {
             ("Midnight Coffee", "Northern Static"), ("Godavari Evenings", "Godavari Collective"),
         ]
         return names.enumerated().map { index, entry in
-            let id = "tst" + String(format: "%08d", index)
+            let sid = "tst" + String(format: "%05d", index)
             return Track(
-                videoId: id, title: entry.0, channelTitle: entry.1,
-                thumbnails: ["high": Thumbnail(
-                    url: "https://i.ytimg.com/vi/\(id)/hqdefault.jpg", width: 480, height: 360)],
-                durationSeconds: 150 + index * 17, viewCount: 1_000 * (index + 1) * (index + 1),
-                watchUrl: "https://www.youtube.com/watch?v=\(id)",
-                attribution: Attribution(provider: .youtube, label: "YouTube"))
+                id: "audius:\(sid)", source: .audius, sourceId: sid, title: entry.0,
+                artist: entry.1, artworkUrl: "https://art.test/\(sid).jpg",
+                durationSeconds: 150 + index * 17, genre: "Electronic",
+                playCount: 1_000 * (index + 1) * (index + 1),
+                streamUrl: "https://stream.test/\(sid).mp3",
+                externalUrl: "https://audius.test/\(sid)",
+                attribution: Attribution(provider: .audius, label: "Audius"))
         }
     }
 
     public func health() async throws -> HealthResponse {
-        HealthResponse(status: "ok", metadataProvider: .youtube, aiPlanner: "heuristic", checks: ["youtube": "ok"])
+        HealthResponse(
+            status: "ok", musicSources: ["audius"], aiPlanner: "heuristic",
+            checks: ["catalog": "ok"])
     }
 
     public func search(query: String, kind: SearchKind, pageToken: String?, limit: Int)
@@ -74,7 +77,7 @@ actor FakeMusicAPI: MusicAPI {
         searchCalls.append((query, pageToken))
         let words = query.lowercased().split(separator: " ").map(String.init)
         let matches = catalog.filter { track in
-            let haystack = "\(track.title) \(track.channelTitle)".lowercased()
+            let haystack = "\(track.title) \(track.artist)".lowercased()
             return words.contains { haystack.contains($0) } || words.isEmpty
         }
         let offset = pageToken.flatMap(Int.init) ?? 0
@@ -89,7 +92,7 @@ actor FakeMusicAPI: MusicAPI {
         return SearchResponse(
             query: query, kind: kind, items: page, nextPageToken: next,
             prevPageToken: offset > 0 ? String(max(0, offset - limit)) : nil,
-            totalResultsEstimate: matches.count, provider: .youtube, cached: false)
+            totalResultsEstimate: matches.count, sources: ["audius"], cached: false)
     }
 
     public func suggestions(prefix: String) async throws -> [String] {
@@ -99,23 +102,24 @@ actor FakeMusicAPI: MusicAPI {
             .reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.prefix(8))
     }
 
-    public func trending(pageToken: String?, limit: Int) async throws -> TrendingResponse {
+    public private(set) var trendingGenres: [String?] = []
+
+    public func trending(genre: String?, limit: Int) async throws -> TrendingResponse {
         try checkFailure()
-        let ranked = catalog.sorted { ($0.viewCount ?? 0) > ($1.viewCount ?? 0) }
-        let offset = pageToken.flatMap(Int.init) ?? 0
-        let next = offset + limit < ranked.count ? String(offset + limit) : nil
+        trendingGenres.append(genre)
+        let ranked = catalog.sorted { ($0.playCount ?? 0) > ($1.playCount ?? 0) }
         return TrendingResponse(
-            items: Array(ranked.dropFirst(offset).prefix(limit)), nextPageToken: next,
-            prevPageToken: nil, provider: .youtube, cached: false, source: "test")
+            items: Array(ranked.prefix(limit)), nextPageToken: nil, prevPageToken: nil,
+            sources: ["audius"], cached: false, source: "test")
     }
 
-    public func upNext(videoID: String, limit: Int) async throws -> UpNextResponse {
+    public func upNext(trackID: String, limit: Int) async throws -> UpNextResponse {
         try checkFailure()
-        let picks = catalog.filter { $0.videoId != videoID }.prefix(limit).map {
+        let picks = catalog.filter { $0.id != trackID }.prefix(limit).map {
             RecommendedTrack(track: $0, score: 1, reasons: ["Similar listeners saved this"],
                              matchedQuery: "co-listening", source: "co_listen", explore: false)
         }
-        return UpNextResponse(seedVideoId: videoID, tracks: Array(picks))
+        return UpNextResponse(seedTrackId: trackID, tracks: Array(picks))
     }
 
     public private(set) var homeSections: [HomeSection]?
@@ -130,17 +134,17 @@ actor FakeMusicAPI: MusicAPI {
                         items: [HomeItem(kind: .mood, id: "focused", title: "Focus")], score: 90),
             HomeSection(id: "trending", type: "trending", title: "Trending now", layout: .rail,
                         items: catalog.prefix(3).map {
-                            HomeItem(kind: .track, id: $0.videoId, title: $0.title, track: $0)
-                        }, source: "YouTube", score: 64),
+                            HomeItem(kind: .track, id: $0.id, title: $0.title, track: $0)
+                        }, source: "Audius", score: 64),
         ]
         return HomeFeed(sections: sections, personalized: false, generatedAt: Date())
     }
 
-    public func trackMetadata(videoID: String) async throws -> TrackMetadataResponse {
+    public func trackMetadata(trackID: String) async throws -> TrackMetadataResponse {
         try checkFailure()
-        guard let track = catalog.first(where: { $0.videoId == videoID }) else {
+        guard let track = catalog.first(where: { $0.id == trackID }) else {
             return TrackMetadataResponse(
-                videoId: videoID, parsedArtist: "", parsedTitle: "", matched: false,
+                trackId: trackID, parsedArtist: "", parsedTitle: "", matched: false,
                 recording: nil, artist: nil, source: "MusicBrainz")
         }
         let release = ReleaseInfo(
@@ -150,12 +154,12 @@ actor FakeMusicAPI: MusicAPI {
             coverArtUrl: nil)
         let recording = CanonicalRecording(
             recordingMbid: "rec-1", title: track.title,
-            artistCredit: [ArtistCredit(name: track.channelTitle, mbid: "art-1", joinPhrase: "")],
+            artistCredit: [ArtistCredit(name: track.artist, mbid: "art-1", joinPhrase: "")],
             lengthMs: track.durationSeconds.map { $0 * 1000 }, firstReleaseDate: "2024-05-01",
             isrcs: ["INTST2400001"], genres: ["indie pop"], releases: [release], matchScore: 100,
             musicbrainzUrl: "https://musicbrainz.org/recording/rec-1")
         return TrackMetadataResponse(
-            videoId: videoID, parsedArtist: track.channelTitle, parsedTitle: track.title,
+            trackId: trackID, parsedArtist: track.artist, parsedTitle: track.title,
             matched: true, recording: recording, artist: nil, source: "MusicBrainz")
     }
 
@@ -169,7 +173,7 @@ actor FakeMusicAPI: MusicAPI {
         try checkDiscovery()
         return catalog.prefix(limit).enumerated().map { index, track in
             FreshRelease(
-                releaseMbid: "fresh-\(index)", releaseName: track.title, artistName: track.channelTitle,
+                releaseMbid: "fresh-\(index)", releaseName: track.title, artistName: track.artist,
                 artistMbids: [], releaseDate: "2026-10-1\(index % 10)", releaseGroupMbid: nil,
                 releaseType: "Single", tags: [], listenCount: 100 - index, coverArtUrl: nil,
                 source: "ListenBrainz")
@@ -181,7 +185,7 @@ actor FakeMusicAPI: MusicAPI {
         try checkDiscovery()
         return catalog.prefix(limit).enumerated().map { index, track in
             PopularRecording(
-                recordingMbid: "pop-\(index)", title: track.title, artistName: track.channelTitle,
+                recordingMbid: "pop-\(index)", title: track.title, artistName: track.artist,
                 releaseName: nil, listenCount: 1000 - index, listenerCount: nil, lengthMs: nil,
                 similarTo: nil, source: "ListenBrainz")
         }
@@ -197,33 +201,32 @@ actor FakeMusicAPI: MusicAPI {
             bitrate: 128, popularity: 10)]
     }
 
-    public func video(id: String) async throws -> Track {
+    public func track(id: String) async throws -> Track {
         try checkFailure()
-        guard let track = catalog.first(where: { $0.videoId == id }) else {
+        guard let track = catalog.first(where: { $0.id == id }) else {
             throw APIError.server(
-                status: 404, code: "video_unavailable", message: "This video is unavailable",
+                status: 404, code: "track_unavailable", message: "This song is unavailable",
                 retryAfter: nil)
         }
         return track
     }
 
-    private func makeRemote(_ id: UUID, name: String, videoIDs: [String], existing: RemotePlaylist?)
+    private func makeRemote(_ id: UUID, name: String, trackIDs: [String], existing: RemotePlaylist?)
         -> RemotePlaylist
     {
-        let items = videoIDs.enumerated().compactMap { index, vid -> RemotePlaylistItem? in
-            guard let track = catalog.first(where: { $0.videoId == vid }) else { return nil }
+        let items = trackIDs.enumerated().compactMap { index, tid -> RemotePlaylistItem? in
+            guard let track = catalog.first(where: { $0.id == tid }) else { return nil }
             return RemotePlaylistItem(
-                id: UUID(), position: index, note: nil, videoId: vid, title: track.title,
-                channelTitle: track.channelTitle, thumbnailUrl: track.artworkURL?.absoluteString,
-                durationSeconds: track.durationSeconds, isAvailable: true,
-                watchUrl: track.watchUrl, addedAt: Date())
+                id: UUID(), position: index, note: nil, trackId: tid, title: track.title,
+                artist: track.artist, album: track.album, artworkUrl: track.artworkUrl,
+                durationSeconds: track.durationSeconds, streamUrl: track.streamUrl,
+                isPreview: track.isPreview, isAvailable: true, addedAt: Date())
         }
         return RemotePlaylist(
             id: id, name: name, description: existing?.description, mood: existing?.mood,
-            isAiGenerated: existing?.isAiGenerated ?? false, youtubePlaylistId: nil,
-            youtubePlaylistUrl: nil, itemCount: items.count,
+            isAiGenerated: existing?.isAiGenerated ?? false, itemCount: items.count,
             totalDurationSeconds: items.compactMap(\.durationSeconds).reduce(0, +),
-            artworkUrl: items.first?.thumbnailUrl, createdAt: existing?.createdAt ?? Date(),
+            artworkUrl: items.first?.artworkUrl, createdAt: existing?.createdAt ?? Date(),
             updatedAt: Date(), items: items)
     }
 
@@ -245,7 +248,7 @@ actor FakeMusicAPI: MusicAPI {
     public func createPlaylist(_ request: PlaylistCreateRequest) async throws -> RemotePlaylist {
         try checkFailure()
         let id = UUID()
-        var playlist = makeRemote(id, name: request.name, videoIDs: request.videoIds, existing: nil)
+        var playlist = makeRemote(id, name: request.name, trackIDs: request.trackIds, existing: nil)
         playlist.description = request.description
         playlist.isAiGenerated = request.isAiGenerated
         remotePlaylists[id] = playlist
@@ -266,13 +269,13 @@ actor FakeMusicAPI: MusicAPI {
         remotePlaylists[id] = nil
     }
 
-    public func addPlaylistItem(playlistID: UUID, videoID: String, position: Int?) async throws
+    public func addPlaylistItem(playlistID: UUID, trackID: String, position: Int?) async throws
         -> RemotePlaylist
     {
         let playlist = try await self.playlist(id: playlistID)
-        var ids = (playlist.items ?? []).map(\.videoId)
-        ids.insert(videoID, at: min(position ?? ids.count, ids.count))
-        let updated = makeRemote(playlistID, name: playlist.name, videoIDs: ids, existing: playlist)
+        var ids = (playlist.items ?? []).map(\.trackId)
+        ids.insert(trackID, at: min(position ?? ids.count, ids.count))
+        let updated = makeRemote(playlistID, name: playlist.name, trackIDs: ids, existing: playlist)
         remotePlaylists[playlistID] = updated
         return updated
     }
@@ -302,7 +305,7 @@ actor FakeMusicAPI: MusicAPI {
     private func draft(for text: String, minutes: Int, excluding: Set<String>) -> PlaylistDraft {
         var picked: [RecommendedTrack] = []
         var total = 0
-        for track in catalog where !excluding.contains(track.videoId) {
+        for track in catalog where !excluding.contains(track.id) {
             guard total < minutes * 60 else { break }
             picked.append(RecommendedTrack(
                 track: track, score: 1, reasons: ["Test pick for “\(text)”"], matchedQuery: text))
@@ -311,7 +314,7 @@ actor FakeMusicAPI: MusicAPI {
         return PlaylistDraft(
             sessionId: nil, title: "Test Mix", explanation: "Here's a mix for “\(text)”.",
             planner: "heuristic", queries: [text], tracks: picked, totalDurationSeconds: total,
-            targetDurationSeconds: minutes * 60, provider: .youtube,
+            targetDurationSeconds: minutes * 60, sources: ["audius"],
             warnings: [])
     }
 
@@ -319,7 +322,7 @@ actor FakeMusicAPI: MusicAPI {
         try checkFailure()
         return draft(
             for: request.description, minutes: request.durationMinutes,
-            excluding: Set(request.excludeVideoIds))
+            excluding: Set(request.excludeTrackIds))
     }
 
     public func aiChat(_ request: AIChatRequest) async throws -> AIChatResponse {
@@ -331,7 +334,7 @@ actor FakeMusicAPI: MusicAPI {
 
     public func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse {
         FeedbackResponse(
-            id: UUID(), videoId: request.videoId, rating: request.rating,
+            id: UUID(), trackId: request.trackId, rating: request.rating,
             recorded: prefs.personalizationEnabled)
     }
 
@@ -345,7 +348,7 @@ actor FakeMusicAPI: MusicAPI {
     public func taste() async throws -> TasteProfile {
         TasteProfile(
             personalizationEnabled: prefs.personalizationEnabled,
-            basis: "Inferred from your activity inside Halo. Halo cannot see what you play in Brave.",
+            basis: "Inferred from your activity inside Halo. It never leaves your account.",
             topArtists: prefs.favoriteArtists.map {
                 TasteSignal(label: $0.name, weight: 3, evidence: "marked as favorite")
             },

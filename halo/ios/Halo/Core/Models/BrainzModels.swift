@@ -66,7 +66,7 @@ public struct ArtistInfo: Codable, Sendable, Hashable {
 }
 
 public struct TrackMetadataResponse: Codable, Sendable, Hashable {
-    public var videoId: String
+    public var trackId: String
     public var parsedArtist: String
     public var parsedTitle: String
     public var matched: Bool
@@ -87,7 +87,7 @@ public struct PopularRecording: Codable, Sendable, Hashable, Identifiable {
     public var source: String
 
     public var id: String { recordingMbid ?? "\(artistName)|\(title)" }
-    /// What to search on YouTube to find this recording.
+    /// What to search for to find a playable copy of this recording.
     public var searchQuery: String { "\(artistName) \(title)" }
 }
 

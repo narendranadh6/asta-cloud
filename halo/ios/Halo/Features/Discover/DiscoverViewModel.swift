@@ -1,29 +1,39 @@
 import Foundation
 import Observation
 
-/// Loads Discover's shelves. Every shelf is real provider data: the official YouTube
-/// most-popular music chart, live and remix searches, and open listening data from
-/// ListenBrainz (fresh releases, most listened). Shelves fail independently.
+/// Loads Discover's shelves. Every shelf is real, playable music: tracks trending this week
+/// on Audius and Jamendo (overall and per genre), plus open listening data from ListenBrainz
+/// (fresh releases, most listened). Shelves fail independently.
 @MainActor
 @Observable
 final class DiscoverViewModel {
     enum Shelf: String, CaseIterable, Identifiable, Sendable {
-        case trending = "Top on YouTube"
-        case live = "Live performances"
-        case remixes = "Remixes"
+        case trending = "Trending this week"
+        case electronic = "Electronic"
+        case hipHop = "Hip-hop"
+        case lofi = "Lo-fi & chill"
         var id: String { rawValue }
+
+        /// Genre filter sent to the catalog (Audius genre names); nil means all genres.
+        var genre: String? {
+            switch self {
+            case .trending: nil
+            case .electronic: "Electronic"
+            case .hipHop: "Hip-Hop/Rap"
+            case .lofi: "Lo-Fi"
+            }
+        }
     }
 
     enum Filter: String, CaseIterable, Identifiable, Sendable {
-        case all = "All", new = "New", trending = "Trending", live = "Live", remixes = "Remixes"
+        case all = "All", new = "New", trending = "Trending", genres = "Genres"
         var id: String { rawValue }
         var shelves: [Shelf] {
             switch self {
             case .all: Shelf.allCases
             case .new: []
             case .trending: [.trending]
-            case .live: [.live]
-            case .remixes: [.remixes]
+            case .genres: [.electronic, .hipHop, .lofi]
             }
         }
         /// Whether the ListenBrainz shelves are shown.
@@ -48,7 +58,7 @@ final class DiscoverViewModel {
     private(set) var shelves: [Shelf: ShelfState] = [:]
     private(set) var freshReleases: OpenDataState<[FreshRelease]> = .loading
     private(set) var mostListened: OpenDataState<[PopularRecording]> = .loading
-    private(set) var provider: MetadataProvider?
+    private(set) var sources: [String] = []
 
     var visibleShelves: [Shelf] { filter.shelves }
 
@@ -56,20 +66,20 @@ final class DiscoverViewModel {
         for shelf in Shelf.allCases where shelves[shelf] == nil || isFailed(shelf) {
             shelves[shelf] = .loading
         }
-        let prefix = language.map { "\($0) " } ?? ""
-        async let trending = Self.capture { try await api.trending(pageToken: nil, limit: 12) }
-        async let live = Self.capture {
-            try await api.search(query: "\(prefix)live concert", kind: .live, pageToken: nil, limit: 12)
-        }
-        async let remixes = Self.capture {
-            try await api.search(query: "\(prefix)remix", kind: .remix, pageToken: nil, limit: 12)
+        await withTaskGroup(of: (Shelf, Result<TrendingResponse, Error>).self) { group in
+            for shelf in Shelf.allCases {
+                group.addTask {
+                    (shelf, await Self.capture {
+                        try await api.trending(genre: shelf.genre, limit: 12)
+                    })
+                }
+            }
+            for await (shelf, result) in group {
+                apply(shelf, result.map { ($0.items, $0.sources) })
+            }
         }
         async let fresh = Self.capture { try await api.freshReleases(days: 14, upcoming: false, limit: 20) }
         async let popular = Self.capture { try await api.mostListened(range: .week, limit: 10) }
-        let (t, l, r) = await (trending, live, remixes)
-        apply(.trending, t.map { ($0.items, $0.provider) })
-        apply(.live, l.map { ($0.items, $0.provider) })
-        apply(.remixes, r.map { ($0.items, $0.provider) })
         freshReleases = Self.openData(await fresh)
         mostListened = Self.openData(await popular)
     }
@@ -92,11 +102,11 @@ final class DiscoverViewModel {
         return false
     }
 
-    private func apply(_ shelf: Shelf, _ result: Result<([Track], MetadataProvider), Error>) {
+    private func apply(_ shelf: Shelf, _ result: Result<([Track], [String]), Error>) {
         switch result {
-        case let .success((items, provider)):
+        case let .success((items, sources)):
             shelves[shelf] = .loaded(items)
-            self.provider = provider
+            if !sources.isEmpty { self.sources = sources }
         case let .failure(error):
             shelves[shelf] = .failed(error)
         }

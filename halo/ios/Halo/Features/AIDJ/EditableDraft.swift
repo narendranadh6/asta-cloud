@@ -1,13 +1,13 @@
 import Foundation
 
-/// Editable form of an AI-generated playlist. Every track came from backend-verified
-/// search results; editing only reorders/removes them.
+/// Editable form of an AI-generated playlist. Every track came from the backend's catalog;
+/// editing only reorders/removes them.
 struct EditableDraft: Identifiable, Hashable {
     let id = UUID()
     var title: String
     var explanation: String
     var planner: String
-    var provider: MetadataProvider
+    var sources: [String]
     var sessionID: UUID?
     var warnings: [String]
     var queries: [String]
@@ -18,7 +18,7 @@ struct EditableDraft: Identifiable, Hashable {
         title = draft.title
         explanation = draft.explanation
         planner = draft.planner
-        provider = draft.provider
+        sources = draft.sources
         sessionID = draft.sessionId
         warnings = draft.warnings
         queries = draft.queries

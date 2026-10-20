@@ -30,6 +30,7 @@ final class RadioViewModel {
 struct RadioView: View {
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
+    @Environment(PlayerController.self) private var player
     @State private var model = RadioViewModel()
 
     var body: some View {
@@ -68,17 +69,21 @@ struct RadioView: View {
         .navigationTitle("Live Radio")
         .task(id: model.genre) { await model.load(api: app.api, language: settings.preferredLanguage) }
         .refreshable { await model.load(api: app.api, language: settings.preferredLanguage) }
-        .safeAreaInset(edge: .bottom) {
-            if let station = app.radio.station {
-                RadioNowPlayingBar(station: station)
-            }
-        }
+    }
+
+    private func currentStationID() -> String? {
+        if case let .station(station) = player.item { return station.id }
+        return nil
     }
 
     private func stationRow(_ station: RadioStation) -> some View {
-        let isCurrent = app.radio.station?.id == station.id
+        let isCurrent = currentStationID() == station.id
         return Button {
-            app.radio.toggle(station)
+            if isCurrent && player.isPlaying {
+                player.stop()
+            } else {
+                player.play(station: station)
+            }
             Haptics.tap(enabled: settings.hapticsEnabled)
         } label: {
             HStack(spacing: Spacing.sm) {
@@ -100,7 +105,7 @@ struct RadioView: View {
                         .font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: isCurrent && app.radio.status != .idle ? "stop.circle.fill" : "play.circle.fill")
+                Image(systemName: isCurrent && player.isPlaying ? "stop.circle.fill" : "play.circle.fill")
                     .font(.title)
                     .foregroundStyle(isCurrent ? HaloColor.primary : HaloColor.text)
             }
@@ -109,39 +114,5 @@ struct RadioView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("\(station.name), live radio")
         .accessibilityHint(isCurrent ? "Stops the station" : "Plays the station")
-    }
-}
-
-struct RadioNowPlayingBar: View {
-    @Environment(AppModel.self) private var app
-    var station: RadioStation
-
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "dot.radiowaves.left.and.right")
-                .foregroundStyle(HaloColor.primary)
-                .symbolEffect(.variableColor.iterative, isActive: app.radio.status == .playing)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(station.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(statusText).font(.caption).foregroundStyle(HaloColor.mutedText)
-            }
-            Spacer()
-            Button { app.radio.stop() } label: {
-                Image(systemName: "stop.fill").font(.title3)
-            }
-            .accessibilityLabel("Stop radio")
-        }
-        .padding(Spacing.sm)
-        .haloCard()
-        .padding(.horizontal, Spacing.sm)
-    }
-
-    private var statusText: String {
-        switch app.radio.status {
-        case .idle: "Stopped"
-        case .connecting: "Connecting…"
-        case .playing: "Live now"
-        case let .failed(message): message
-        }
     }
 }

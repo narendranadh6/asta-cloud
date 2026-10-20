@@ -7,8 +7,8 @@ import SwiftData
 @MainActor
 final class LibraryStore {
     static let recentSearchLimit = 30
-    /// Refresh stored YouTube metadata well inside the 30-day policy window.
-    static let metadataRefreshAge: TimeInterval = 25 * 24 * 3600
+    /// Refresh stored track metadata (titles, artwork, stream URLs) weekly.
+    static let metadataRefreshAge: TimeInterval = 7 * 24 * 3600
     static let discoveredRetention: TimeInterval = 30 * 24 * 3600
 
     let context: ModelContext
@@ -27,8 +27,8 @@ final class LibraryStore {
 
     // MARK: Tracks
 
-    func trackEntity(videoId: String) -> TrackEntity? {
-        var descriptor = FetchDescriptor<TrackEntity>(predicate: #Predicate { $0.videoId == videoId })
+    func trackEntity(trackID: String) -> TrackEntity? {
+        var descriptor = FetchDescriptor<TrackEntity>(predicate: #Predicate { $0.trackID == trackID })
         descriptor.fetchLimit = 1
         return try? context.fetch(descriptor).first
     }
@@ -36,7 +36,7 @@ final class LibraryStore {
     /// Records that the user opened a song (powers "Recently discovered").
     @discardableResult
     func recordDiscovered(_ track: Track, now: Date = .now) -> TrackEntity {
-        if let existing = trackEntity(videoId: track.videoId) {
+        if let existing = trackEntity(trackID: track.id) {
             existing.update(from: track, now: now)
             existing.lastViewedAt = now
             save()
@@ -48,12 +48,12 @@ final class LibraryStore {
         return entity
     }
 
-    func isSaved(videoId: String) -> Bool {
-        trackEntity(videoId: videoId)?.isSaved ?? false
+    func isSaved(trackID: String) -> Bool {
+        trackEntity(trackID: trackID)?.isSaved ?? false
     }
 
     func setSaved(_ saved: Bool, track: Track, now: Date = .now) {
-        let entity = trackEntity(videoId: track.videoId) ?? {
+        let entity = trackEntity(trackID: track.id) ?? {
             let created = TrackEntity(track: track, saved: false, now: now)
             context.insert(created)
             return created
@@ -84,8 +84,7 @@ final class LibraryStore {
             recommendationSessionID: recommendationSessionID, now: now)
         context.insert(playlist)
         for (index, track) in tracks.enumerated() {
-            let item = PlaylistItemEntity(
-                track: track, provider: track.attribution.provider, position: index, now: now)
+            let item = PlaylistItemEntity(track: track, position: index, now: now)
             context.insert(item)
             item.playlist = playlist
         }
@@ -101,21 +100,9 @@ final class LibraryStore {
         touch(playlist)
     }
 
-    func setYouTubePlaylistID(_ id: String?, on playlist: PlaylistEntity) -> Bool {
-        if let id, !id.isEmpty {
-            guard YouTubeIdentifier.isValidPlaylistID(id) else { return false }
-            playlist.youtubePlaylistID = id
-        } else {
-            playlist.youtubePlaylistID = nil
-        }
-        touch(playlist)
-        return true
-    }
-
     func add(_ track: Track, to playlist: PlaylistEntity, at position: Int? = nil) {
         var ordered = playlist.orderedItems
-        let item = PlaylistItemEntity(
-            track: track, provider: track.attribution.provider, position: ordered.count)
+        let item = PlaylistItemEntity(track: track, position: ordered.count)
         context.insert(item)
         item.playlist = playlist
         let index = min(max(position ?? ordered.count, 0), ordered.count)
@@ -236,13 +223,12 @@ final class LibraryStore {
             predicate: #Predicate { $0.metadataFetchedAt < refreshCutoff }))) ?? []
         for entity in stale.prefix(25) {
             do {
-                let track = try await api.video(id: entity.videoId)
+                let track = try await api.track(id: entity.trackID)
                 entity.update(from: track, now: now)
             } catch let error as APIError where error.status == 404 {
+                // Removed at the source: keep the entry, but it can no longer play.
                 entity.isAvailable = false
-                entity.title = "Unavailable video"
-                entity.channelTitle = "Unavailable"
-                entity.artworkURLString = nil
+                entity.streamURLString = nil
                 entity.metadataFetchedAt = now
             } catch {
                 break  // offline or quota: try again next launch
@@ -262,12 +248,12 @@ final class LibraryStore {
     /// Local library as JSON for data export.
     func exportJSON() throws -> Data {
         struct Export: Encodable {
-            struct Song: Encodable { var videoId, title, channelTitle: String; var saved: Bool }
+            struct Song: Encodable { var trackId, title, artist: String; var saved: Bool }
             struct List: Encodable {
                 var name: String
                 var details: String?
                 var isAIGenerated: Bool
-                var videoIds: [String]
+                var trackIds: [String]
             }
             var savedSongs: [Song]
             var playlists: [List]
@@ -279,11 +265,11 @@ final class LibraryStore {
         let searches = (try? context.fetch(FetchDescriptor<RecentSearchEntity>(
             sortBy: [SortDescriptor(\.searchedAt, order: .reverse)]))) ?? []
         let export = Export(
-            savedSongs: tracks.map { .init(videoId: $0.videoId, title: $0.title,
-                                           channelTitle: $0.channelTitle, saved: $0.isSaved) },
+            savedSongs: tracks.map { .init(trackId: $0.trackID, title: $0.title,
+                                           artist: $0.artist, saved: $0.isSaved) },
             playlists: allPlaylists().map {
                 .init(name: $0.name, details: $0.details, isAIGenerated: $0.isAIGenerated,
-                      videoIds: $0.orderedItems.map(\.videoId))
+                      trackIds: $0.orderedItems.map(\.trackID))
             },
             recentSearches: searches.map(\.query),
             favoriteArtists: artists(excluded: false).map(\.name),

@@ -217,110 +217,110 @@
    "id": "trending",
    "type": "trending",
    "title": "Trending now",
-   "eyebrow": "YouTube music chart",
+   "eyebrow": "Full songs, free to play",
    "layout": "rail",
    "items": [
     {
      "kind": "track",
-     "id": "tst6-yUYedc",
+     "id": "audius:tst6xyUYed",
      "title": "Korean Feel Good Pop No. 3 (Live Session)",
      "subtitle": "Dawn Circuit",
-     "artwork_url": "https://i.ytimg.com/vi/tst6-yUYedc/hqdefault.jpg",
+     "artwork_url": "https://art.test/tst6xyUYed.jpg",
      "query": null,
      "badge": null,
      "track": {
-      "video_id": "tst6-yUYedc",
+      "id": "audius:tst6xyUYed",
+      "source": "audius",
+      "source_id": "tst6xyUYed",
       "title": "Korean Feel Good Pop No. 3 (Live Session)",
-      "channel_title": "Dawn Circuit",
-      "channel_id": null,
-      "description": "Test catalog entry (happy, energy 80).",
-      "thumbnails": {
-       "high": {
-        "url": "https://i.ytimg.com/vi/tst6-yUYedc/hqdefault.jpg",
-        "width": 480,
-        "height": 360
-       }
-      },
+      "artist": "Dawn Circuit",
+      "artist_id": null,
+      "album": null,
+      "artwork_url": "https://art.test/tst6xyUYed.jpg",
       "duration_seconds": 191,
-      "published_at": "2022-10-24T00:00:00Z",
-      "view_count": 1133417,
-      "is_live": false,
-      "watch_url": "https://www.youtube.com/watch?v=tst6-yUYedc",
+      "genre": "Pop",
+      "mood": "Happy",
+      "release_date": null,
+      "play_count": 1133417,
+      "stream_url": "https://stream.test/tst6xyUYed.mp3",
+      "is_preview": false,
+      "license": null,
+      "external_url": "https://audius.test/tst6xyUYed",
       "attribution": {
-       "provider": "youtube",
-       "label": "YouTube",
-       "url": "https://www.youtube.com/watch?v=tst6-yUYedc"
+       "provider": "audius",
+       "label": "Audius",
+       "url": "https://audius.test/tst6xyUYed"
       }
      }
     },
     {
      "kind": "track",
-     "id": "tstAz5Hact4",
+     "id": "audius:tstAz5Hact",
      "title": "Korean Feel Good Pop No. 2 (Remix)",
      "subtitle": "Seoul Lantern",
-     "artwork_url": "https://i.ytimg.com/vi/tstAz5Hact4/hqdefault.jpg",
+     "artwork_url": "https://art.test/tstAz5Hact.jpg",
      "query": null,
      "badge": null,
      "track": {
-      "video_id": "tstAz5Hact4",
+      "id": "audius:tstAz5Hact",
+      "source": "audius",
+      "source_id": "tstAz5Hact",
       "title": "Korean Feel Good Pop No. 2 (Remix)",
-      "channel_title": "Seoul Lantern",
-      "channel_id": null,
-      "description": "Test catalog entry (happy, energy 80).",
-      "thumbnails": {
-       "high": {
-        "url": "https://i.ytimg.com/vi/tstAz5Hact4/hqdefault.jpg",
-        "width": 480,
-        "height": 360
-       }
-      },
+      "artist": "Seoul Lantern",
+      "artist_id": null,
+      "album": null,
+      "artwork_url": "https://art.test/tstAz5Hact.jpg",
       "duration_seconds": 154,
-      "published_at": "2022-07-19T00:00:00Z",
-      "view_count": 1125498,
-      "is_live": false,
-      "watch_url": "https://www.youtube.com/watch?v=tstAz5Hact4",
+      "genre": "Pop",
+      "mood": "Happy",
+      "release_date": null,
+      "play_count": 1125498,
+      "stream_url": "https://stream.test/tstAz5Hact.mp3",
+      "is_preview": false,
+      "license": null,
+      "external_url": "https://audius.test/tstAz5Hact",
       "attribution": {
-       "provider": "youtube",
-       "label": "YouTube",
-       "url": "https://www.youtube.com/watch?v=tstAz5Hact4"
+       "provider": "audius",
+       "label": "Audius",
+       "url": "https://audius.test/tstAz5Hact"
       }
      }
     },
     {
      "kind": "track",
-     "id": "tsty3FeYQ1r",
+     "id": "audius:tsty3FeYQ1",
      "title": "Korean Feel Good Pop No. 1",
      "subtitle": "Hanbit Room",
-     "artwork_url": "https://i.ytimg.com/vi/tsty3FeYQ1r/hqdefault.jpg",
+     "artwork_url": "https://art.test/tsty3FeYQ1.jpg",
      "query": null,
      "badge": null,
      "track": {
-      "video_id": "tsty3FeYQ1r",
+      "id": "audius:tsty3FeYQ1",
+      "source": "audius",
+      "source_id": "tsty3FeYQ1",
       "title": "Korean Feel Good Pop No. 1",
-      "channel_title": "Hanbit Room",
-      "channel_id": null,
-      "description": "Test catalog entry (happy, energy 80).",
-      "thumbnails": {
-       "high": {
-        "url": "https://i.ytimg.com/vi/tsty3FeYQ1r/hqdefault.jpg",
-        "width": 480,
-        "height": 360
-       }
-      },
+      "artist": "Hanbit Room",
+      "artist_id": null,
+      "album": null,
+      "artwork_url": "https://art.test/tsty3FeYQ1.jpg",
       "duration_seconds": 327,
-      "published_at": "2022-04-13T00:00:00Z",
-      "view_count": 1117579,
-      "is_live": false,
-      "watch_url": "https://www.youtube.com/watch?v=tsty3FeYQ1r",
+      "genre": "Pop",
+      "mood": "Happy",
+      "release_date": null,
+      "play_count": 1117579,
+      "stream_url": "https://stream.test/tsty3FeYQ1.mp3",
+      "is_preview": false,
+      "license": null,
+      "external_url": "https://audius.test/tsty3FeYQ1",
       "attribution": {
-       "provider": "youtube",
-       "label": "YouTube",
-       "url": "https://www.youtube.com/watch?v=tsty3FeYQ1r"
+       "provider": "audius",
+       "label": "Audius",
+       "url": "https://audius.test/tsty3FeYQ1"
       }
      }
     }
    ],
-   "source": "YouTube",
+   "source": "Audius",
    "see_all_query": null,
    "score": 64.0
   },
@@ -387,5 +387,5 @@
   }
  ],
  "personalized": true,
- "generated_at": "2026-10-20T21:19:36.407721Z"
+ "generated_at": "2026-10-20T23:18:56.276590Z"
 }

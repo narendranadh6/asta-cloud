@@ -1,5 +1,5 @@
 // swift-tools-version: 6.0
-// Platform-neutral core of Halo (networking, models, browser handoff logic).
+// Platform-neutral core of Halo (networking, models, playback queue).
 // The full iOS app is generated from project.yml with XcodeGen; this package lets the
 // core compile and run its unit tests anywhere `swift test` works (macOS or Linux CI).
 import PackageDescription
@@ -20,12 +20,13 @@ let package = Package(
                 "Features/PlaylistStudio/PlaylistStudioView.swift", "Features/Search/SearchView.swift",
                 "Features/Search/SongDetailView.swift", "Features/Settings", "Features/Shared.swift",
                 "Features/Taste", "Resources", "Features/Discover/DiscoverView.swift",
-                "Features/NowInBrave", "Core/DesignSystem/Showcase.swift", "Features/Radio",
+                "Features/NowPlaying", "Core/DesignSystem/Showcase.swift", "Features/Radio",
+                "Core/Playback/StreamingAudioEngine.swift", "Core/Playback/SystemMediaControls.swift",
             ],
             sources: [
                 "Core/Networking",
                 "Core/Models",
-                "Core/BrowserIntegration",
+                "Core/Playback",
                 // UI-free view models, type-checked and unit tested off-device too.
                 "App/AppSettings.swift",
                 "Features/Search/SearchViewModel.swift",

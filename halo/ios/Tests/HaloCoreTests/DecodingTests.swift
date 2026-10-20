@@ -10,13 +10,18 @@ import XCTest
 final class DecodingTests: XCTestCase {
     func testDecodesSearchResponse() throws {
         let response = try JSONDecoder.halo.decode(SearchResponse.self, from: Fixture.data("search"))
-        XCTAssertEqual(response.provider, .youtube)
+        XCTAssertEqual(response.sources, ["audius", "itunes"])
         XCTAssertEqual(response.items.count, 3)
-        let track = response.items[0]
-        XCTAssertTrue(YouTubeIdentifier.isValidVideoID(track.videoId))
-        XCTAssertEqual(track.attribution.label, "YouTube")
-        XCTAssertNotNil(track.artworkURL)
-        XCTAssertNotNil(track.publishedAt)
+        XCTAssertTrue(response.items.allSatisfy { TrackID.isValid($0.id) && $0.streamURL != nil })
+        let preview = response.items[0]
+        XCTAssertEqual(preview.source, .itunes)
+        XCTAssertTrue(preview.isPreview)
+        XCTAssertEqual(preview.attribution.label, "Preview courtesy of Apple Music")
+        XCTAssertEqual(preview.externalURL?.host, "music.apple.com")
+        let full = response.items[1]
+        XCTAssertEqual(full.source, .audius)
+        XCTAssertFalse(full.isPreview)
+        XCTAssertNotNil(full.artworkURL)
         XCTAssertNotNil(response.nextPageToken)
     }
 
@@ -55,7 +60,8 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(feed.sections.first?.eyebrow, "Because you saved Aarav Strings")
         let trending = try XCTUnwrap(feed.sections.first { $0.type == "trending" })
         XCTAssertEqual(trending.items.first?.kind, .track)
-        XCTAssertEqual(trending.items.first?.track?.videoId, trending.items.first?.id)
+        XCTAssertEqual(trending.items.first?.track?.id, trending.items.first?.id)
+        XCTAssertNotNil(trending.items.first?.track?.streamURL)
         let future = try XCTUnwrap(feed.sections.last)
         XCTAssertEqual(future.layout, .unknown)
         XCTAssertEqual(future.items.first?.kind, .unknown)
@@ -66,6 +72,7 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(playlist.name, "Evening")
         XCTAssertEqual(playlist.items?.map(\.position), [0, 1, 2])
         XCTAssertEqual(playlist.itemCount, 3)
+        XCTAssertTrue(playlist.items?.allSatisfy { $0.streamUrl != nil && TrackID.isValid($0.trackId) } == true)
     }
 
     func testDecodesChatDraft() throws {
@@ -74,6 +81,7 @@ final class DecodingTests: XCTestCase {
         XCTAssertFalse(draft.tracks.isEmpty)
         XCTAssertFalse(draft.queries.isEmpty)
         XCTAssertFalse(draft.tracks[0].reasons.isEmpty)
+        XCTAssertFalse(draft.sources.isEmpty)
     }
 
     func testDecodesPreferencesAndTaste() throws {
@@ -82,19 +90,47 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(prefs.moods, [.calm])
         XCTAssertNotNil(prefs.personalizationConsentAt)
         let taste = try JSONDecoder.halo.decode(TasteProfile.self, from: Fixture.data("taste"))
-        XCTAssertTrue(taste.basis.contains("cannot see what you play in Brave"))
+        XCTAssertTrue(taste.basis.contains("activity inside Halo"))
     }
 
     func testDecodesUpNextAndHealth() throws {
         let next = try JSONDecoder.halo.decode(UpNextResponse.self, from: Fixture.data("upnext"))
         XCTAssertFalse(next.tracks.isEmpty)
-        XCTAssertFalse(next.tracks.contains { $0.track.videoId == next.seedVideoId })
+        XCTAssertFalse(next.tracks.contains { $0.track.id == next.seedTrackId })
         XCTAssertNotNil(next.tracks[0].source)
         let health = try JSONDecoder.halo.decode(HealthResponse.self, from: Fixture.data("health"))
-        XCTAssertTrue(health.isSearchConfigured)
+        XCTAssertTrue(health.isCatalogConfigured)
+        XCTAssertEqual(health.musicSources, ["audius", "itunes"])
         let missing = try JSONDecoder.halo.decode(HealthResponse.self, from: Data(
-            #"{"status":"degraded","metadata_provider":"youtube","ai_planner":"heuristic","checks":{"youtube":"not_configured"}}"#.utf8))
-        XCTAssertFalse(missing.isSearchConfigured)
+            #"{"status":"degraded","music_sources":[],"ai_planner":"heuristic","checks":{"catalog":"not_configured"}}"#.utf8))
+        XCTAssertFalse(missing.isCatalogConfigured)
+    }
+
+    func testUnknownTrackSourceDecodes() throws {
+        let json = #"{"id":"future:1","source":"soundcloud","source_id":"1","title":"T","artist":"A","is_preview":false,"attribution":{"provider":"soundcloud","label":"X"}}"#
+        let track = try JSONDecoder.halo.decode(Track.self, from: Data(json.utf8))
+        XCTAssertEqual(track.source, .unknown)
+        XCTAssertNil(track.streamURL)
+    }
+
+    func testTrackIDValidation() {
+        for valid in ["audius:D7KyD", "jamendo:1532771", "itunes:1440833098"] {
+            XCTAssertTrue(TrackID.isValid(valid), valid)
+        }
+        for invalid in ["", "D7KyD", "youtube:dQw4w9WgXcQ", "audius:", "audius:a/b", "audius:a b",
+                        "spotify:x", "audius:" + String(repeating: "x", count: 41)] {
+            XCTAssertFalse(TrackID.isValid(invalid), invalid)
+        }
+    }
+
+    func testOnlyWebURLsAreLoaded() {
+        let track = Track(
+            id: "audius:x", source: .audius, sourceId: "x", title: "T", artist: "A",
+            artworkUrl: "javascript:alert(1)", streamUrl: "file:///etc/passwd",
+            externalUrl: "https://audius.co/x", attribution: Attribution(provider: .audius, label: "Audius"))
+        XCTAssertNil(track.artworkURL)
+        XCTAssertNil(track.streamURL)
+        XCTAssertNotNil(track.externalURL)
     }
 
     func testDecodesRadioStations() throws {

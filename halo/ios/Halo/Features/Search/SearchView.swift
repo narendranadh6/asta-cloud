@@ -35,7 +35,7 @@ struct SearchView: View {
         }
         .task(id: model.query) { await model.refreshSuggestions(api: app.api) }
         .task {
-            if trending.isEmpty, let response = try? await app.api.trending(pageToken: nil, limit: 5) {
+            if trending.isEmpty, let response = try? await app.api.trending(genre: nil, limit: 5) {
                 trending = response.items
             }
         }
@@ -75,13 +75,15 @@ struct SearchView: View {
         }
         if !trending.isEmpty {
             Section {
-                ForEach(trending) { track in
-                    NavigationLink(value: track) { TrackRow(track: track) }
-                        .listRowBackground(Color.clear)
+                ForEach(Array(trending.enumerated()), id: \.element.id) { index, track in
+                    NavigationLink(value: track) {
+                        TrackRow(track: track) { player.play(trending, startAt: index) }
+                    }
+                    .listRowBackground(Color.clear)
                 }
             } header: {
                 HStack {
-                    Text("Trending on YouTube").font(HaloFont.section).foregroundStyle(HaloColor.text)
+                    Text("Trending this week").font(HaloFont.section).foregroundStyle(HaloColor.text)
                         .textCase(nil)
                     Spacer()
                     NavigationLink("See all") { DiscoverView() }.font(.subheadline.weight(.semibold))
@@ -90,8 +92,8 @@ struct SearchView: View {
             }
         }
         Section {
-            suggestion("Trending remixes", "Popular now", "dial.high",
-                       SearchRoute(query: "trending remix", kind: .remix, title: "Trending remixes"))
+            suggestion("Telugu hits", "Popular songs", "music.note.list",
+                       SearchRoute(query: "Telugu hit songs", kind: .song, title: "Telugu hits"))
             NavigationLink(value: StudioRoute(mood: nil, description: "Underrated songs similar to my favorites")) {
                 suggestionLabel("Underrated gems", "Based on your taste", "diamond")
             }
@@ -130,7 +132,8 @@ struct SearchView: View {
                 ContentUnavailableView(
                     "Find your next favorite",
                     systemImage: "music.magnifyingglass",
-                    description: Text("Search YouTube music metadata. Results show their source."))
+                    description: Text("Search free full songs from Audius and Jamendo, plus "
+                                      + "30-second previews. Every result shows its source."))
                 .listRowBackground(Color.clear)
             }
         }
@@ -140,7 +143,14 @@ struct SearchView: View {
 /// Results list with loading, empty, error and pagination states.
 struct SearchResultsSection: View {
     @Environment(AppModel.self) private var app
+    @Environment(AppSettings.self) private var settings
+    @Environment(PlayerController.self) private var player
     var model: SearchViewModel
+
+    /// Results honouring the "include previews" setting.
+    private var visible: [Track] {
+        settings.includePreviews ? model.results : model.results.filter { !$0.isPreview }
+    }
 
     var body: some View {
         switch model.phase {
@@ -156,12 +166,14 @@ struct SearchResultsSection: View {
                 .listRowBackground(Color.clear)
         case .loaded:
             Section {
-                ForEach(model.results) { track in
-                    NavigationLink(value: track) { TrackRow(track: track) }
-                        .listRowBackground(Color.clear)
-                        .task {
-                            if model.shouldLoadMore(after: track) { await model.loadMore(api: app.api) }
-                        }
+                ForEach(Array(visible.enumerated()), id: \.element.id) { index, track in
+                    NavigationLink(value: track) {
+                        TrackRow(track: track) { player.play(visible, startAt: index) }
+                    }
+                    .listRowBackground(Color.clear)
+                    .task {
+                        if model.shouldLoadMore(after: track) { await model.loadMore(api: app.api) }
+                    }
                 }
                 footer.listRowBackground(Color.clear)
             } footer: {
@@ -185,8 +197,15 @@ struct SearchResultsSection: View {
         }
     }
 
+    private var attributionText: String {
+        let full = model.sources.filter { $0 != "itunes" }.map(\.capitalized)
+        let fullText = full.isEmpty ? "" : "Full songs from \(full.joined(separator: " and ")). "
+        let previews = model.sources.contains("itunes") ? "Previews courtesy of Apple Music." : ""
+        return fullText + previews
+    }
+
     private var attribution: some View {
-        Text("Results and metadata provided by YouTube.")
+        Text(attributionText)
             .font(.caption2)
             .foregroundStyle(HaloColor.mutedText)
     }

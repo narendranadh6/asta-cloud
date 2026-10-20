@@ -95,8 +95,8 @@ struct PlaylistStudioView: View {
                 .buttonStyle(NeonButtonStyle())
                 .disabled(!model.canGenerate)
 
-                Text("Halo turns this into YouTube searches, keeps only verified results and ranks "
-                     + "them. Nothing is played or downloaded inside Halo.")
+                Text("Halo turns this into searches across free full songs, keeps only playable "
+                     + "results and ranks them. Songs stream from their source; nothing is downloaded.")
                     .font(.caption).foregroundStyle(HaloColor.mutedText)
             }
             .padding(Spacing.md)
@@ -123,7 +123,7 @@ struct PlaylistStudioView: View {
                     draft: Binding(get: { model.draft! }, set: { model.draft = $0 }),
                     onRegenerate: {
                         await model.regenerate(api: app.api, shownIDs: shownIDs)
-                        shownIDs += model.draft?.queue.items.map(\.track.videoId) ?? []
+                        shownIDs += model.draft?.queue.items.map(\.track.id) ?? []
                     })
             }
         }
@@ -202,7 +202,7 @@ struct PlaylistStudioView: View {
         Task {
             await model.generate(api: app.api)
             if let draft = model.draft, model.error == nil {
-                shownIDs = draft.queue.items.map(\.track.videoId)
+                shownIDs = draft.queue.items.map(\.track.id)
                 showDraft = true
             }
         }

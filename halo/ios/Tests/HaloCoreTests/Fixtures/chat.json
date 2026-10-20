@@ -1,10 +1,10 @@
 {
- "conversation_id": null,
- "reply": "I looked for a calm mood; Telugu music; melody; from the 2000s. Here are 15 verified tracks (about 60 min). Edit the queue, then save it as a playlist.",
+ "conversation_id": "ab719a45-13f8-4500-8618-4059731ceb59",
+ "reply": "I looked for a calm mood; Telugu music; melody. Here are 10 songs (about 40 min). Play them now, edit the queue, or save it as a playlist.",
  "draft": {
-  "session_id": "fc22181d-0023-414e-8d95-5e41ccb3abb2",
+  "session_id": "f490251d-94ce-4a11-bf70-32fd74f77abc",
   "title": "Telugu Calm Melody",
-  "explanation": "I looked for a calm mood; Telugu music; melody; from the 2000s.",
+  "explanation": "I looked for a calm mood; Telugu music; melody.",
   "intent": {
    "mood": "calm",
    "language": "Telugu",
@@ -12,98 +12,385 @@
     "melody"
    ],
    "activity": null,
-   "era": "2000s",
+   "era": null,
    "energy": 30,
    "vocals": "any",
    "duration_minutes": 60,
-   "discovery": "balanced",
+   "discovery": "discovery",
    "reference_artists": [],
-   "exclude_artists": [],
+   "exclude_artists": [
+    "Velvet Atlas",
+    "Northern Static"
+   ],
    "search_queries": [
-    "Telugu melody songs 2000s",
-    "Telugu calm songs 2000s"
+    "Telugu melody songs",
+    "Telugu calm songs",
+    "Telugu melody underrated songs"
    ]
   },
   "planner": "heuristic",
   "queries": [
-   "Telugu melody songs 2000s",
-   "Telugu calm songs 2000s"
+   "Telugu melody songs",
+   "Telugu calm songs",
+   "Telugu melody underrated songs"
   ],
   "tracks": [
    {
     "track": {
-     "video_id": "tstrp_mppSC",
+     "id": "audius:tstrpymppS",
+     "source": "audius",
+     "source_id": "tstrpymppS",
      "title": "Telugu Melody No. 1",
-     "channel_title": "Aarav Strings",
-     "channel_id": null,
-     "description": "Test catalog entry (calm, energy 70).",
-     "thumbnails": {
-      "high": {
-       "url": "https://i.ytimg.com/vi/tstrp_mppSC/hqdefault.jpg",
-       "width": 480,
-       "height": 360
-      }
-     },
+     "artist": "Aarav Strings",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstrpymppS.jpg",
      "duration_seconds": 150,
-     "published_at": "2004-01-01T00:00:00Z",
-     "view_count": 1000,
-     "is_live": false,
-     "watch_url": "https://www.youtube.com/watch?v=tstrp_mppSC",
+     "genre": "Acoustic",
+     "mood": "Calm",
+     "release_date": null,
+     "play_count": 1000,
+     "stream_url": "https://stream.test/tstrpymppS.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstrpymppS",
      "attribution": {
-      "provider": "youtube",
-      "label": "YouTube",
-      "url": "https://www.youtube.com/watch?v=tstrp_mppSC"
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstrpymppS"
      }
     },
-    "score": 1.59,
+    "score": 1.636,
     "reasons": [
-     "Matches melody, telugu",
-     "From Aarav Strings, an artist you like",
-     "Found for \u201cTelugu melody songs 2000s\u201d"
+     "Matches calm, melody, telugu",
+     "A lesser-known pick",
+     "Found for \u201cTelugu melody songs\u201d"
     ],
-    "matched_query": "Telugu melody songs 2000s",
+    "matched_query": "Telugu melody songs",
     "source": "search",
     "explore": false
    },
    {
     "track": {
-     "video_id": "tstXsmfEf6h",
-     "title": "Telugu Melody No. 2 (Remix)",
-     "channel_title": "Keerthi Waves",
-     "channel_id": null,
-     "description": "Test catalog entry (calm, energy 70).",
-     "thumbnails": {
-      "high": {
-       "url": "https://i.ytimg.com/vi/tstXsmfEf6h/hqdefault.jpg",
-       "width": 480,
-       "height": 360
-      }
-     },
-     "duration_seconds": 187,
-     "published_at": "2004-04-07T00:00:00Z",
-     "view_count": 8919,
-     "is_live": false,
-     "watch_url": "https://www.youtube.com/watch?v=tstXsmfEf6h",
+     "id": "audius:tstDsB29yJ",
+     "source": "audius",
+     "source_id": "tstDsB29yJ",
+     "title": "Telugu Workout Mix Track No. 3 (Live Session)",
+     "artist": "Godavari Collective",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstDsB29yJ.jpg",
+     "duration_seconds": 359,
+     "genre": "Workout",
+     "mood": "Workout",
+     "release_date": null,
+     "play_count": 135623,
+     "stream_url": "https://stream.test/tstDsB29yJ.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstDsB29yJ",
      "attribution": {
-      "provider": "youtube",
-      "label": "YouTube",
-      "url": "https://www.youtube.com/watch?v=tstXsmfEf6h"
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstDsB29yJ"
      }
     },
-    "score": 1.1096,
+    "score": 0.6193,
     "reasons": [
-     "Matches melody, telugu",
-     "Found for \u201cTelugu melody songs 2000s\u201d"
+     "Something new for you",
+     "Matches telugu",
+     "Found for \u201cTelugu calm songs\u201d"
     ],
-    "matched_query": "Telugu melody songs 2000s",
+    "matched_query": "Telugu calm songs",
+    "source": "search",
+    "explore": true
+   },
+   {
+    "track": {
+     "id": "audius:tstVbVxPwr",
+     "source": "audius",
+     "source_id": "tstVbVxPwr",
+     "title": "Telugu Melody No. 3 (Live Session)",
+     "artist": "Godavari Collective",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstVbVxPwr.jpg",
+     "duration_seconds": 224,
+     "genre": "Acoustic",
+     "mood": "Calm",
+     "release_date": null,
+     "play_count": 16838,
+     "stream_url": "https://stream.test/tstVbVxPwr.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstVbVxPwr",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstVbVxPwr"
+     }
+    },
+    "score": 1.4961,
+    "reasons": [
+     "Matches calm, melody, telugu",
+     "A lesser-known pick",
+     "Found for \u201cTelugu melody songs\u201d"
+    ],
+    "matched_query": "Telugu melody songs",
+    "source": "search",
+    "explore": false
+   },
+   {
+    "track": {
+     "id": "audius:tstAg99Uxs",
+     "source": "audius",
+     "source_id": "tstAg99Uxs",
+     "title": "Telugu Workout Mix Track No. 2 (Remix)",
+     "artist": "Keerthi Waves",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstAg99Uxs.jpg",
+     "duration_seconds": 322,
+     "genre": "Workout",
+     "mood": "Workout",
+     "release_date": null,
+     "play_count": 127704,
+     "stream_url": "https://stream.test/tstAg99Uxs.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstAg99Uxs",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstAg99Uxs"
+     }
+    },
+    "score": 0.5855,
+    "reasons": [
+     "Something new for you",
+     "Matches telugu",
+     "Found for \u201cTelugu calm songs\u201d"
+    ],
+    "matched_query": "Telugu calm songs",
+    "source": "search",
+    "explore": true
+   },
+   {
+    "track": {
+     "id": "audius:tstXsmfEf6",
+     "source": "audius",
+     "source_id": "tstXsmfEf6",
+     "title": "Telugu Melody No. 2 (Remix)",
+     "artist": "Keerthi Waves",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstXsmfEf6.jpg",
+     "duration_seconds": 187,
+     "genre": "Acoustic",
+     "mood": "Calm",
+     "release_date": null,
+     "play_count": 8919,
+     "stream_url": "https://stream.test/tstXsmfEf6.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstXsmfEf6",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstXsmfEf6"
+     }
+    },
+    "score": 1.4154,
+    "reasons": [
+     "Matches calm, melody, telugu",
+     "A lesser-known pick",
+     "Found for \u201cTelugu melody songs\u201d"
+    ],
+    "matched_query": "Telugu melody songs",
+    "source": "search",
+    "explore": false
+   },
+   {
+    "track": {
+     "id": "audius:tstlz3m37z",
+     "source": "audius",
+     "source_id": "tstlz3m37z",
+     "title": "Telugu Road Trip Anthem No. 1",
+     "artist": "Aarav Strings",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstlz3m37z.jpg",
+     "duration_seconds": 174,
+     "genre": "Rock",
+     "mood": "Travel",
+     "release_date": null,
+     "play_count": 96028,
+     "stream_url": "https://stream.test/tstlz3m37z.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstlz3m37z",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstlz3m37z"
+     }
+    },
+    "score": 0.6474,
+    "reasons": [
+     "Something new for you",
+     "Matches telugu",
+     "Found for \u201cTelugu calm songs\u201d"
+    ],
+    "matched_query": "Telugu calm songs",
+    "source": "search",
+    "explore": true
+   },
+   {
+    "track": {
+     "id": "audius:tstR590xxx",
+     "source": "audius",
+     "source_id": "tstR590xxx",
+     "title": "Hindi Melody No. 1",
+     "artist": "Mehfil Lights",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstR590xxx.jpg",
+     "duration_seconds": 198,
+     "genre": "Acoustic",
+     "mood": "Calm",
+     "release_date": null,
+     "play_count": 191056,
+     "stream_url": "https://stream.test/tstR590xxx.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstR590xxx",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstR590xxx"
+     }
+    },
+    "score": 0.8759,
+    "reasons": [
+     "Matches calm, melody",
+     "Found for \u201cTelugu melody songs\u201d"
+    ],
+    "matched_query": "Telugu melody songs",
+    "source": "search",
+    "explore": false
+   },
+   {
+    "track": {
+     "id": "audius:tstkUAKvXy",
+     "source": "audius",
+     "source_id": "tstkUAKvXy",
+     "title": "Telugu Feel Good Pop No. 3 (Live Session)",
+     "artist": "Godavari Collective",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstkUAKvXy.jpg",
+     "duration_seconds": 161,
+     "genre": "Pop",
+     "mood": "Happy",
+     "release_date": null,
+     "play_count": 183137,
+     "stream_url": "https://stream.test/tstkUAKvXy.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstkUAKvXy",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstkUAKvXy"
+     }
+    },
+    "score": 1.0696,
+    "reasons": [
+     "Matches telugu",
+     "Found for \u201cTelugu calm songs\u201d"
+    ],
+    "matched_query": "Telugu calm songs",
+    "source": "search",
+    "explore": false
+   },
+   {
+    "track": {
+     "id": "audius:tstQxjPms3",
+     "source": "audius",
+     "source_id": "tstQxjPms3",
+     "title": "Telugu Feel Good Pop No. 1",
+     "artist": "Aarav Strings",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstQxjPms3.jpg",
+     "duration_seconds": 297,
+     "genre": "Pop",
+     "mood": "Happy",
+     "release_date": null,
+     "play_count": 167299,
+     "stream_url": "https://stream.test/tstQxjPms3.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstQxjPms3",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstQxjPms3"
+     }
+    },
+    "score": 0.9958,
+    "reasons": [
+     "Matches telugu",
+     "Found for \u201cTelugu calm songs\u201d"
+    ],
+    "matched_query": "Telugu calm songs",
+    "source": "search",
+    "explore": false
+   },
+   {
+    "track": {
+     "id": "audius:tstAh1xDal",
+     "source": "audius",
+     "source_id": "tstAh1xDal",
+     "title": "Telugu Feel Good Pop No. 2 (Remix)",
+     "artist": "Keerthi Waves",
+     "artist_id": null,
+     "album": null,
+     "artwork_url": "https://art.test/tstAh1xDal.jpg",
+     "duration_seconds": 334,
+     "genre": "Pop",
+     "mood": "Happy",
+     "release_date": null,
+     "play_count": 175218,
+     "stream_url": "https://stream.test/tstAh1xDal.mp3",
+     "is_preview": false,
+     "license": null,
+     "external_url": "https://audius.test/tstAh1xDal",
+     "attribution": {
+      "provider": "audius",
+      "label": "Audius",
+      "url": "https://audius.test/tstAh1xDal"
+     }
+    },
+    "score": 0.9425,
+    "reasons": [
+     "Matches telugu",
+     "Found for \u201cTelugu calm songs\u201d"
+    ],
+    "matched_query": "Telugu calm songs",
     "source": "search",
     "explore": false
    }
   ],
-  "total_duration_seconds": 3622,
+  "total_duration_seconds": 2406,
   "target_duration_seconds": 3600,
-  "provider": "youtube",
-  "warnings": []
+  "sources": [
+   "audius",
+   "itunes"
+  ],
+  "warnings": [
+   "Only found about 40 minutes of matching music for a 60-minute target."
+  ]
  },
- "stored": false
+ "stored": true
 }

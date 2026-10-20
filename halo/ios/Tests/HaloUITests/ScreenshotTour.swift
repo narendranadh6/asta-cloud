@@ -94,6 +94,24 @@ final class ScreenshotTour: XCTestCase {
             app.swipeUp()
             settle(1)
             snap("05b-song-musicbrainz")
+            app.swipeDown()
+            settle(1)
+            // Play in the app, then open Now Playing from the mini player.
+            let play = app.buttons.matching(
+                NSPredicate(format: "label BEGINSWITH 'Play'")).firstMatch
+            if play.waitForExistence(timeout: 5) {
+                play.tap()
+                settle(4)
+                snap("05c-mini-player")
+                let mini = app.otherElements["miniPlayer"].firstMatch
+                if mini.waitForExistence(timeout: 5) {
+                    mini.tap()
+                    settle(3)
+                    snap("05d-now-playing")
+                    app.swipeDown(velocity: .fast)
+                    settle(1)
+                }
+            }
         }
 
         tab("AI DJ")

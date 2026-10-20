@@ -31,7 +31,7 @@ final class PlaylistSyncService {
     }
 
     func sync(_ playlist: PlaylistEntity) async throws {
-        let localIDs = playlist.orderedItems.map(\.videoId)
+        let localIDs = playlist.orderedItems.map(\.trackID)
         if let remoteID = playlist.remoteID {
             do {
                 try await update(remoteID: remoteID, playlist: playlist, localIDs: localIDs)
@@ -54,28 +54,27 @@ final class PlaylistSyncService {
     private func create(_ playlist: PlaylistEntity, localIDs: [String]) async throws {
         let remote = try await api.createPlaylist(PlaylistCreateRequest(
             name: playlist.name, description: playlist.details, mood: playlist.mood,
-            youtubePlaylistId: playlist.youtubePlaylistID, isAiGenerated: playlist.isAIGenerated,
+            isAiGenerated: playlist.isAIGenerated,
             recommendationSessionId: playlist.recommendationSessionID,
-            videoIds: Array(localIDs.prefix(200))))
+            trackIds: Array(localIDs.prefix(200))))
         playlist.remoteID = remote.id
     }
 
     private func update(remoteID: UUID, playlist: PlaylistEntity, localIDs: [String]) async throws {
         var remote = try await api.updatePlaylist(id: remoteID, PlaylistUpdateRequest(
-            name: playlist.name, description: playlist.details, mood: playlist.mood,
-            youtubePlaylistId: playlist.youtubePlaylistID))
+            name: playlist.name, description: playlist.details, mood: playlist.mood))
         let entries = (remote.items ?? []).map {
-            PlaylistSyncPlanner.RemoteEntry(itemID: $0.id, videoID: $0.videoId)
+            PlaylistSyncPlanner.RemoteEntry(itemID: $0.id, trackID: $0.trackId)
         }
         let plan = PlaylistSyncPlanner.plan(local: localIDs, remote: entries)
         for itemID in plan.removals {
             remote = try await api.removePlaylistItem(playlistID: remoteID, itemID: itemID)
         }
-        for videoID in plan.additions {
-            remote = try await api.addPlaylistItem(playlistID: remoteID, videoID: videoID, position: nil)
+        for trackID in plan.additions {
+            remote = try await api.addPlaylistItem(playlistID: remoteID, trackID: trackID, position: nil)
         }
         let updated = (remote.items ?? []).map {
-            PlaylistSyncPlanner.RemoteEntry(itemID: $0.id, videoID: $0.videoId)
+            PlaylistSyncPlanner.RemoteEntry(itemID: $0.id, trackID: $0.trackId)
         }
         let currentOrder = updated.map(\.itemID)
         if let desired = PlaylistSyncPlanner.order(local: localIDs, remote: updated),

@@ -1,106 +1,103 @@
 {
- "seed_video_id": "tstrp_mppSC",
+ "seed_track_id": "audius:tstY0DDvON",
  "tracks": [
   {
    "track": {
-    "video_id": "tsto8s0i2JS",
-    "title": "Telugu Lofi No. 1",
-    "channel_title": "Aarav Strings",
-    "channel_id": null,
-    "description": "Test catalog entry (focused, energy 30).",
-    "thumbnails": {
-     "high": {
-      "url": "https://i.ytimg.com/vi/tsto8s0i2JS/hqdefault.jpg",
-      "width": 480,
-      "height": 360
-     }
-    },
-    "duration_seconds": 261,
-    "published_at": "2004-10-18T00:00:00Z",
-    "view_count": 24757,
-    "is_live": false,
-    "watch_url": "https://www.youtube.com/watch?v=tsto8s0i2JS",
+    "id": "audius:tstAh1xDal",
+    "source": "audius",
+    "source_id": "tstAh1xDal",
+    "title": "Telugu Feel Good Pop No. 2 (Remix)",
+    "artist": "Keerthi Waves",
+    "artist_id": null,
+    "album": null,
+    "artwork_url": "https://art.test/tstAh1xDal.jpg",
+    "duration_seconds": 334,
+    "genre": "Pop",
+    "mood": "Happy",
+    "release_date": null,
+    "play_count": 175218,
+    "stream_url": "https://stream.test/tstAh1xDal.mp3",
+    "is_preview": false,
+    "license": null,
+    "external_url": "https://audius.test/tstAh1xDal",
     "attribution": {
-     "provider": "youtube",
-     "label": "YouTube",
-     "url": "https://www.youtube.com/watch?v=tsto8s0i2JS"
+     "provider": "audius",
+     "label": "Audius",
+     "url": "https://audius.test/tstAh1xDal"
     }
    },
-   "score": 1.2196,
+   "score": 0.8092,
    "reasons": [
-    "From Aarav Strings, an artist you like",
-    "Found for \u201cAarav Strings songs\u201d"
+    "Found for \u201cKeerthi Waves\u201d"
    ],
-   "matched_query": "Aarav Strings songs",
+   "matched_query": "Keerthi Waves",
    "source": "search",
    "explore": false
   },
   {
    "track": {
-    "video_id": "tstlz3m37zh",
-    "title": "Telugu Road Trip Anthem No. 1",
-    "channel_title": "Aarav Strings",
-    "channel_id": null,
-    "description": "Test catalog entry (travel, energy 75).",
-    "thumbnails": {
-     "high": {
-      "url": "https://i.ytimg.com/vi/tstlz3m37zh/hqdefault.jpg",
-      "width": 480,
-      "height": 360
-     }
-    },
-    "duration_seconds": 174,
-    "published_at": "2007-03-10T00:00:00Z",
-    "view_count": 96028,
-    "is_live": false,
-    "watch_url": "https://www.youtube.com/watch?v=tstlz3m37zh",
+    "id": "audius:tst9rXHHgp",
+    "source": "audius",
+    "source_id": "tst9rXHHgp",
+    "title": "Telugu Road Trip Anthem No. 2 (Remix)",
+    "artist": "Keerthi Waves",
+    "artist_id": null,
+    "album": null,
+    "artwork_url": "https://art.test/tst9rXHHgp.jpg",
+    "duration_seconds": 211,
+    "genre": "Rock",
+    "mood": "Travel",
+    "release_date": null,
+    "play_count": 103947,
+    "stream_url": "https://stream.test/tst9rXHHgp.mp3",
+    "is_preview": false,
+    "license": null,
+    "external_url": "https://audius.test/tst9rXHHgp",
     "attribution": {
-     "provider": "youtube",
-     "label": "YouTube",
-     "url": "https://www.youtube.com/watch?v=tstlz3m37zh"
+     "provider": "audius",
+     "label": "Audius",
+     "url": "https://audius.test/tst9rXHHgp"
     }
    },
-   "score": 0.975,
+   "score": 0.5397,
    "reasons": [
     "Something new for you",
-    "From Aarav Strings, an artist you like",
-    "Found for \u201cAarav Strings songs\u201d"
+    "Found for \u201cKeerthi Waves\u201d"
    ],
-   "matched_query": "Aarav Strings songs",
+   "matched_query": "Keerthi Waves",
    "source": "search",
    "explore": true
   },
   {
    "track": {
-    "video_id": "tst5vwdv0JQ",
-    "title": "Telugu Dance No. 1",
-    "channel_title": "Aarav Strings",
-    "channel_id": null,
-    "description": "Test catalog entry (energetic, energy 90).",
-    "thumbnails": {
-     "high": {
-      "url": "https://i.ytimg.com/vi/tst5vwdv0JQ/hqdefault.jpg",
-      "width": 480,
-      "height": 360
-     }
-    },
-    "duration_seconds": 162,
-    "published_at": "2005-08-05T00:00:00Z",
-    "view_count": 48514,
-    "is_live": false,
-    "watch_url": "https://www.youtube.com/watch?v=tst5vwdv0JQ",
+    "id": "audius:tstRmvBbG3",
+    "source": "audius",
+    "source_id": "tstRmvBbG3",
+    "title": "Telugu Lullaby No. 2 (Remix)",
+    "artist": "Keerthi Waves",
+    "artist_id": null,
+    "album": null,
+    "artwork_url": "https://art.test/tstRmvBbG3.jpg",
+    "duration_seconds": 223,
+    "genre": "Sleep",
+    "mood": "Sleep",
+    "release_date": null,
+    "play_count": 151461,
+    "stream_url": "https://stream.test/tstRmvBbG3.mp3",
+    "is_preview": false,
+    "license": null,
+    "external_url": "https://audius.test/tstRmvBbG3",
     "attribution": {
-     "provider": "youtube",
-     "label": "YouTube",
-     "url": "https://www.youtube.com/watch?v=tst5vwdv0JQ"
+     "provider": "audius",
+     "label": "Audius",
+     "url": "https://audius.test/tstRmvBbG3"
     }
    },
-   "score": 1.1192,
+   "score": 0.6901,
    "reasons": [
-    "From Aarav Strings, an artist you like",
-    "Found for \u201cAarav Strings songs\u201d"
+    "Found for \u201cKeerthi Waves\u201d"
    ],
-   "matched_query": "Aarav Strings songs",
+   "matched_query": "Keerthi Waves",
    "source": "search",
    "explore": false
   }

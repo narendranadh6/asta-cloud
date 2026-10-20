@@ -11,15 +11,17 @@ public protocol MusicAPI: Sendable {
     func search(query: String, kind: SearchKind, pageToken: String?, limit: Int) async throws
         -> SearchResponse
     func suggestions(prefix: String) async throws -> [String]
-    func trending(pageToken: String?, limit: Int) async throws -> TrendingResponse
-    func video(id: String) async throws -> Track
+    /// Full tracks trending this week (Audius, Jamendo), optionally for one genre.
+    func trending(genre: String?, limit: Int) async throws -> TrendingResponse
+    /// One track with a fresh stream URL; `track_unavailable` if it was removed.
+    func track(id: String) async throws -> Track
 
     func playlists(limit: Int, offset: Int) async throws -> PlaylistPage
     func playlist(id: UUID) async throws -> RemotePlaylist
     func createPlaylist(_ request: PlaylistCreateRequest) async throws -> RemotePlaylist
     func updatePlaylist(id: UUID, _ request: PlaylistUpdateRequest) async throws -> RemotePlaylist
     func deletePlaylist(id: UUID) async throws
-    func addPlaylistItem(playlistID: UUID, videoID: String, position: Int?) async throws
+    func addPlaylistItem(playlistID: UUID, trackID: String, position: Int?) async throws
         -> RemotePlaylist
     func removePlaylistItem(playlistID: UUID, itemID: UUID) async throws -> RemotePlaylist
     func reorderPlaylist(id: UUID, itemIDs: [UUID]) async throws -> RemotePlaylist
@@ -27,14 +29,14 @@ public protocol MusicAPI: Sendable {
     func aiPlaylist(_ request: AIPlaylistRequest) async throws -> PlaylistDraft
     func aiChat(_ request: AIChatRequest) async throws -> AIChatResponse
     func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse
-    /// Songs to choose next after `videoID` (co-listening, same and similar artists).
-    func upNext(videoID: String, limit: Int) async throws -> UpNextResponse
+    /// Songs to play after `trackID` (co-listening, same and similar artists).
+    func upNext(trackID: String, limit: Int) async throws -> UpNextResponse
     /// Live internet radio stations (Radio Browser directory).
     func radioStations(tag: String?, language: String?, query: String?, limit: Int) async throws
         -> [RadioStation]
 
     /// Canonical facts about a song from MusicBrainz; `matched` is false when unsure.
-    func trackMetadata(videoID: String) async throws -> TrackMetadataResponse
+    func trackMetadata(trackID: String) async throws -> TrackMetadataResponse
     /// MusicBrainz artist facts plus ListenBrainz popular recordings when available.
     func artistProfile(name: String) async throws -> ArtistProfileResponse
     /// Recent (or upcoming) releases from ListenBrainz.
@@ -225,18 +227,18 @@ public actor APIClient: MusicAPI {
         return response.suggestions
     }
 
-    public func trending(pageToken: String?, limit: Int) async throws -> TrendingResponse {
+    public func trending(genre: String?, limit: Int) async throws -> TrendingResponse {
         var items = [URLQueryItem(name: "limit", value: String(limit))]
-        if let pageToken { items.append(URLQueryItem(name: "page_token", value: pageToken)) }
+        if let genre, !genre.isEmpty { items.append(URLQueryItem(name: "genre", value: genre)) }
         return try await send(.get, "api/v1/discover/trending", query: items)
     }
 
-    public func video(id: String) async throws -> Track {
-        guard YouTubeIdentifier.isValidVideoID(id) else {
-            throw APIError.server(
-                status: 422, code: "invalid_video_id", message: "Invalid video id", retryAfter: nil)
-        }
-        return try await send(.get, "api/v1/videos/\(id)")
+    static let invalidTrackID = APIError.server(
+        status: 422, code: "invalid_track_id", message: "Invalid track id", retryAfter: nil)
+
+    public func track(id: String) async throws -> Track {
+        guard TrackID.isValid(id) else { throw Self.invalidTrackID }
+        return try await send(.get, "api/v1/tracks/\(id)")
     }
 
     public func playlists(limit: Int, offset: Int) async throws -> PlaylistPage {
@@ -264,13 +266,13 @@ public actor APIClient: MusicAPI {
         _ = try await sendRaw(.delete, "api/v1/playlists/\(id.uuidString)")
     }
 
-    public func addPlaylistItem(playlistID: UUID, videoID: String, position: Int?) async throws
+    public func addPlaylistItem(playlistID: UUID, trackID: String, position: Int?) async throws
         -> RemotePlaylist
     {
-        struct Body: Encodable { var videoId: String; var position: Int? }
+        struct Body: Encodable { var trackId: String; var position: Int? }
         return try await send(
             .post, "api/v1/playlists/\(playlistID.uuidString)/items",
-            body: try encode(Body(videoId: videoID, position: position)))
+            body: try encode(Body(trackId: trackID, position: position)))
     }
 
     public func removePlaylistItem(playlistID: UUID, itemID: UUID) async throws -> RemotePlaylist {
@@ -297,13 +299,10 @@ public actor APIClient: MusicAPI {
         try await send(.post, "api/v1/recommendations/feedback", body: try encode(request))
     }
 
-    public func upNext(videoID: String, limit: Int) async throws -> UpNextResponse {
-        guard YouTubeIdentifier.isValidVideoID(videoID) else {
-            throw APIError.server(
-                status: 422, code: "invalid_video_id", message: "Invalid video id", retryAfter: nil)
-        }
+    public func upNext(trackID: String, limit: Int) async throws -> UpNextResponse {
+        guard TrackID.isValid(trackID) else { throw Self.invalidTrackID }
         return try await send(.get, "api/v1/recommendations/next", query: [
-            URLQueryItem(name: "video_id", value: videoID),
+            URLQueryItem(name: "track_id", value: trackID),
             URLQueryItem(name: "limit", value: String(limit)),
         ])
     }
@@ -318,13 +317,10 @@ public actor APIClient: MusicAPI {
         return try await send(.get, "api/v1/radio/stations", query: items)
     }
 
-    public func trackMetadata(videoID: String) async throws -> TrackMetadataResponse {
-        guard YouTubeIdentifier.isValidVideoID(videoID) else {
-            throw APIError.server(
-                status: 422, code: "invalid_video_id", message: "Invalid video id", retryAfter: nil)
-        }
+    public func trackMetadata(trackID: String) async throws -> TrackMetadataResponse {
+        guard TrackID.isValid(trackID) else { throw Self.invalidTrackID }
         return try await send(.get, "api/v1/metadata/track", query: [
-            URLQueryItem(name: "video_id", value: videoID),
+            URLQueryItem(name: "track_id", value: trackID),
         ])
     }
 

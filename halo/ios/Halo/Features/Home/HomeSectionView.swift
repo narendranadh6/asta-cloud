@@ -4,6 +4,10 @@ import SwiftUI
 /// this view only decides how each layout looks. Local sections are drawn by HomeView.
 struct HomeSectionView: View {
     var section: HomeSection
+    @Environment(PlayerController.self) private var player
+
+    /// Playable songs in this section, in order, so tapping play queues the rest after it.
+    private var tracks: [Track] { section.items.compactMap(\.track) }
 
     var body: some View {
         Rail(title: section.title, eyebrow: section.eyebrow) {
@@ -69,7 +73,9 @@ struct HomeSectionView: View {
                 ForEach(section.items) { item in
                     HomeItemLink(item: item) {
                         if let track = item.track {
-                            TrackCard(track: track, width: size)
+                            TrackCard(track: track, width: size) {
+                                player.play(tracks, startAt: tracks.firstIndex(of: track) ?? 0)
+                            }
                         } else {
                             ArtworkCard(title: item.title, subtitle: item.subtitle,
                                         artworkURL: item.artworkURL, size: size, badge: item.badge)
@@ -124,8 +130,8 @@ struct HomeSectionView: View {
     }
 }
 
-/// Where a Home item goes when tapped: a verified YouTube track opens Song Details, a mood
-/// opens its hub, anything else runs a search (playback stays a Brave hand-off).
+/// Where a Home item goes when tapped: a song opens Song Details (its play button plays it
+/// in place), a mood opens its hub, anything else runs a search.
 struct HomeItemLink<Label: View>: View {
     var item: HomeItem
     @ViewBuilder var label: () -> Label

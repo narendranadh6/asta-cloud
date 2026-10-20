@@ -9,34 +9,38 @@ final class AppModel {
     let api: MusicAPI
     let settings: AppSettings
     let library: LibraryStore
-    let handoff: BraveBrowserHandoffService
     let sync: PlaylistSyncService
     let network: NetworkMonitor
     let notifications: DiscoveryReminderScheduler
-    let radio = RadioPlayer()
+    /// The one audio player: songs and live radio both play through it.
+    let player: PlayerController
+    private let mediaControls: SystemMediaControls
 
-    /// False when the server reports it has no YouTube API key yet.
-    private(set) var searchConfigured = true
+    /// False when the server reports it has no music source enabled.
+    private(set) var catalogConfigured = true
+    private(set) var musicSources: [String] = []
     private(set) var aiPlanner: String?
-    /// A prompt another screen wants the AI DJ to run (e.g. "find similar" from Now in Brave).
+    /// A prompt another screen wants the AI DJ to run (e.g. "more like this" from Now Playing).
     var pendingDJPrompt: String?
 
-    init(api: MusicAPI, settings: AppSettings, context: ModelContext, opener: URLOpening) {
+    init(api: MusicAPI, settings: AppSettings, context: ModelContext) {
         self.api = api
         self.settings = settings
         library = LibraryStore(context: context)
-        handoff = BraveBrowserHandoffService(opener: opener, preference: { [settings] in
-            settings.browserPreference
-        })
         sync = PlaylistSyncService(api: api, store: library)
         network = NetworkMonitor()
         notifications = DiscoveryReminderScheduler()
+        player = PlayerController(engine: StreamingAudioEngine())
+        mediaControls = SystemMediaControls(player: player)
+        // Songs that actually start playing count as "recently discovered".
+        player.onTrackStarted = { [weak library] track in library?.recordDiscovered(track) }
     }
 
-    /// Startup work: provider status, retention, pending sync.
+    /// Startup work: catalog status, retention, pending sync.
     func bootstrap() async {
         if let health = try? await api.health() {
-            searchConfigured = health.isSearchConfigured
+            catalogConfigured = health.isCatalogConfigured
+            musicSources = health.musicSources
             aiPlanner = health.aiPlanner
         }
         await library.enforceRetention(using: api)

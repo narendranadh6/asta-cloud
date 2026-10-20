@@ -9,12 +9,7 @@ import XCTest
 @MainActor
 final class SearchViewModelTests: XCTestCase {
     private func catalog(_ count: Int) -> [Track] {
-        (0..<count).map { index in
-            let id = "tst" + String(format: "%08d", index)
-            return Track(videoId: id, title: "Song \(index)", channelTitle: "Artist",
-                         watchUrl: "https://www.youtube.com/watch?v=\(id)",
-                         attribution: Attribution(provider: .youtube, label: "YouTube"))
-        }
+        (0..<count).map { index in makeTrack(index) }
     }
 
     func testSubmitPaginatesAndDeduplicates() async {
@@ -31,7 +26,7 @@ final class SearchViewModelTests: XCTestCase {
         await model.loadMore(api: api)
         await model.loadMore(api: api)
         XCTAssertEqual(model.results.count, 45)
-        XCTAssertEqual(Set(model.results.map(\.videoId)).count, 45)
+        XCTAssertEqual(Set(model.results.map(\.id)).count, 45)
         XCTAssertFalse(model.canLoadMore)
         let calls = await api.searchCalls
         XCTAssertEqual(calls.map(\.pageToken), [nil, "20", "40"])
@@ -123,7 +118,7 @@ final class PlaylistStudioViewModelTests: XCTestCase {
         XCTAssertEqual(request.language, "Telugu")
         XCTAssertEqual(request.energy, 35)
         XCTAssertEqual(request.durationMinutes, 300)
-        XCTAssertEqual(request.excludeVideoIds, ["aaaaaaaaaaa"])
+        XCTAssertEqual(request.excludeTrackIds, ["aaaaaaaaaaa"])
         model.useEnergy = false
         model.language = ""
         XCTAssertNil(model.request().energy)
@@ -138,10 +133,10 @@ final class PlaylistStudioViewModelTests: XCTestCase {
         await model.generate(api: api)
         XCTAssertNotNil(model.draft)
         model.draft?.title = "My Focus"
-        let shown = model.draft!.queue.items.map(\.track.videoId)
+        let shown = model.draft!.queue.items.map(\.track.id)
         await model.regenerate(api: api, shownIDs: shown)
         XCTAssertEqual(model.draft?.title, "My Focus")
-        XCTAssertTrue(Set(model.draft!.queue.items.map(\.track.videoId)).isDisjoint(with: shown))
+        XCTAssertTrue(Set(model.draft!.queue.items.map(\.track.id)).isDisjoint(with: shown))
     }
 }
 
@@ -150,17 +145,17 @@ final class AppSettingsTests: XCTestCase {
     func testPersistsAndResets() async {
         let defaults = UserDefaults(suiteName: "halo.tests.\(UUID().uuidString)")!
         let settings = AppSettings(defaults: defaults)
-        XCTAssertEqual(settings.browserPreference, .brave)
+        XCTAssertTrue(settings.includePreviews)
         XCTAssertTrue(settings.syncPlaylists)
-        settings.browserPreference = .systemDefault
+        settings.includePreviews = false
         settings.activeMood = .focused
         settings.hasCompletedOnboarding = true
         let reloaded = AppSettings(defaults: defaults)
-        XCTAssertEqual(reloaded.browserPreference, .systemDefault)
+        XCTAssertFalse(reloaded.includePreviews)
         XCTAssertEqual(reloaded.activeMood, .focused)
         XCTAssertTrue(reloaded.hasCompletedOnboarding)
         reloaded.reset()
-        XCTAssertEqual(AppSettings(defaults: defaults).browserPreference, .brave)
+        XCTAssertTrue(AppSettings(defaults: defaults).includePreviews)
         XCTAssertFalse(AppSettings(defaults: defaults).hasCompletedOnboarding)
     }
 }
@@ -173,10 +168,12 @@ final class DiscoverViewModelTests: XCTestCase {
         await model.load(api: api, language: nil)
         let trending = model.tracks(in: .trending)
         XCTAssertFalse(trending.isEmpty)
-        XCTAssertEqual(trending.map(\.viewCount), trending.map(\.viewCount).sorted { ($0 ?? 0) > ($1 ?? 0) })
-        XCTAssertEqual(model.provider, .youtube)
-        model.filter = .live
-        XCTAssertEqual(model.visibleShelves, [.live])
+        XCTAssertEqual(trending.map(\.playCount), trending.map(\.playCount).sorted { ($0 ?? 0) > ($1 ?? 0) })
+        XCTAssertEqual(model.sources, ["audius"])
+        let genres = await api.trendingGenres
+        XCTAssertEqual(Set(genres), [nil, "Electronic", "Hip-Hop/Rap", "Lo-Fi"])
+        model.filter = .genres
+        XCTAssertEqual(model.visibleShelves, [.electronic, .hipHop, .lofi])
     }
 
     func testOneShelfFailingDoesNotBreakOthers() async {
@@ -221,7 +218,7 @@ final class DiscoverViewModelTests: XCTestCase {
         guard case .disabled = model.freshReleases, case .disabled = model.mostListened else {
             return XCTFail("expected disabled")
         }
-        guard case .loaded = model.shelves[.trending] else { return XCTFail("YouTube still loads") }
+        guard case .loaded = model.shelves[.trending] else { return XCTFail("catalog still loads") }
     }
 }
 

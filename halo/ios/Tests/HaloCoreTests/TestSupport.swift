@@ -72,19 +72,3 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
         return (data, response)
     }
 }
-
-@MainActor
-final class FakeURLOpener: URLOpening {
-    var installedSchemes: Set<String> = []
-    var failingSchemes: Set<String> = []
-    private(set) var opened: [URL] = []
-
-    func canOpen(_ url: URL) -> Bool {
-        installedSchemes.contains(url.scheme ?? "")
-    }
-
-    func open(_ url: URL) async -> Bool {
-        opened.append(url)
-        return !failingSchemes.contains(url.scheme ?? "")
-    }
-}

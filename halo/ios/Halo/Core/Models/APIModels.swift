@@ -1,80 +1,116 @@
 import Foundation
 
 // Wire models mirroring the Halo backend (snake_case JSON, decoded with
-// `.convertFromSnakeCase`). All playable references originate from backend-verified
-// YouTube Data API metadata; the app never constructs video ids itself.
+// `.convertFromSnakeCase`). Every track comes from the backend's catalog (Audius, Jamendo,
+// or an iTunes preview) with a stream URL; the app never constructs track ids itself.
 
-public enum MetadataProvider: String, Codable, Sendable, Hashable {
-    case youtube
-}
+/// Where a track's audio comes from.
+public enum TrackSource: String, Codable, Sendable, Hashable {
+    case audius, jamendo, itunes, unknown
 
-public struct Thumbnail: Codable, Sendable, Hashable {
-    public var url: String
-    public var width: Int?
-    public var height: Int?
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = TrackSource(rawValue: raw) ?? .unknown
+    }
+
+    public var label: String {
+        switch self {
+        case .audius: "Audius"
+        case .jamendo: "Jamendo"
+        case .itunes: "Apple Music preview"
+        case .unknown: "Music"
+        }
+    }
 }
 
 public struct Attribution: Codable, Sendable, Hashable {
-    public var provider: MetadataProvider
+    public var provider: TrackSource
     public var label: String
+    public var url: String?
+
+    public init(provider: TrackSource, label: String, url: String? = nil) {
+        self.provider = provider
+        self.label = label
+        self.url = url
+    }
+}
+
+/// Creative Commons licence carried by Jamendo tracks.
+public struct TrackLicense: Codable, Sendable, Hashable {
+    public var name: String
     public var url: String?
 }
 
 public struct Track: Codable, Sendable, Hashable, Identifiable {
-    public var videoId: String
+    /// "<source>:<id>", e.g. "audius:D7KyD".
+    public var id: String
+    public var source: TrackSource
+    public var sourceId: String
     public var title: String
-    public var channelTitle: String
-    public var channelId: String?
-    public var description: String?
-    public var thumbnails: [String: Thumbnail]
+    public var artist: String
+    public var artistId: String?
+    public var album: String?
+    public var artworkUrl: String?
     public var durationSeconds: Int?
-    public var publishedAt: Date?
-    public var viewCount: Int?
-    public var isLive: Bool
-    public var watchUrl: String
+    public var genre: String?
+    public var mood: String?
+    public var releaseDate: String?
+    public var playCount: Int?
+    public var streamUrl: String?
+    /// A 30-second preview (iTunes), not the full song.
+    public var isPreview: Bool
+    public var license: TrackLicense?
+    public var externalUrl: String?
     public var attribution: Attribution
 
-    public var id: String { videoId }
-
-    public var artworkURL: URL? {
-        for key in ["maxres", "high", "medium", "standard", "default"] {
-            if let raw = thumbnails[key]?.url, let url = URL(string: raw), url.scheme == "https" {
-                return url
-            }
-        }
-        return nil
+    public init(
+        id: String, source: TrackSource, sourceId: String, title: String, artist: String,
+        artistId: String? = nil, album: String? = nil, artworkUrl: String? = nil,
+        durationSeconds: Int? = nil, genre: String? = nil, mood: String? = nil,
+        releaseDate: String? = nil, playCount: Int? = nil, streamUrl: String? = nil,
+        isPreview: Bool = false, license: TrackLicense? = nil, externalUrl: String? = nil,
+        attribution: Attribution
+    ) {
+        self.id = id
+        self.source = source
+        self.sourceId = sourceId
+        self.title = title
+        self.artist = artist
+        self.artistId = artistId
+        self.album = album
+        self.artworkUrl = artworkUrl
+        self.durationSeconds = durationSeconds
+        self.genre = genre
+        self.mood = mood
+        self.releaseDate = releaseDate
+        self.playCount = playCount
+        self.streamUrl = streamUrl
+        self.isPreview = isPreview
+        self.license = license
+        self.externalUrl = externalUrl
+        self.attribution = attribution
     }
 
-    public init(
-        videoId: String, title: String, channelTitle: String, channelId: String? = nil,
-        description: String? = nil, thumbnails: [String: Thumbnail] = [:],
-        durationSeconds: Int? = nil, publishedAt: Date? = nil, viewCount: Int? = nil,
-        isLive: Bool = false, watchUrl: String, attribution: Attribution
-    ) {
-        self.videoId = videoId
-        self.title = title
-        self.channelTitle = channelTitle
-        self.channelId = channelId
-        self.description = description
-        self.thumbnails = thumbnails
-        self.durationSeconds = durationSeconds
-        self.publishedAt = publishedAt
-        self.viewCount = viewCount
-        self.isLive = isLive
-        self.watchUrl = watchUrl
-        self.attribution = attribution
+    public var artworkURL: URL? { Self.webURL(artworkUrl) }
+    public var streamURL: URL? { Self.webURL(streamUrl) }
+    /// The track's page at its source (for previews: the Apple Music page).
+    public var externalURL: URL? { Self.webURL(externalUrl) }
+
+    /// Only http(s) URLs are ever loaded or opened.
+    static func webURL(_ raw: String?) -> URL? {
+        guard let raw, let url = URL(string: raw), ["https", "http"].contains(url.scheme ?? "")
+        else { return nil }
+        return url
     }
 }
 
 public enum SearchKind: String, Codable, Sendable, CaseIterable, Identifiable {
-    case song, artist, remix, live
+    case song, artist
     public var id: String { rawValue }
     public var label: String {
         switch self {
         case .song: "Songs"
         case .artist: "Artists"
-        case .remix: "Remixes"
-        case .live: "Live"
         }
     }
 }
@@ -86,7 +122,7 @@ public struct SearchResponse: Codable, Sendable {
     public var nextPageToken: String?
     public var prevPageToken: String?
     public var totalResultsEstimate: Int?
-    public var provider: MetadataProvider
+    public var sources: [String]
     public var cached: Bool
 }
 
@@ -94,7 +130,7 @@ public struct TrendingResponse: Codable, Sendable {
     public var items: [Track]
     public var nextPageToken: String?
     public var prevPageToken: String?
-    public var provider: MetadataProvider
+    public var sources: [String]
     public var cached: Bool
     public var source: String
 }
@@ -117,13 +153,15 @@ public struct RemotePlaylistItem: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var position: Int
     public var note: String?
-    public var videoId: String
+    public var trackId: String
     public var title: String
-    public var channelTitle: String
-    public var thumbnailUrl: String?
+    public var artist: String
+    public var album: String?
+    public var artworkUrl: String?
     public var durationSeconds: Int?
+    public var streamUrl: String?
+    public var isPreview: Bool
     public var isAvailable: Bool
-    public var watchUrl: String
     public var addedAt: Date
 }
 
@@ -133,8 +171,6 @@ public struct RemotePlaylist: Codable, Sendable, Hashable, Identifiable {
     public var description: String?
     public var mood: String?
     public var isAiGenerated: Bool
-    public var youtubePlaylistId: String?
-    public var youtubePlaylistUrl: String?
     public var itemCount: Int
     public var totalDurationSeconds: Int
     public var artworkUrl: String?
@@ -154,23 +190,21 @@ public struct PlaylistCreateRequest: Codable, Sendable {
     public var name: String
     public var description: String?
     public var mood: String?
-    public var youtubePlaylistId: String?
     public var isAiGenerated: Bool
     public var recommendationSessionId: UUID?
-    public var videoIds: [String]
+    public var trackIds: [String]
 
     public init(
         name: String, description: String? = nil, mood: String? = nil,
-        youtubePlaylistId: String? = nil, isAiGenerated: Bool = false,
-        recommendationSessionId: UUID? = nil, videoIds: [String] = []
+        isAiGenerated: Bool = false, recommendationSessionId: UUID? = nil,
+        trackIds: [String] = []
     ) {
         self.name = name
         self.description = description
         self.mood = mood
-        self.youtubePlaylistId = youtubePlaylistId
         self.isAiGenerated = isAiGenerated
         self.recommendationSessionId = recommendationSessionId
-        self.videoIds = videoIds
+        self.trackIds = trackIds
     }
 }
 
@@ -178,14 +212,11 @@ public struct PlaylistUpdateRequest: Codable, Sendable {
     public var name: String?
     public var description: String?
     public var mood: String?
-    public var youtubePlaylistId: String?
 
-    public init(name: String? = nil, description: String? = nil, mood: String? = nil,
-                youtubePlaylistId: String? = nil) {
+    public init(name: String? = nil, description: String? = nil, mood: String? = nil) {
         self.name = name
         self.description = description
         self.mood = mood
-        self.youtubePlaylistId = youtubePlaylistId
     }
 }
 
@@ -236,11 +267,9 @@ public enum DiscoveryPreference: String, Codable, Sendable, CaseIterable, Identi
 
 public struct ArtistPreference: Codable, Sendable, Hashable, Identifiable {
     public var name: String
-    public var youtubeChannelId: String?
     public var id: String { name.lowercased() }
-    public init(name: String, youtubeChannelId: String? = nil) {
+    public init(name: String) {
         self.name = name
-        self.youtubeChannelId = youtubeChannelId
     }
 }
 
@@ -297,12 +326,12 @@ public struct AIPlaylistRequest: Codable, Sendable, Equatable {
     public var energy: Int?
     public var durationMinutes: Int
     public var discovery: DiscoveryPreference
-    public var excludeVideoIds: [String]
+    public var excludeTrackIds: [String]
 
     public init(
         description: String, mood: Mood? = nil, genres: [String] = [], language: String? = nil,
         energy: Int? = nil, durationMinutes: Int = 60, discovery: DiscoveryPreference = .balanced,
-        excludeVideoIds: [String] = []
+        excludeTrackIds: [String] = []
     ) {
         self.description = description
         self.mood = mood
@@ -311,7 +340,7 @@ public struct AIPlaylistRequest: Codable, Sendable, Equatable {
         self.energy = energy
         self.durationMinutes = durationMinutes
         self.discovery = discovery
-        self.excludeVideoIds = excludeVideoIds
+        self.excludeTrackIds = excludeTrackIds
     }
 }
 
@@ -341,11 +370,11 @@ public struct RecommendedTrack: Codable, Sendable, Hashable, Identifiable {
     public var score: Double
     public var reasons: [String]
     public var matchedQuery: String
-    /// Candidate source: "search", "similar_artist" or "co_listen".
+    /// Candidate source: "search", "similar_artist", "co_listen" or "listenbrainz".
     public var source: String?
     /// True when this was an exploration pick ("something new for you").
     public var explore: Bool?
-    public var id: String { track.videoId }
+    public var id: String { track.id }
 }
 
 public struct PlaylistDraft: Codable, Sendable, Hashable {
@@ -357,7 +386,7 @@ public struct PlaylistDraft: Codable, Sendable, Hashable {
     public var tracks: [RecommendedTrack]
     public var totalDurationSeconds: Int
     public var targetDurationSeconds: Int
-    public var provider: MetadataProvider
+    public var sources: [String]
     public var warnings: [String]
 }
 
@@ -373,38 +402,38 @@ public enum FeedbackRating: String, Codable, Sendable {
 }
 
 public struct FeedbackRequest: Codable, Sendable {
-    public var videoId: String
+    public var trackId: String
     public var rating: FeedbackRating
     public var sessionId: UUID?
-    public var channelTitle: String?
-    public init(videoId: String, rating: FeedbackRating, sessionId: UUID? = nil,
-                channelTitle: String? = nil) {
-        self.videoId = videoId
+    public var artist: String?
+    public init(trackId: String, rating: FeedbackRating, sessionId: UUID? = nil,
+                artist: String? = nil) {
+        self.trackId = trackId
         self.rating = rating
         self.sessionId = sessionId
-        self.channelTitle = channelTitle
+        self.artist = artist
     }
 }
 
 public struct FeedbackResponse: Codable, Sendable {
     public var id: UUID
-    public var videoId: String
+    public var trackId: String
     public var rating: FeedbackRating
     public var recorded: Bool
 }
 
 public struct HealthResponse: Codable, Sendable {
     public var status: String
-    public var metadataProvider: MetadataProvider
+    public var musicSources: [String]
     public var aiPlanner: String
     public var checks: [String: String]?
 
-    /// False when the server has no YouTube API key yet.
-    public var isSearchConfigured: Bool { checks?["youtube"] != "not_configured" }
+    /// False when the server has no music source enabled.
+    public var isCatalogConfigured: Bool { checks?["catalog"] != "not_configured" }
 }
 
 public struct UpNextResponse: Codable, Sendable {
-    public var seedVideoId: String
+    public var seedTrackId: String
     public var tracks: [RecommendedTrack]
 }
 
@@ -432,13 +461,16 @@ public struct RadioStation: Codable, Sendable, Hashable, Identifiable {
 
 // MARK: Display abstraction
 
-/// Anything that can be shown as a track row and handed off to a browser.
+/// Anything that can be shown as a track row and played.
 public protocol TrackDisplayable {
-    var videoId: String { get }
+    var trackID: String { get }
     var title: String { get }
-    var channelTitle: String { get }
+    var artist: String { get }
     var artworkURL: URL? { get }
     var durationSeconds: Int? { get }
+    var isPreview: Bool { get }
 }
 
-extension Track: TrackDisplayable {}
+extension Track: TrackDisplayable {
+    public var trackID: String { id }
+}

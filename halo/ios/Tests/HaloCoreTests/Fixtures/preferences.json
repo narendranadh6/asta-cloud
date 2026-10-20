@@ -1,23 +1,22 @@
 {
- "personalization_enabled": true,
- "store_ai_conversations": false,
- "record_search_history": true,
- "languages": [
-  "Telugu"
- ],
- "genres": [],
- "moods": [
-  "calm"
- ],
- "discovery_preference": "balanced",
- "favorite_artists": [
-  {
-   "name": "Aarav Strings",
-   "youtube_channel_id": null
-  }
- ],
- "excluded_artists": [],
- "onboarding_completed": false,
- "personalization_consent_at": "2026-10-20T20:34:15.872790",
- "updated_at": "2026-10-20T20:34:15.872816"
+  "personalization_enabled": true,
+  "store_ai_conversations": false,
+  "record_search_history": true,
+  "languages": [
+    "Telugu"
+  ],
+  "genres": [],
+  "moods": [
+    "calm"
+  ],
+  "discovery_preference": "balanced",
+  "favorite_artists": [
+    {
+      "name": "Aarav Strings"
+    }
+  ],
+  "excluded_artists": [],
+  "onboarding_completed": false,
+  "personalization_consent_at": "2026-10-20T20:34:15.872790",
+  "updated_at": "2026-10-20T20:34:15.872816"
 }

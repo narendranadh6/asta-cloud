@@ -150,17 +150,21 @@ struct ArtworkView: View {
     }
 }
 
-/// Source attribution shown next to YouTube metadata (YouTube API Services requirement).
-struct AttributionBadge: View {
+/// Where a song comes from. Previews get a gold "Preview" badge so a 30-second clip is never
+/// mistaken for the full song.
+struct SourceBadge: View {
+    var isPreview: Bool
+    var source: TrackSource?
+
     var body: some View {
-        Label("YouTube", systemImage: "play.rectangle.fill")
-            .labelStyle(.titleAndIcon)
+        Text(isPreview ? "Preview" : (source?.label ?? "Full song"))
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(HaloColor.text)
+            .foregroundStyle(isPreview ? Color.black : HaloColor.text)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Capsule().fill(Color(hex: 0xC4302B).opacity(0.85)))
-            .accessibilityLabel("Source: YouTube")
+            .background(Capsule().fill(isPreview ? AnyShapeStyle(HaloColor.gold)
+                                                 : AnyShapeStyle(Surface.overlay)))
+            .accessibilityLabel(isPreview ? "30-second preview" : "Full song from \(source?.label ?? "Halo")")
     }
 }
 
@@ -168,23 +172,40 @@ struct TrackRow: View {
     var track: any TrackDisplayable
     var subtitle: String?
     var showsAttribution = true
+    /// Shows a play button; tapping the rest of the row still navigates.
+    var onPlay: (() -> Void)?
+
+    @Environment(PlayerController.self) private var player
+
+    private var isCurrent: Bool { player.currentTrack?.id == track.trackID }
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
-            ArtworkView(url: track.artworkURL, size: 56)
+            ArtworkView(url: track.artworkURL, size: ArtSize.row + 8)
+                .overlay {
+                    if isCurrent {
+                        Image(systemName: "waveform")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .symbolEffect(.variableColor.iterative, isActive: player.state == .playing)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(.black.opacity(0.45))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
+                    }
+                }
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.title)
                     .font(HaloFont.headline)
-                    .foregroundStyle(HaloColor.text)
+                    .foregroundStyle(isCurrent ? HaloColor.primary : HaloColor.text)
                     .lineLimit(2)
-                Text(subtitle ?? track.channelTitle)
+                Text(subtitle ?? track.artist)
                     .font(.subheadline)
                     .foregroundStyle(HaloColor.mutedText)
                     .lineLimit(1)
                 if showsAttribution {
                     HStack(spacing: Spacing.xs) {
-                        AttributionBadge()
-                        if track.durationSeconds != nil {
+                        SourceBadge(isPreview: track.isPreview, source: (track as? Track)?.source)
+                        if track.durationSeconds != nil && !track.isPreview {
                             Text(DurationFormatter.clock(track.durationSeconds))
                                 .font(.caption)
                                 .monospacedDigit()
@@ -194,20 +215,19 @@ struct TrackRow: View {
                 }
             }
             Spacer(minLength: 0)
+            if let onPlay {
+                Button(action: onPlay) {
+                    Image(systemName: isCurrent && player.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(HaloColor.neon)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isCurrent && player.isPlaying ? "Pause \(track.title)" : "Play \(track.title)")
+            }
         }
         .padding(.vertical, Spacing.xxs)
         .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityText)
-    }
-
-    private var accessibilityText: String {
-        var parts = [track.title, "by \(track.channelTitle)"]
-        if let seconds = track.durationSeconds {
-            parts.append(DurationFormatter.approximate(seconds))
-        }
-        parts.append("from YouTube")
-        return parts.joined(separator: ", ")
+        .accessibilityElement(children: .contain)
     }
 }
 

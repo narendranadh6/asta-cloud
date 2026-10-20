@@ -1,11 +1,14 @@
 {
  "status": "ok",
  "version": "0.1.0",
- "metadata_provider": "youtube",
+ "music_sources": [
+  "audius",
+  "itunes"
+ ],
  "ai_planner": "heuristic",
  "checks": {
   "database": "ok",
   "cache": "ok",
-  "youtube": "ok"
+  "catalog": "ok"
  }
 }

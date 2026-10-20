@@ -1,7 +1,7 @@
 {
  "error": {
-  "code": "video_unavailable",
-  "message": "This video is unavailable, private, or region-blocked",
+  "code": "track_unavailable",
+  "message": "This song is no longer available from its source",
   "request_id": "0680259d866848e8aae35756d17515f4"
  }
 }

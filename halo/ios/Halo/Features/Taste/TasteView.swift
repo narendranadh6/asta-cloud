@@ -77,7 +77,7 @@ struct TasteView: View {
         List {
             Section {
                 Text(model.profile?.basis
-                     ?? "Halo learns only from what you do in Halo. It cannot see what you play in Brave.")
+                     ?? "Halo learns only from what you do in Halo: plays, saves, playlists and ratings.")
                     .font(.footnote).foregroundStyle(HaloColor.mutedText)
                 Toggle("Personalize with my Halo activity", isOn: Binding(
                     get: { model.preferences.personalizationEnabled },

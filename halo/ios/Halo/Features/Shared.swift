@@ -31,61 +31,45 @@ extension View {
     }
 }
 
-/// "Listen in Brave" with an explicit destination label.
-struct HandoffButton: View {
-    @Environment(AppModel.self) private var app
+/// Plays a song (or a whole list starting at it) in Halo's player.
+struct PlayButton: View {
+    @Environment(PlayerController.self) private var player
     @Environment(AppSettings.self) private var settings
-    @Environment(HandoffController.self) private var handoff
-    var track: any TrackDisplayable
-    var compact = false
+    var tracks: [Track]
+    var startAt = 0
+    var title = "Play"
+
+    private var target: Track? { tracks.indices.contains(startAt) ? tracks[startAt] : nil }
+    private var isCurrent: Bool { target != nil && player.currentTrack?.id == target?.id }
+    private var playable: Bool { tracks.contains { $0.streamURL != nil } }
 
     var body: some View {
-        VStack(spacing: Spacing.xxs) {
-            Button {
-                Task { await handoff.open(track, using: app.handoff, haptics: settings.hapticsEnabled) }
-            } label: {
-                Label(title, systemImage: "arrow.up.forward.app")
-                    .frame(maxWidth: compact ? nil : .infinity)
+        Button {
+            Haptics.tap(enabled: settings.hapticsEnabled)
+            if isCurrent {
+                player.togglePlayPause()
+            } else {
+                player.play(tracks, startAt: startAt)
             }
-            .buttonStyle(NeonButtonStyle())
-            .disabled(handoff.isOpening)
-            .accessibilityHint(destinationText)
-            if !compact {
-                Text(destinationText)
-                    .font(.caption)
-                    .foregroundStyle(HaloColor.mutedText)
-                    .multilineTextAlignment(.center)
-            }
+        } label: {
+            Label(isCurrent && player.isPlaying ? "Pause" : title,
+                  systemImage: isCurrent && player.isPlaying ? "pause.fill" : "play.fill")
+                .frame(maxWidth: .infinity)
         }
-    }
-
-    private var title: String {
-        settings.browserPreference == .brave ? "Listen in Brave" : "Open in browser"
-    }
-
-    private var destinationText: String {
-        app.handoff.destinationDescription() + ". Playback happens there, outside Halo."
+        .buttonStyle(NeonButtonStyle())
+        .disabled(!playable)
+        .accessibilityHint(playable ? "" : "This song can't be played right now")
     }
 }
 
-/// Explains what Halo cannot do once a link is handed off.
-struct PlaybackBoundaryNote: View {
-    var body: some View {
-        NoticeBanner(
-            text: "Playback happens in your browser. Halo can't pause, skip, see progress or "
-                + "advance to the next song for you — come back and pick the next track.",
-            systemImage: "hand.raised")
-    }
-}
-
-/// Shown only when the server reports it has no YouTube API key: a setup problem, not data.
+/// Shown only when the server has no music source enabled: a setup problem, not data.
 struct SearchSetupBanner: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        if !app.searchConfigured {
+        if !app.catalogConfigured {
             NoticeBanner(
-                text: "Music search isn't set up on the server yet. Saved songs and playlists still work.",
+                text: "Music isn't set up on the server yet. Saved songs and playlists still work.",
                 systemImage: "exclamationmark.triangle")
         }
     }
