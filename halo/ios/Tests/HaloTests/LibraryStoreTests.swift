@@ -114,7 +114,7 @@ final class LibraryStoreTests: XCTestCase {
         store.add(catalog[3], to: playlist, at: 0)
         try await sync.sync(playlist)
         let remote = try await api.playlist(id: remoteID)
-        XCTAssertEqual(remote.items?.map(\.trackID), playlist.orderedItems.map(\.trackID))
+        XCTAssertEqual(remote.items?.map(\.trackId), playlist.orderedItems.map(\.trackID))
     }
 }
 #endif
