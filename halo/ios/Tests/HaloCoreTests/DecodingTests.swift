@@ -67,6 +67,22 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(future.items.first?.kind, .unknown)
     }
 
+    func testHomeFeedSkipsItemsAndSectionsItCannotRead() throws {
+        // An old-style YouTube item and a section missing required fields.
+        let json = #"""
+        {"personalized": false, "generated_at": "2026-10-20T12:00:00Z", "sections": [
+          {"id": "trending", "type": "trending", "title": "Trending", "layout": "rail", "score": 1,
+           "items": [
+             {"kind": "track", "id": "x", "title": "Old", "track": {"video_id": "dQw4w9WgXcQ"}},
+             {"kind": "query", "id": "q", "title": "Lo-fi", "query": "lofi"}]},
+          {"id": "broken", "type": "broken", "layout": "rail", "score": 0.5}
+        ]}
+        """#
+        let feed = try JSONDecoder.halo.decode(HomeFeed.self, from: Data(json.utf8))
+        XCTAssertEqual(feed.sections.map(\.id), ["trending"])
+        XCTAssertEqual(feed.sections.first?.items.map(\.id), ["q"])
+    }
+
     func testDecodesPlaylistWithNaiveMicrosecondDates() throws {
         let playlist = try JSONDecoder.halo.decode(RemotePlaylist.self, from: Fixture.data("playlist"))
         XCTAssertEqual(playlist.name, "Evening")
