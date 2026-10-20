@@ -25,7 +25,7 @@ struct SearchView: View {
         .listStyle(.plain)
         .haloScreen()
         .navigationTitle("Search")
-        .searchable(text: $model.query, prompt: "Songs, artists, remixes, live sets") {
+        .searchable(text: $model.query, prompt: "Songs or artists") {
             ForEach(model.suggestions, id: \.self) { suggestion in
                 Label(suggestion, systemImage: "magnifyingglass").searchCompletion(suggestion)
             }
