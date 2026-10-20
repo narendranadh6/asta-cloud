@@ -8,3 +8,6 @@ xcuserdata/
 backend/.venv/
 backend/*.egg-info/
 ios/screenshots/
+
+# Local Redis snapshots
+dump.rdb
