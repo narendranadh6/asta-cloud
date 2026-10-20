@@ -189,7 +189,6 @@ struct SongDetailView: View {
         }
         .buttonStyle(NeonButtonStyle(prominent: false))
         .disabled(model.track.streamURL == nil || model.unavailable)
-        }
     }
 
     private var actions: some View {

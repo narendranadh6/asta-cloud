@@ -90,7 +90,11 @@ jobs:
           xcodebuild test \
             -project Halo.xcodeproj -scheme Halo \
             -destination "platform=iOS Simulator,name=$DEVICE" \
-            CODE_SIGNING_ALLOWED=NO | tail -200
+            CODE_SIGNING_ALLOWED=NO > xcodebuild.log 2>&1 || status=$?
+          # Every compiler/test error first (the tail alone can hide them), then the tail.
+          grep -E "error:|failed|FAILED" xcodebuild.log | sort -u | head -80 || true
+          tail -200 xcodebuild.log
+          exit ${status:-0}
         env:
           TEST_RUNNER_HALO_SCREENSHOT_DIR: ${{ github.workspace }}/halo/ios/screenshots
       - name: Show UI-test backend log
