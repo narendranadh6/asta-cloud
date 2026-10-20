@@ -137,8 +137,9 @@ weights); `playlists` 1–n `playlist_items` n–1 `track_references` (global, u
 ### Home feed
 
 `GET /api/v1/home` is assembled by `app/services/feed/builder.py`. Each section type has a
-builder; builders run concurrently, each with a 6-second timeout, and a failing builder only
-removes its own section. Sections are ordered by score, using defaults in `DEFAULT_WEIGHTS`
+builder; builders run concurrently, each with a 3-second timeout, and a failing or slow builder only
+removes its own section. The shared sections (charts, new releases, trending) are warmed when
+the server starts, so the first Home request is served from the cache. Sections are ordered by score, using defaults in `DEFAULT_WEIGHTS`
 overridden by `HALO_HOME_SECTION_WEIGHTS` (JSON). A weight of 0 or less removes a section, so the
 Home layout changes without an app release.
 

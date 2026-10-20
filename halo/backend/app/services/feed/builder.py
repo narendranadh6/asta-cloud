@@ -1,9 +1,9 @@
 """Server-driven Home feed.
 
 Each section has a builder. Builders run concurrently, each with a timeout, so one slow or
-failing source never breaks Home. Sections are ordered by a configurable score
-(``HALO_HOME_SECTION_WEIGHTS``); a weight of 0 or less removes a section, so sections can be
-reordered or switched off without an app release.
+failing source never breaks or holds up Home; shared sections are warmed at startup.
+Sections are ordered by a configurable score (``HALO_HOME_SECTION_WEIGHTS``); a weight of 0
+or less removes a section, so sections can be reordered or switched off without an app release.
 
 Some sections come from data that lives only on the device (recently discovered songs,
 playlists, recent searches). The server sends them as ``layout="local"`` placeholders with no
@@ -26,7 +26,7 @@ from app.services.youtube.service import YouTubeSearchService
 
 logger = logging.getLogger("halo.feed")
 
-SECTION_TIMEOUT_SECONDS = 6.0
+SECTION_TIMEOUT_SECONDS = 3.0
 ITEMS_PER_SECTION = 12
 
 DEFAULT_WEIGHTS: dict[str, float] = {
@@ -123,6 +123,17 @@ class HomeFeedBuilder:
             sections=sections,
             personalized=context.personalized,
             generated_at=datetime.now(UTC),
+        )
+
+    async def warm(self) -> None:
+        """Fetch the sections shared by every listener (charts, new releases, trending) so
+        their sources are cached before the first Home request. Failures are ignored."""
+        context = FeedContext()
+        await asyncio.gather(
+            self._fresh_releases(context),
+            self._most_listened(context),
+            self._trending(context),
+            return_exceptions=True,
         )
 
     async def _run(

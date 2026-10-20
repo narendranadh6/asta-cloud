@@ -51,13 +51,21 @@ final class ScreenshotTour: XCTestCase {
 
     func testTour() {
         launch()
-        settle(4)
+        // Wait for the server-driven feed (its language section) rather than a fixed delay.
+        _ = app.staticTexts["Explore by language"].waitForExistence(timeout: 12)
+        settle(2)
         snap("01-home")
 
         app.swipeUp()
         settle(1)
         snap("02-home-scrolled")
-        app.swipeDown()
+        app.swipeUp()
+        settle(2)
+        snap("02b-home-feed")
+        app.swipeUp()
+        settle(2)
+        snap("02c-home-feed-more")
+        for _ in 0..<4 { app.swipeDown() }
         settle(1)
 
         // The Discover chip sits off-screen in the horizontal chip row; reveal it first.

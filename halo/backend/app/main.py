@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -94,9 +95,11 @@ def create_app(
             similar_artists=app.state.similar_artists,
             weights=settings.home_section_weights,
         )
+        warm_home = asyncio.create_task(app.state.home_feed.warm())
         try:
             yield
         finally:
+            warm_home.cancel()
             await app.state.planner.aclose()
             await app.state.similar_artists.aclose()
             await app.state.radio.aclose()
