@@ -133,3 +133,25 @@ weights); `playlists` 1–n `playlist_items` n–1 `track_references` (global, u
   most-listened charts, LB Radio and per-artist popularity. Discover shows "Fresh releases"
   and "Most listened this week"; tapping one searches YouTube for it, so playback stays
   a Brave handoff of a real, verified video.
+
+### Home feed
+
+`GET /api/v1/home` is assembled by `app/services/feed/builder.py`. Each section type has a
+builder; builders run concurrently, each with a 6-second timeout, and a failing builder only
+removes its own section. Sections are ordered by score, using defaults in `DEFAULT_WEIGHTS`
+overridden by `HALO_HOME_SECTION_WEIGHTS` (JSON). A weight of 0 or less removes a section, so the
+Home layout changes without an app release.
+
+| Section | Data | Needs |
+|---|---|---|
+| `because_you_like` | Similar artists (ListenBrainz, Last.fm, Deezer) to the artist of the listener's latest save | Personalization consent |
+| `moods` | Mood hubs | — |
+| `languages`, `soundtracks` | Language and Indian film-music searches; the listener's languages first | Languages are used only with consent |
+| `your_artists` | Favourite artists the listener chose | — |
+| `fresh_releases`, `most_listened` | ListenBrainz | ListenBrainz enabled |
+| `trending` | YouTube most-popular chart | YouTube key |
+| `recently_discovered`, `your_playlists`, `continue_exploring` | On-device data (SwiftData) | — |
+
+The iOS app (`HomeViewModel`, `HomeSectionView`) draws each layout; unknown layouts and item kinds
+are skipped, so the server can add sections without breaking older apps. Until the first feed
+arrives, or when offline, Home shows the on-device sections.

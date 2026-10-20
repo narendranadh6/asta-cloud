@@ -47,6 +47,20 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(profile.popularRecordings.first?.title, "Roads")
     }
 
+    func testDecodesHomeFeedAndToleratesUnknownLayouts() throws {
+        let feed = try JSONDecoder.halo.decode(HomeFeed.self, from: Fixture.data("home"))
+        XCTAssertTrue(feed.personalized)
+        XCTAssertEqual(feed.sections.first?.type, "because_you_like")
+        XCTAssertEqual(feed.sections.first?.layout, .artistRail)
+        XCTAssertEqual(feed.sections.first?.eyebrow, "Because you saved Aarav Strings")
+        let trending = try XCTUnwrap(feed.sections.first { $0.type == "trending" })
+        XCTAssertEqual(trending.items.first?.kind, .track)
+        XCTAssertEqual(trending.items.first?.track?.videoId, trending.items.first?.id)
+        let future = try XCTUnwrap(feed.sections.last)
+        XCTAssertEqual(future.layout, .unknown)
+        XCTAssertEqual(future.items.first?.kind, .unknown)
+    }
+
     func testDecodesPlaylistWithNaiveMicrosecondDates() throws {
         let playlist = try JSONDecoder.halo.decode(RemotePlaylist.self, from: Fixture.data("playlist"))
         XCTAssertEqual(playlist.name, "Evening")

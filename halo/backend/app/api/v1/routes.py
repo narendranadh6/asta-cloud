@@ -35,6 +35,7 @@ from app.schemas import (
     ArtistProfileResponse,
     FeedbackRequest,
     FeedbackResponse,
+    HomeFeed,
     PlaylistCreate,
     PlaylistDetail,
     PlaylistDraft,
@@ -58,6 +59,7 @@ from app.schemas import (
 )
 from app.services.ai.intent import MusicIntent
 from app.services.ai.providers import PlanOverrides
+from app.services.feed.builder import HomeFeedBuilder
 from app.services.music_sources.listenbrainz import (
     FreshRelease,
     ListenBrainzClient,
@@ -265,6 +267,19 @@ async def search_suggestions(
     seeds = [s for s in _SEED_SUGGESTIONS if not prefix or prefix in s]
     merged = list(dict.fromkeys([*own, *seeds]))[:limit]
     return SuggestionsResponse(query=q, suggestions=merged)
+
+
+@router.get(
+    "/home",
+    response_model=HomeFeed,
+    tags=["discover"],
+    dependencies=[DEFAULT_LIMIT],
+    summary="Home feed: ordered sections built from open data and your activity in Halo",
+)
+async def home(request: Request, user: CurrentUser, session: SessionDep) -> HomeFeed:
+    context = await user_repo.feed_context(session, user.id)
+    builder: HomeFeedBuilder = request.app.state.home_feed
+    return await builder.build(context)
 
 
 @router.get(

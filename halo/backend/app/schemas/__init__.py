@@ -389,3 +389,41 @@ class SearchHistoryEntry(APIModel):
     kind: str
     result_count: int
     created_at: datetime
+
+
+# --- Home feed --------------------------------------------------------------------------
+
+HomeItemKind = Literal["track", "recording", "release", "artist", "query", "mood"]
+HomeLayout = Literal["rail", "feature_rail", "artist_rail", "rows", "tiles", "local"]
+
+
+class HomeItem(APIModel):
+    """One card in a Home section. What happens on tap depends on `kind`:
+    track → song details (`track`), mood → mood hub (`id`), everything else → search (`query`)."""
+
+    kind: HomeItemKind
+    id: str
+    title: str
+    subtitle: str | None = None
+    artwork_url: str | None = None
+    query: str | None = None
+    badge: str | None = None
+    track: Track | None = None
+
+
+class HomeSection(APIModel):
+    id: str
+    type: str
+    title: str
+    eyebrow: str | None = None  # why this section is here
+    layout: HomeLayout
+    items: list[HomeItem] = Field(default_factory=list)
+    source: str | None = None  # data attribution, e.g. "ListenBrainz"
+    see_all_query: str | None = None
+    score: float
+
+
+class HomeFeed(APIModel):
+    sections: list[HomeSection]
+    personalized: bool
+    generated_at: datetime

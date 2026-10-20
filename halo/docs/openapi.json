@@ -391,6 +391,55 @@
     }
    }
   },
+  "/api/v1/home": {
+   "get": {
+    "tags": [
+     "discover"
+    ],
+    "summary": "Home feed: ordered sections built from open data and your activity in Halo",
+    "operationId": "home_api_v1_home_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HomeFeed"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/discover/trending": {
    "get": {
     "tags": [
@@ -2704,6 +2753,200 @@
     },
     "type": "object",
     "title": "HTTPValidationError"
+   },
+   "HomeFeed": {
+    "properties": {
+     "sections": {
+      "items": {
+       "$ref": "#/components/schemas/HomeSection"
+      },
+      "type": "array",
+      "title": "Sections"
+     },
+     "personalized": {
+      "type": "boolean",
+      "title": "Personalized"
+     },
+     "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Generated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sections",
+     "personalized",
+     "generated_at"
+    ],
+    "title": "HomeFeed"
+   },
+   "HomeItem": {
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "track",
+       "recording",
+       "release",
+       "artist",
+       "query",
+       "mood"
+      ],
+      "title": "Kind"
+     },
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "subtitle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Subtitle"
+     },
+     "artwork_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url"
+     },
+     "query": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Query"
+     },
+     "badge": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Badge"
+     },
+     "track": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Track"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind",
+     "id",
+     "title"
+    ],
+    "title": "HomeItem",
+    "description": "One card in a Home section. What happens on tap depends on `kind`:\ntrack \u2192 song details (`track`), mood \u2192 mood hub (`id`), everything else \u2192 search (`query`)."
+   },
+   "HomeSection": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "type": {
+      "type": "string",
+      "title": "Type"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "eyebrow": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Eyebrow"
+     },
+     "layout": {
+      "type": "string",
+      "enum": [
+       "rail",
+       "feature_rail",
+       "artist_rail",
+       "rows",
+       "tiles",
+       "local"
+      ],
+      "title": "Layout"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/HomeItem"
+      },
+      "type": "array",
+      "title": "Items"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source"
+     },
+     "see_all_query": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "See All Query"
+     },
+     "score": {
+      "type": "number",
+      "title": "Score"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "type",
+     "title",
+     "layout",
+     "score"
+    ],
+    "title": "HomeSection"
    },
    "Label": {
     "properties": {

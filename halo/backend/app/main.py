@@ -18,6 +18,7 @@ from app.core.errors import install_error_handlers
 from app.core.security import bearer_token, decode_access_token
 from app.db.session import create_engine, create_session_factory
 from app.services.ai.providers import IntentPlanner, build_planner
+from app.services.feed.builder import HomeFeedBuilder
 from app.services.music_sources.discovery import ListenBrainzDiscovery
 from app.services.music_sources.listenbrainz import ListenBrainzClient
 from app.services.music_sources.musicbrainz import MusicBrainzClient
@@ -86,6 +87,12 @@ def create_app(
             similar_artists=app.state.similar_artists,
             track_discovery=app.state.discovery,
             track_lookups=settings.listenbrainz_track_lookups,
+        )
+        app.state.home_feed = HomeFeedBuilder(
+            search_service=search_service,
+            listenbrainz=app.state.listenbrainz,
+            similar_artists=app.state.similar_artists,
+            weights=settings.home_section_weights,
         )
         try:
             yield

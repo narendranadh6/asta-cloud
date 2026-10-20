@@ -118,6 +118,24 @@ actor FakeMusicAPI: MusicAPI {
         return UpNextResponse(seedVideoId: videoID, tracks: Array(picks))
     }
 
+    public private(set) var homeSections: [HomeSection]?
+    public func setHomeSections(_ sections: [HomeSection]?) {
+        homeSections = sections
+    }
+
+    public func home() async throws -> HomeFeed {
+        try checkFailure()
+        let sections = homeSections ?? [
+            HomeSection(id: "moods", type: "moods", title: "Play something for…", layout: .tiles,
+                        items: [HomeItem(kind: .mood, id: "focused", title: "Focus")], score: 90),
+            HomeSection(id: "trending", type: "trending", title: "Trending now", layout: .rail,
+                        items: catalog.prefix(3).map {
+                            HomeItem(kind: .track, id: $0.videoId, title: $0.title, track: $0)
+                        }, source: "YouTube", score: 64),
+        ]
+        return HomeFeed(sections: sections, personalized: false, generatedAt: Date())
+    }
+
     public func trackMetadata(videoID: String) async throws -> TrackMetadataResponse {
         try checkFailure()
         guard let track = catalog.first(where: { $0.videoId == videoID }) else {

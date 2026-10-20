@@ -6,6 +6,8 @@ import FoundationNetworking
 /// Everything the app needs from the Halo backend.
 public protocol MusicAPI: Sendable {
     func health() async throws -> HealthResponse
+    /// Home feed: ordered sections chosen by the server.
+    func home() async throws -> HomeFeed
     func search(query: String, kind: SearchKind, pageToken: String?, limit: Int) async throws
         -> SearchResponse
     func suggestions(prefix: String) async throws -> [String]
@@ -199,6 +201,10 @@ public actor APIClient: MusicAPI {
             throw APIError.from(status: response.statusCode, data: data, headers: [:])
         }
         return try JSONDecoder.halo.decode(HealthResponse.self, from: data)
+    }
+
+    public func home() async throws -> HomeFeed {
+        try await send(.get, "api/v1/home")
     }
 
     public func search(query: String, kind: SearchKind, pageToken: String?, limit: Int)

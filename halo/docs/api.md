@@ -57,6 +57,7 @@ The MusicBrainz and ListenBrainz endpoints return `503 metadata_disabled` /
 | PUT | `/api/v1/playlists/{id}/items/order` | `{item_ids: [...]}`. Must list every item exactly once |
 | POST | `/api/v1/ai/playlist` | Studio. Body: `description, mood?, genres[], language?, energy?, duration_minutes, discovery, exclude_video_ids[]` |
 | POST | `/api/v1/ai/chat` | AI DJ. Body: `{message, conversation_id?, history[]}` |
+| GET | `/api/v1/home` | Home feed: `{sections[], personalized, generated_at}`. Each section has `id, type, title, eyebrow` (why it's shown), `layout` (`rail`, `feature_rail`, `artist_rail`, `rows`, `tiles`, `local`), `items[]`, `source` and `score`. Sections arrive in display order; `local` sections are placeholders the app fills from data on the device. Weights: `HALO_HOME_SECTION_WEIGHTS` |
 | GET | `/api/v1/discover/trending?page_token=&limit=` | YouTube most-popular music chart for the configured region |
 | GET | `/api/v1/recommendations/next?video_id=&limit=` | Up next: co-listening, same artist and similar artists, ranked. The listener chooses; nothing auto-plays |
 | GET | `/api/v1/radio/stations?tag=&language=&country=&q=&limit=` | Live internet radio stations (Radio Browser). `502 radio_unavailable` if the directory is down |

@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     listenbrainz_token: SecretStr | None = None
     # YouTube lookups per playlist for ListenBrainz track picks (each search costs 100 units).
     listenbrainz_track_lookups: int = Field(default=4, ge=0, le=10)
+    # Home feed: section type -> base score. Higher ranks earlier; 0 or less removes the
+    # section. JSON in the environment, e.g. HALO_HOME_SECTION_WEIGHTS='{"trending": 0}'.
+    # Merged over the defaults in app/services/feed/builder.py.
+    home_section_weights: dict[str, float] = Field(default_factory=dict)
 
     # LLM planner
     llm_provider: Literal["none", "anthropic", "openai"] = "none"

@@ -1,0 +1,391 @@
+{
+ "sections": [
+  {
+   "id": "because_you_like",
+   "type": "because_you_like",
+   "title": "Artists like Aarav Strings",
+   "eyebrow": "Because you saved Aarav Strings",
+   "layout": "artist_rail",
+   "items": [
+    {
+     "kind": "artist",
+     "id": "artist:Keerthi Waves",
+     "title": "Keerthi Waves",
+     "subtitle": "Similar to Aarav Strings",
+     "artwork_url": null,
+     "query": "Keerthi Waves",
+     "badge": null,
+     "track": null
+    },
+    {
+     "kind": "artist",
+     "id": "artist:Madras Monsoon",
+     "title": "Madras Monsoon",
+     "subtitle": "Similar to Aarav Strings",
+     "artwork_url": null,
+     "query": "Madras Monsoon",
+     "badge": null,
+     "track": null
+    }
+   ],
+   "source": "ListenBrainz",
+   "see_all_query": null,
+   "score": 95.0
+  },
+  {
+   "id": "moods",
+   "type": "moods",
+   "title": "Play something for\u2026",
+   "eyebrow": null,
+   "layout": "tiles",
+   "items": [
+    {
+     "kind": "mood",
+     "id": "focused",
+     "title": "Focus",
+     "subtitle": "Deep work",
+     "artwork_url": null,
+     "query": null,
+     "badge": null,
+     "track": null
+    },
+    {
+     "kind": "mood",
+     "id": "calm",
+     "title": "Chill",
+     "subtitle": "Relax & unwind",
+     "artwork_url": null,
+     "query": null,
+     "badge": null,
+     "track": null
+    },
+    {
+     "kind": "mood",
+     "id": "workout",
+     "title": "Workout",
+     "subtitle": "High energy",
+     "artwork_url": null,
+     "query": null,
+     "badge": null,
+     "track": null
+    }
+   ],
+   "source": null,
+   "see_all_query": null,
+   "score": 90.0
+  },
+  {
+   "id": "recently_discovered",
+   "type": "recently_discovered",
+   "title": "Recently discovered",
+   "eyebrow": "Songs you opened in Halo",
+   "layout": "local",
+   "items": [],
+   "source": null,
+   "see_all_query": null,
+   "score": 88.0
+  },
+  {
+   "id": "languages",
+   "type": "languages",
+   "title": "In your languages",
+   "eyebrow": "From your preferences",
+   "layout": "tiles",
+   "items": [
+    {
+     "kind": "query",
+     "id": "lang:Telugu",
+     "title": "Telugu hits",
+     "subtitle": "Popular songs",
+     "artwork_url": null,
+     "query": "Telugu hit songs",
+     "badge": null,
+     "track": null
+    },
+    {
+     "kind": "query",
+     "id": "lang:Hindi",
+     "title": "Hindi hits",
+     "subtitle": "Popular songs",
+     "artwork_url": null,
+     "query": "Hindi hit songs",
+     "badge": null,
+     "track": null
+    },
+    {
+     "kind": "query",
+     "id": "lang:Tamil",
+     "title": "Tamil hits",
+     "subtitle": "Popular songs",
+     "artwork_url": null,
+     "query": "Tamil hit songs",
+     "badge": null,
+     "track": null
+    }
+   ],
+   "source": null,
+   "see_all_query": null,
+   "score": 76.0
+  },
+  {
+   "id": "soundtracks",
+   "type": "soundtracks",
+   "title": "Movie soundtracks",
+   "eyebrow": "Indian film music",
+   "layout": "tiles",
+   "items": [
+    {
+     "kind": "query",
+     "id": "film:Telugu",
+     "title": "Telugu movie songs",
+     "subtitle": "Latest soundtracks",
+     "artwork_url": null,
+     "query": "latest Telugu movie songs",
+     "badge": null,
+     "track": null
+    },
+    {
+     "kind": "query",
+     "id": "film:Hindi",
+     "title": "Hindi movie songs",
+     "subtitle": "Latest soundtracks",
+     "artwork_url": null,
+     "query": "latest Hindi movie songs",
+     "badge": null,
+     "track": null
+    },
+    {
+     "kind": "query",
+     "id": "film:Tamil",
+     "title": "Tamil movie songs",
+     "subtitle": "Latest soundtracks",
+     "artwork_url": null,
+     "query": "latest Tamil movie songs",
+     "badge": null,
+     "track": null
+    }
+   ],
+   "source": null,
+   "see_all_query": null,
+   "score": 72.0
+  },
+  {
+   "id": "your_artists",
+   "type": "your_artists",
+   "title": "Your artists",
+   "eyebrow": "Favourites you chose",
+   "layout": "artist_rail",
+   "items": [
+    {
+     "kind": "artist",
+     "id": "artist:Aarav Strings",
+     "title": "Aarav Strings",
+     "subtitle": null,
+     "artwork_url": null,
+     "query": "Aarav Strings",
+     "badge": null,
+     "track": null
+    }
+   ],
+   "source": null,
+   "see_all_query": null,
+   "score": 70.0
+  },
+  {
+   "id": "fresh_releases",
+   "type": "fresh_releases",
+   "title": "New releases",
+   "eyebrow": "Out in the last two weeks",
+   "layout": "feature_rail",
+   "items": [
+    {
+     "kind": "release",
+     "id": "r1",
+     "title": "Profound Mysteries IV",
+     "subtitle": "R\u00f6yksopp \u00b7 2026-10-16",
+     "artwork_url": "https://coverartarchive.org/release/r1/42-250.jpg",
+     "query": "R\u00f6yksopp Profound Mysteries IV",
+     "badge": "Album",
+     "track": null
+    }
+   ],
+   "source": "ListenBrainz \u00b7 Cover Art Archive",
+   "see_all_query": null,
+   "score": 68.0
+  },
+  {
+   "id": "trending",
+   "type": "trending",
+   "title": "Trending now",
+   "eyebrow": "YouTube music chart",
+   "layout": "rail",
+   "items": [
+    {
+     "kind": "track",
+     "id": "tst6-yUYedc",
+     "title": "Korean Feel Good Pop No. 3 (Live Session)",
+     "subtitle": "Dawn Circuit",
+     "artwork_url": "https://i.ytimg.com/vi/tst6-yUYedc/hqdefault.jpg",
+     "query": null,
+     "badge": null,
+     "track": {
+      "video_id": "tst6-yUYedc",
+      "title": "Korean Feel Good Pop No. 3 (Live Session)",
+      "channel_title": "Dawn Circuit",
+      "channel_id": null,
+      "description": "Test catalog entry (happy, energy 80).",
+      "thumbnails": {
+       "high": {
+        "url": "https://i.ytimg.com/vi/tst6-yUYedc/hqdefault.jpg",
+        "width": 480,
+        "height": 360
+       }
+      },
+      "duration_seconds": 191,
+      "published_at": "2022-10-24T00:00:00Z",
+      "view_count": 1133417,
+      "is_live": false,
+      "watch_url": "https://www.youtube.com/watch?v=tst6-yUYedc",
+      "attribution": {
+       "provider": "youtube",
+       "label": "YouTube",
+       "url": "https://www.youtube.com/watch?v=tst6-yUYedc"
+      }
+     }
+    },
+    {
+     "kind": "track",
+     "id": "tstAz5Hact4",
+     "title": "Korean Feel Good Pop No. 2 (Remix)",
+     "subtitle": "Seoul Lantern",
+     "artwork_url": "https://i.ytimg.com/vi/tstAz5Hact4/hqdefault.jpg",
+     "query": null,
+     "badge": null,
+     "track": {
+      "video_id": "tstAz5Hact4",
+      "title": "Korean Feel Good Pop No. 2 (Remix)",
+      "channel_title": "Seoul Lantern",
+      "channel_id": null,
+      "description": "Test catalog entry (happy, energy 80).",
+      "thumbnails": {
+       "high": {
+        "url": "https://i.ytimg.com/vi/tstAz5Hact4/hqdefault.jpg",
+        "width": 480,
+        "height": 360
+       }
+      },
+      "duration_seconds": 154,
+      "published_at": "2022-07-19T00:00:00Z",
+      "view_count": 1125498,
+      "is_live": false,
+      "watch_url": "https://www.youtube.com/watch?v=tstAz5Hact4",
+      "attribution": {
+       "provider": "youtube",
+       "label": "YouTube",
+       "url": "https://www.youtube.com/watch?v=tstAz5Hact4"
+      }
+     }
+    },
+    {
+     "kind": "track",
+     "id": "tsty3FeYQ1r",
+     "title": "Korean Feel Good Pop No. 1",
+     "subtitle": "Hanbit Room",
+     "artwork_url": "https://i.ytimg.com/vi/tsty3FeYQ1r/hqdefault.jpg",
+     "query": null,
+     "badge": null,
+     "track": {
+      "video_id": "tsty3FeYQ1r",
+      "title": "Korean Feel Good Pop No. 1",
+      "channel_title": "Hanbit Room",
+      "channel_id": null,
+      "description": "Test catalog entry (happy, energy 80).",
+      "thumbnails": {
+       "high": {
+        "url": "https://i.ytimg.com/vi/tsty3FeYQ1r/hqdefault.jpg",
+        "width": 480,
+        "height": 360
+       }
+      },
+      "duration_seconds": 327,
+      "published_at": "2022-04-13T00:00:00Z",
+      "view_count": 1117579,
+      "is_live": false,
+      "watch_url": "https://www.youtube.com/watch?v=tsty3FeYQ1r",
+      "attribution": {
+       "provider": "youtube",
+       "label": "YouTube",
+       "url": "https://www.youtube.com/watch?v=tsty3FeYQ1r"
+      }
+     }
+    }
+   ],
+   "source": "YouTube",
+   "see_all_query": null,
+   "score": 64.0
+  },
+  {
+   "id": "your_playlists",
+   "type": "your_playlists",
+   "title": "Your playlists",
+   "eyebrow": null,
+   "layout": "local",
+   "items": [],
+   "source": null,
+   "see_all_query": null,
+   "score": 60.0
+  },
+  {
+   "id": "most_listened",
+   "type": "most_listened",
+   "title": "Most listened this week",
+   "eyebrow": "Open listening data",
+   "layout": "rows",
+   "items": [
+    {
+     "kind": "recording",
+     "id": "e97f805a-ab48-4c52-855e-07049142113d",
+     "title": "Love Me Like You Do",
+     "subtitle": "Ellie Goulding",
+     "artwork_url": null,
+     "query": "Ellie Goulding Love Me Like You Do",
+     "badge": "#1",
+     "track": null
+    }
+   ],
+   "source": "ListenBrainz",
+   "see_all_query": null,
+   "score": 50.0
+  },
+  {
+   "id": "continue_exploring",
+   "type": "continue_exploring",
+   "title": "Continue exploring",
+   "eyebrow": "Your recent searches",
+   "layout": "local",
+   "items": [],
+   "source": null,
+   "see_all_query": null,
+   "score": 40.0
+  },
+  {
+   "id": "future",
+   "type": "future_section",
+   "title": "From a newer server",
+   "eyebrow": null,
+   "layout": "carousel_3d",
+   "items": [
+    {
+     "kind": "hologram",
+     "id": "x",
+     "title": "x"
+    }
+   ],
+   "source": null,
+   "see_all_query": null,
+   "score": 1
+  }
+ ],
+ "personalized": true,
+ "generated_at": "2026-10-20T21:19:36.407721Z"
+}

@@ -15,7 +15,7 @@ let package = Package(
             exclude: [
                 "App/AppModel.swift", "App/DiscoveryReminderScheduler.swift", "App/Info.plist",
                 "App/HaloApp.swift", "App/RootView.swift", "Core/DesignSystem", "Core/Persistence",
-                "Features/AIDJ/AIDJView.swift", "Features/AIDJ/DraftEditor.swift", "Features/Home",
+                "Features/AIDJ/AIDJView.swift", "Features/AIDJ/DraftEditor.swift", "Features/Home/HomeView.swift",
                 "Features/Library", "Features/MoodHub", "Features/Onboarding",
                 "Features/PlaylistStudio/PlaylistStudioView.swift", "Features/Search/SearchView.swift",
                 "Features/Search/SongDetailView.swift", "Features/Settings", "Features/Shared.swift",
@@ -33,6 +33,7 @@ let package = Package(
                 "Features/AIDJ/EditableDraft.swift",
                 "Features/PlaylistStudio/PlaylistStudioViewModel.swift",
                 "Features/Discover/DiscoverViewModel.swift",
+                "Features/Home/HomeViewModel.swift",
             ]
         ),
         .testTarget(

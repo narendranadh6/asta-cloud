@@ -224,3 +224,44 @@ final class DiscoverViewModelTests: XCTestCase {
         guard case .loaded = model.shelves[.trending] else { return XCTFail("YouTube still loads") }
     }
 }
+
+@MainActor
+final class HomeViewModelTests: XCTestCase {
+    func testStartsWithOfflineSectionsThenUsesServerOrder() async {
+        let model = HomeViewModel()
+        XCTAssertEqual(model.sections.map(\.type).first, "moods")
+        await model.load(api: FakeMusicAPI())
+        XCTAssertTrue(model.hasLoadedFromServer)
+        XCTAssertEqual(model.sections.map(\.type), ["moods", "trending"])
+    }
+
+    func testDropsUnknownAndEmptySections() {
+        let sections = [
+            HomeSection(id: "a", type: "future", title: "?", layout: .unknown,
+                        items: [HomeItem(kind: .query, id: "x", title: "x")], score: 99),
+            HomeSection(id: "b", type: "trending", title: "Empty", layout: .rail, score: 50),
+            HomeSection(id: "c", type: "your_playlists", title: "Yours", layout: .local, score: 40),
+            HomeSection(id: "d", type: "someday_local", title: "?", layout: .local, score: 30),
+        ]
+        XCTAssertEqual(HomeViewModel.renderable(sections).map(\.id), ["c"])
+    }
+
+    func testFailureKeepsLastGoodFeed() async {
+        let api = FakeMusicAPI()
+        let model = HomeViewModel()
+        await model.load(api: api)
+        await api.setFailure(.offline)
+        await model.load(api: api)
+        XCTAssertEqual(model.sections.map(\.type), ["moods", "trending"])
+        XCTAssertEqual(model.lastError as? APIError, .offline)
+    }
+
+    func testFirstLoadFailureFallsBackToDeviceSections() async {
+        let api = FakeMusicAPI()
+        await api.setFailure(.offline)
+        let model = HomeViewModel()
+        await model.load(api: api)
+        XCTAssertFalse(model.hasLoadedFromServer)
+        XCTAssertEqual(model.sections, HomeViewModel.offlineSections)
+    }
+}

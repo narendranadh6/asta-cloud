@@ -29,6 +29,7 @@ from app.schemas import (
     TasteSignal,
 )
 from app.services.ai.heuristic import PreferenceHints
+from app.services.feed.builder import FeedContext, clean_channel
 from app.services.recommendations.pipeline import FeedbackSignals, normalize_name
 
 SEARCH_HISTORY_LIMIT = 200
@@ -175,6 +176,36 @@ async def preference_hints(session: AsyncSession, user_id: uuid.UUID) -> Prefere
         excluded_artists=excluded,
         discovery=prefs.discovery_preference,
     )
+
+
+async def feed_context(session: AsyncSession, user_id: uuid.UUID) -> FeedContext:
+    """Inputs for the Home feed. Explicit choices (favourites, exclusions) are always
+    honoured; inferred signals (recent saves) and languages only with consent."""
+    prefs = await get_preferences(session, user_id)
+    artists = await list_artist_preferences(session, user_id)
+    context = FeedContext(
+        personalized=prefs.personalization_enabled,
+        favorite_artists=[a.name for a in artists if a.stance == "favorite"],
+        excluded_artists=[a.name for a in artists if a.stance == "excluded"],
+    )
+    if not prefs.personalization_enabled:
+        return context
+    context.languages = list(prefs.languages or [])
+    latest = (
+        await session.execute(
+            select(RecommendationFeedback.channel_title)
+            .where(
+                RecommendationFeedback.user_id == user_id,
+                RecommendationFeedback.rating.in_(("like", "save")),
+                RecommendationFeedback.channel_title.is_not(None),
+            )
+            .order_by(RecommendationFeedback.updated_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if latest:
+        context.recent_liked_artist = clean_channel(latest) or None
+    return context
 
 
 # --- Search history ---------------------------------------------------------------------

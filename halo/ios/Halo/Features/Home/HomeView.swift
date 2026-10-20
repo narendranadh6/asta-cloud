@@ -11,10 +11,8 @@ struct HomeView: View {
     private var discovered: [TrackEntity]
     @Query(sort: \PlaylistEntity.updatedAt, order: .reverse) private var playlists: [PlaylistEntity]
     @Query(sort: \RecentSearchEntity.searchedAt, order: .reverse) private var recentSearches: [RecentSearchEntity]
-    @Query(filter: #Predicate<ArtistEntity> { !$0.isExcluded }, sort: \ArtistEntity.addedAt)
-    private var favoriteArtists: [ArtistEntity]
 
-    @State private var trending: [Track] = []
+    @State private var model = HomeViewModel()
 
     var body: some View {
         ScrollView {
@@ -23,12 +21,9 @@ struct HomeView: View {
                 quickChips
                 SearchSetupBanner()
                 hero
-                playSomethingFor
-                if !discovered.isEmpty { recentlyDiscovered }
-                if !trending.isEmpty { trendingShelf }
-                if !playlists.isEmpty { savedPlaylists }
-                if !recommendedArtists.isEmpty { artists }
-                if !recentSearches.isEmpty { continueExploring }
+                ForEach(model.sections) { section in
+                    sectionView(section)
+                }
                 if discovered.isEmpty && playlists.isEmpty { firstRun }
             }
             .padding(Spacing.md)
@@ -36,11 +31,8 @@ struct HomeView: View {
         .haloScreen()
         .toolbar(.hidden, for: .navigationBar)
         .haloDestinations()
-        .task {
-            if trending.isEmpty, let response = try? await app.api.trending(pageToken: nil, limit: 10) {
-                trending = response.items
-            }
-        }
+        .task { await model.load(api: app.api) }
+        .refreshable { await model.load(api: app.api) }
     }
 
     private var header: some View {
@@ -131,47 +123,6 @@ struct HomeView: View {
         return [settings.preferredLanguage, mood].compactMap { $0 }.joined(separator: " ")
     }
 
-    private var playSomethingFor: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            SectionHeader(title: "Play something for…")
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.sm), count: 3),
-                      spacing: Spacing.md) {
-                ForEach(Self.tiles, id: \.title) { tile in
-                    NavigationLink(value: MoodRoute(mood: tile.mood)) {
-                        ArtTile(gradient: HaloColor.moodGradient(tile.mood), symbol: tile.mood.symbol,
-                                title: tile.title, subtitle: tile.subtitle, height: 96)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    private static let tiles: [(title: String, subtitle: String, mood: Mood)] = [
-        ("Focus", "Deep work", .focused), ("Chill", "Relax & unwind", .calm),
-        ("Workout", "High energy", .workout), ("Late Night", "Mellow beats", .sleep),
-        ("Feel Good", "Positive vibes", .happy), ("Travel", "Explore the world", .travel),
-    ]
-
-    private var trendingShelf: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
-                Text("Trending on YouTube").font(HaloFont.section).foregroundStyle(HaloColor.text)
-                Spacer()
-                NavigationLink("See all") { DiscoverView() }
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(HaloColor.accent)
-            }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: Spacing.sm) {
-                    ForEach(trending) { track in
-                        NavigationLink(value: track) { TrackCard(track: track, width: 130) }
-                            .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
     private var greetingText: String {
         let hour = Calendar.current.component(.hour, from: .now)
         let base = switch hour {
@@ -184,13 +135,12 @@ struct HomeView: View {
         return name.isEmpty ? base : "\(base),\n\(name)"
     }
 
-    private var recentlyDiscovered: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            SectionHeader(title: "Recently discovered")
+    private func recentlyDiscovered(_ section: HomeSection) -> some View {
+        Rail(title: section.title, eyebrow: section.eyebrow) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: Spacing.sm) {
                     ForEach(discovered.prefix(12)) { entity in
-                        NavigationLink(value: Track(entity: entity)) { TrackCard(track: entity, width: 140) }
+                        NavigationLink(value: Track(entity: entity)) { TrackCard(track: entity) }
                             .buttonStyle(.plain)
                     }
                 }
@@ -198,9 +148,8 @@ struct HomeView: View {
         }
     }
 
-    private var savedPlaylists: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            SectionHeader(title: "Your playlists")
+    private func savedPlaylists(_ section: HomeSection) -> some View {
+        Rail(title: section.title, eyebrow: section.eyebrow) {
             ForEach(playlists.prefix(4)) { playlist in
                 NavigationLink(value: playlist) {
                     PlaylistRow(playlist: playlist)
@@ -210,44 +159,8 @@ struct HomeView: View {
         }
     }
 
-    /// Explicit favorites first, then channels the user saved most — Halo activity only.
-    private var recommendedArtists: [String] {
-        var names = favoriteArtists.map(\.name)
-        let counts = Dictionary(grouping: discovered.filter(\.isSaved), by: \.channelTitle)
-            .mapValues(\.count)
-            .sorted { $0.value > $1.value }
-        for (name, _) in counts where !names.contains(name) && !name.isEmpty {
-            names.append(name)
-        }
-        return Array(names.prefix(10))
-    }
-
-    private var artists: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            SectionHeader(title: "Artists for you")
-            Text("Based on favorites and saves in Halo")
-                .font(.caption).foregroundStyle(HaloColor.mutedText)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Spacing.xs) {
-                    ForEach(recommendedArtists, id: \.self) { name in
-                        NavigationLink(value: SearchRoute(query: name, kind: .artist, title: name)) {
-                            Label(name, systemImage: "music.mic")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(HaloColor.text)
-                                .padding(.horizontal, Spacing.md)
-                                .frame(minHeight: 44)
-                                .haloCard(cornerRadius: 22)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
-    private var continueExploring: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            SectionHeader(title: "Continue exploring")
+    private func continueExploring(_ section: HomeSection) -> some View {
+        Rail(title: section.title, eyebrow: section.eyebrow) {
             FlowLayout {
                 ForEach(recentSearches.prefix(8)) { entry in
                     NavigationLink(value: SearchRoute(
@@ -263,6 +176,21 @@ struct HomeView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func sectionView(_ section: HomeSection) -> some View {
+        switch section.layout {
+        case .local:
+            switch section.type {
+            case "recently_discovered" where !discovered.isEmpty: recentlyDiscovered(section)
+            case "your_playlists" where !playlists.isEmpty: savedPlaylists(section)
+            case "continue_exploring" where !recentSearches.isEmpty: continueExploring(section)
+            default: EmptyView()
+            }
+        default:
+            HomeSectionView(section: section)
         }
     }
 
