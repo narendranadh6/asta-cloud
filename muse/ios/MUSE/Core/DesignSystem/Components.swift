@@ -150,19 +150,17 @@ struct ArtworkView: View {
     }
 }
 
+/// Source attribution shown next to YouTube metadata (YouTube API Services requirement).
 struct AttributionBadge: View {
-    var isDemo: Bool
-
     var body: some View {
-        Label(isDemo ? "Demo" : "YouTube", systemImage: isDemo ? "flask" : "play.rectangle.fill")
+        Label("YouTube", systemImage: "play.rectangle.fill")
             .labelStyle(.titleAndIcon)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(isDemo ? MUSEColor.mutedText : MUSEColor.text)
+            .foregroundStyle(MUSEColor.text)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(
-                Capsule().fill(isDemo ? MUSEColor.surface : Color(hex: 0xC4302B).opacity(0.85)))
-            .accessibilityLabel(isDemo ? "Demo catalog item" : "Source: YouTube")
+            .background(Capsule().fill(Color(hex: 0xC4302B).opacity(0.85)))
+            .accessibilityLabel("Source: YouTube")
     }
 }
 
@@ -185,7 +183,7 @@ struct TrackRow: View {
                     .lineLimit(1)
                 if showsAttribution {
                     HStack(spacing: Spacing.xs) {
-                        AttributionBadge(isDemo: track.isDemo)
+                        AttributionBadge()
                         if track.durationSeconds != nil {
                             Text(DurationFormatter.clock(track.durationSeconds))
                                 .font(.caption)
@@ -208,7 +206,7 @@ struct TrackRow: View {
         if let seconds = track.durationSeconds {
             parts.append(DurationFormatter.approximate(seconds))
         }
-        parts.append(track.isDemo ? "demo item" : "from YouTube")
+        parts.append("from YouTube")
         return parts.joined(separator: ", ")
     }
 }
@@ -342,7 +340,7 @@ struct ErrorStateView: View {
     }
 }
 
-/// Inline notice for limitations and demo mode. Never hidden behind a tap.
+/// Inline notice for limitations and setup problems. Never hidden behind a tap.
 struct NoticeBanner: View {
     var text: String
     var systemImage = "info.circle"

@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.db.base import Base
 from app.main import create_app
 from app.services.ai.providers import IntentPlanner
-from app.services.youtube.mock import DemoMetadataProvider
+from tests.fakes import FakeMetadataProvider
 
 TEST_DATABASE_URL = os.environ.get("MUSE_TEST_DATABASE_URL", "sqlite+aiosqlite://")
 
@@ -22,7 +22,6 @@ def make_settings(**overrides: Any) -> Settings:
         "environment": "test",
         "database_url": TEST_DATABASE_URL,
         "redis_url": None,
-        "youtube_provider": "mock",
         "llm_provider": "none",
         "jwt_secret": "test-secret-0123456789-0123456789-abcdef",
         "rate_limit_search_per_minute": 1000,
@@ -48,7 +47,7 @@ async def app_factory() -> AsyncIterator[AppFactory]:
     ) -> tuple[Any, httpx.AsyncClient]:
         app = create_app(
             settings or make_settings(),
-            provider=provider or DemoMetadataProvider(),
+            provider=provider or FakeMetadataProvider(),
             planner=planner or IntentPlanner(None),
             store=MemoryStore(),
         )

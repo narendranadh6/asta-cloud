@@ -1,8 +1,13 @@
 """Multi-stage recommendation pipeline.
 
-request -> intent (LLM or heuristic) -> search queries -> verified metadata retrieval
--> candidate filtering -> relevance scoring -> diversity optimisation
--> duration-fitted playlist -> (later) user feedback
+request -> intent (LLM or heuristic)
+-> candidate generation from several sources:
+     search (planner queries), similar_artist (open artist graphs), co_listen (playlist
+     co-occurrence across opted-in listeners, passed in by the caller)
+-> verified metadata retrieval -> filtering
+-> ranking (heuristic relevance + learnable feature weights)
+-> exploration budget chosen by Thompson sampling over sources
+-> diversity -> duration-fitted playlist -> feedback updates the bandit and ranker data
 
 Every track in the output came back from the metadata provider in this request (search
 results are verified through videos.list), so no id is ever invented.
@@ -13,12 +18,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import random
 import re
 from dataclasses import dataclass, field
 
 from app.schemas import RecommendedTrack, Track
 from app.services.ai.heuristic import PreferenceHints
 from app.services.ai.intent import MusicIntent
+from app.services.music_sources.similar_artists import SimilarArtist
+from app.services.recommendations.bandit import (
+    ArmPosterior,
+    choose_arm,
+    explore_quota,
+)
+from app.services.recommendations.ranker import RankerModel
 from app.services.youtube.base import YouTubeError
 from app.services.youtube.service import YouTubeSearchService
 
@@ -65,6 +78,11 @@ class Candidate:
     rank: int
     score: float = 0.0
     reasons: list[str] = field(default_factory=list)
+    source: str = "search"
+    source_reason: str | None = None
+    cf_score: float = 0.0
+    explore: bool = False
+    features: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -74,6 +92,7 @@ class PipelineResult:
     target_duration_seconds: int
     warnings: list[str]
     filtered_counts: dict[str, int]
+    details: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 def _allows_long_form(intent: MusicIntent) -> bool:
@@ -91,8 +110,14 @@ def filter_candidates(
     excluded_names = {normalize_name(a) for a in [*intent.exclude_artists, *hints.excluded_artists]}
     excluded_names.discard("")
     long_form_ok = _allows_long_form(intent)
-    counts = {"duplicate": 0, "excluded_artist": 0, "duration": 0, "live_now": 0,
-              "disliked": 0, "excluded_video": 0}
+    counts = {
+        "duplicate": 0,
+        "excluded_artist": 0,
+        "duration": 0,
+        "live_now": 0,
+        "disliked": 0,
+        "excluded_video": 0,
+    }
     seen_ids: set[str] = set()
     kept: list[Candidate] = []
     for cand in candidates:
@@ -150,9 +175,7 @@ def score_candidates(
     favorites = {normalize_name(a) for a in [*hints.favorite_artists, *intent.reference_artists]}
     favorites.discard("")
     views = [c.track.view_count for c in candidates if c.track.view_count]
-    median_log_views = (
-        sorted(math.log10(v + 1) for v in views)[len(views) // 2] if views else 0.0
-    )
+    median_log_views = sorted(math.log10(v + 1) for v in views)[len(views) // 2] if views else 0.0
     for cand in candidates:
         track = cand.track
         reasons: list[str] = []
@@ -189,8 +212,23 @@ def score_candidates(
         if intent.vocals != "any" and "instrumental" in text_words:
             score += 0.2
         cand.score = round(score, 4)
-        reasons.append(f"Found for “{cand.query}”")
+        reasons.append(cand.source_reason or f"Found for “{cand.query}”")
         cand.reasons = reasons
+        cand.features = {
+            "relevance": cand.score,
+            "cf_score": cand.cf_score,
+            "similar_artist": 1.0 if cand.source == "similar_artist" else 0.0,
+            "co_listen": 1.0 if cand.source == "co_listen" else 0.0,
+            "liked_channel": 1.0 if channel in feedback.liked_channels else 0.0,
+        }
+        popularity = (
+            math.log10(track.view_count + 1) - median_log_views
+            if track.view_count and median_log_views
+            else 0.0
+        )
+        direction = {"familiar": 1.0, "discovery": -1.0}.get(intent.discovery, 0.0)
+        cand.features["popularity_z"] = round(popularity, 4)
+        cand.features["pop_x_discovery"] = round(popularity * direction, 4)
 
 
 def diversify(
@@ -228,15 +266,94 @@ def diversify(
     return chosen
 
 
+def rank_and_explore(
+    candidates: list[Candidate],
+    intent: MusicIntent,
+    target_seconds: int,
+    *,
+    ranker: RankerModel,
+    posteriors: dict[str, ArmPosterior],
+    favorites: set[str],
+    rng: random.Random,
+) -> list[Candidate]:
+    """Exploit the ranker for most slots; spend an exploration budget via Thompson sampling."""
+    for cand in candidates:
+        cand.score = round(ranker.score(cand.features), 4)
+    ranked = sorted(candidates, key=lambda c: c.score, reverse=True)
+    expected = max(4, target_seconds // 210)
+    quota = explore_quota(intent.discovery, expected)
+    # Exploration only considers items the ranker alone would not have selected.
+    pool = ranked[max(expected - quota, 0) :]
+    picks: list[Candidate] = []
+    used_channels: set[str] = set()
+    for _ in range(quota):
+        available = {c.source for c in pool if c not in picks}
+        arm = choose_arm(posteriors, available, rng)
+        if arm is None:
+            break
+        options = [
+            c
+            for c in pool
+            if c.source == arm
+            and c not in picks
+            and normalize_name(c.track.channel_title) not in used_channels
+        ]
+        # Prefer artists the listener hasn't marked as favorites: exploration should be new.
+        options.sort(key=lambda c: (normalize_name(c.track.channel_title) in favorites, -c.score))
+        if not options:
+            pool = [c for c in pool if c.source != arm]
+            continue
+        choice = options[0]
+        choice.explore = True
+        choice.reasons = ["Something new for you", *choice.reasons]
+        picks.append(choice)
+        used_channels.add(normalize_name(choice.track.channel_title))
+    explore_seconds = sum(c.track.duration_seconds or 210 for c in picks)
+    exploit = diversify(
+        [c for c in ranked if c not in picks], intent, max(target_seconds - explore_seconds, 0)
+    )
+    # Spread exploration picks through the playlist instead of bunching them.
+    merged = list(exploit)
+    if picks:
+        step = max(len(merged) // (len(picks) + 1), 1)
+        for i, pick in enumerate(picks):
+            merged.insert(min((i + 1) * step + i, len(merged)), pick)
+    return merged
+
+
 class RecommendationPipeline:
-    def __init__(self, search: YouTubeSearchService, *, concurrency: int = 3) -> None:
+    def __init__(
+        self,
+        search: YouTubeSearchService,
+        *,
+        similar_artists: object | None = None,
+        concurrency: int = 3,
+    ) -> None:
         self._search = search
+        self._similar = similar_artists
         self._semaphore = asyncio.Semaphore(concurrency)
 
-    async def _retrieve(self, query: str) -> tuple[str, list[Track], str | None]:
+    async def _similar_queries(
+        self, intent: MusicIntent, hints: PreferenceHints
+    ) -> list[tuple[str, str]]:
+        """(query, reason) pairs for artists similar to the listener's or request's artists."""
+        if self._similar is None:
+            return []
+        excluded = {normalize_name(a) for a in [*intent.exclude_artists, *hints.excluded_artists]}
+        seeds = list(dict.fromkeys([*intent.reference_artists, *hints.favorite_artists]))[:2]
+        out: list[tuple[str, str]] = []
+        for seed in seeds:
+            similar: list[SimilarArtist] = await self._similar.similar(seed, limit=8)  # type: ignore[attr-defined]
+            for artist in [a for a in similar if normalize_name(a.name) not in excluded][:2]:
+                out.append((f"{artist.name} songs", f"Similar to {seed}"))
+        return out
+
+    async def _retrieve(
+        self, query: str, limit: int = RESULTS_PER_QUERY
+    ) -> tuple[str, list[Track], str | None]:
         async with self._semaphore:
             try:
-                result = await self._search.search(query, max_results=RESULTS_PER_QUERY)
+                result = await self._search.search(query, max_results=limit)
                 return query, result.page.items, None
             except YouTubeError as exc:
                 logger.warning("retrieval failed for one planner query: %s", type(exc).__name__)
@@ -248,27 +365,58 @@ class RecommendationPipeline:
         hints: PreferenceHints,
         feedback: FeedbackSignals | None = None,
         exclude_video_ids: set[str] | None = None,
+        *,
+        extra_candidates: list[Candidate] | None = None,
+        ranker: RankerModel | None = None,
+        posteriors: dict[str, ArmPosterior] | None = None,
+        rng: random.Random | None = None,
     ) -> PipelineResult:
         feedback = feedback or FeedbackSignals()
         target = intent.duration_minutes * 60
-        results = await asyncio.gather(*(self._retrieve(q) for q in intent.search_queries[:5]))
-        warnings = sorted({err for _, _, err in results if err})
-        if all(err for _, _, err in results):
+        similar_queries = await self._similar_queries(intent, hints)
+        results = await asyncio.gather(
+            *(self._retrieve(q) for q in intent.search_queries[:5]),
+            *(self._retrieve(q, 10) for q, _ in similar_queries),
+        )
+        main_results = results[: len(intent.search_queries[:5])]
+        warnings = sorted({err for _, _, err in main_results if err})
+        if all(err for _, _, err in main_results) and not extra_candidates:
             raise YouTubeError(warnings[0] if warnings else "Music search is unavailable")
 
         # Interleave queries so the first query does not dominate ties.
         candidates: list[Candidate] = []
-        longest = max((len(items) for _, items, _ in results), default=0)
+        longest = max((len(items) for _, items, _ in main_results), default=0)
         for rank in range(longest):
-            for query, items, _ in results:
+            for query, items, _ in main_results:
                 if rank < len(items):
                     candidates.append(Candidate(track=items[rank], query=query, rank=rank))
+        for (query, items, _), (_, reason) in zip(
+            results[len(main_results) :], similar_queries, strict=True
+        ):
+            candidates.extend(
+                Candidate(
+                    track=t, query=query, rank=r, source="similar_artist", source_reason=reason
+                )
+                for r, t in enumerate(items)
+            )
+        candidates.extend(extra_candidates or [])
 
         filtered, counts = filter_candidates(
             candidates, intent, hints, feedback, exclude_video_ids or set()
         )
         score_candidates(filtered, intent, hints, feedback)
-        chosen = diversify(filtered, intent, target)
+        favorites = {
+            normalize_name(a) for a in [*hints.favorite_artists, *intent.reference_artists]
+        }
+        chosen = rank_and_explore(
+            filtered,
+            intent,
+            target,
+            ranker=ranker or RankerModel(),
+            posteriors=posteriors or {},
+            favorites=favorites,
+            rng=rng or random.Random(),
+        )
         total = sum(c.track.duration_seconds or 0 for c in chosen)
         if not chosen:
             warnings.append("No verified results matched. Try a broader description.")
@@ -280,10 +428,19 @@ class RecommendationPipeline:
         return PipelineResult(
             tracks=[
                 RecommendedTrack(
-                    track=c.track, score=c.score, reasons=c.reasons, matched_query=c.query
+                    track=c.track,
+                    score=c.score,
+                    reasons=c.reasons,
+                    matched_query=c.query,
+                    source=c.source,
+                    explore=c.explore,
                 )
                 for c in chosen
             ],
+            details={
+                c.track.video_id: {"source": c.source, "explore": c.explore, "features": c.features}
+                for c in chosen
+            },
             total_duration_seconds=total,
             target_duration_seconds=target,
             warnings=warnings,

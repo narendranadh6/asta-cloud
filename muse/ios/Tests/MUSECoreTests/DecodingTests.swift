@@ -10,11 +10,11 @@ import XCTest
 final class DecodingTests: XCTestCase {
     func testDecodesSearchResponse() throws {
         let response = try JSONDecoder.muse.decode(SearchResponse.self, from: Fixture.data("search"))
-        XCTAssertEqual(response.provider, .demo)
+        XCTAssertEqual(response.provider, .youtube)
         XCTAssertEqual(response.items.count, 3)
         let track = response.items[0]
         XCTAssertTrue(YouTubeIdentifier.isValidVideoID(track.videoId))
-        XCTAssertTrue(track.isDemo)
+        XCTAssertEqual(track.attribution.label, "YouTube")
         XCTAssertNotNil(track.artworkURL)
         XCTAssertNotNil(track.publishedAt)
         XCTAssertNotNil(response.nextPageToken)
@@ -42,6 +42,25 @@ final class DecodingTests: XCTestCase {
         XCTAssertNotNil(prefs.personalizationConsentAt)
         let taste = try JSONDecoder.muse.decode(TasteProfile.self, from: Fixture.data("taste"))
         XCTAssertTrue(taste.basis.contains("cannot see what you play in Brave"))
+    }
+
+    func testDecodesUpNextAndHealth() throws {
+        let next = try JSONDecoder.muse.decode(UpNextResponse.self, from: Fixture.data("upnext"))
+        XCTAssertFalse(next.tracks.isEmpty)
+        XCTAssertFalse(next.tracks.contains { $0.track.videoId == next.seedVideoId })
+        XCTAssertNotNil(next.tracks[0].source)
+        let health = try JSONDecoder.muse.decode(HealthResponse.self, from: Fixture.data("health"))
+        XCTAssertTrue(health.isSearchConfigured)
+        let missing = try JSONDecoder.muse.decode(HealthResponse.self, from: Data(
+            #"{"status":"degraded","metadata_provider":"youtube","ai_planner":"heuristic","checks":{"youtube":"not_configured"}}"#.utf8))
+        XCTAssertFalse(missing.isSearchConfigured)
+    }
+
+    func testDecodesRadioStations() throws {
+        let json = #"[{"id":"a","name":"Live FM","stream_url":"https://s.test/live","homepage":null,"favicon":null,"tags":["jazz"],"country_code":"IN","language":"telugu","codec":"MP3","bitrate":128,"popularity":5},{"id":"b","name":"Bad","stream_url":"javascript:x","tags":[],"popularity":0}]"#
+        let stations = try JSONDecoder.muse.decode([RadioStation].self, from: Data(json.utf8))
+        XCTAssertEqual(stations[0].streamURL?.absoluteString, "https://s.test/live")
+        XCTAssertNil(stations[1].streamURL)
     }
 
     func testDateParser() throws {

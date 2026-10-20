@@ -16,6 +16,7 @@ from app.core.security import bearer_token, decode_access_token
 from app.db.session import session_scope
 from app.models import User
 from app.services.ai.providers import IntentPlanner
+from app.services.music_sources.radio import RadioBrowserClient
 from app.services.recommendations.pipeline import RecommendationPipeline
 from app.services.youtube.service import YouTubeSearchService
 
@@ -45,11 +46,17 @@ def get_pipeline(request: Request) -> RecommendationPipeline:
     return pipeline
 
 
+def get_radio(request: Request) -> RadioBrowserClient:
+    radio: RadioBrowserClient = request.app.state.radio
+    return radio
+
+
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 SearchServiceDep = Annotated[YouTubeSearchService, Depends(get_search_service)]
 PlannerDep = Annotated[IntentPlanner, Depends(get_planner)]
 PipelineDep = Annotated[RecommendationPipeline, Depends(get_pipeline)]
+RadioDep = Annotated[RadioBrowserClient, Depends(get_radio)]
 
 
 async def get_current_user(

@@ -138,8 +138,8 @@ struct SettingsView: View {
             }
 
             Section("About") {
-                LabeledContent("Music metadata", value: app.provider == .youtube
-                               ? "YouTube Data API" : (app.provider == .demo ? "Demo catalog" : "Unknown"))
+                LabeledContent("Music metadata", value: app.searchConfigured
+                               ? "YouTube Data API" : "Not set up on the server")
                 LabeledContent("AI planner", value: app.aiPlanner == "llm" ? "LLM + verification" : "Built-in")
                 Text("MUSE is not affiliated with YouTube or Brave. It never streams, downloads or "
                      + "modifies YouTube content.")

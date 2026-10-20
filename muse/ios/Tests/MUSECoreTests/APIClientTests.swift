@@ -170,3 +170,26 @@ extension APIClientTests {
         XCTAssertEqual(transport.recorded[0].url?.path, "/api/v1/discover/trending")
     }
 }
+
+extension APIClientTests {
+    func testUpNextAndRadioEndpoints() async throws {
+        let transport = FakeTransport()
+        transport.enqueue(status: 200, data: try Fixture.data("upnext"))
+        transport.enqueue(status: 200, json: "[]")
+        let (client, _) = makeClient(transport)
+        _ = try await client.upNext(videoID: "dQw4w9WgXcQ", limit: 5)
+        _ = try await client.radioStations(tag: "jazz", language: nil, query: "", limit: 20)
+        let first = URLComponents(url: transport.recorded[0].url!, resolvingAgainstBaseURL: false)!
+        XCTAssertEqual(first.path, "/api/v1/recommendations/next")
+        XCTAssertEqual(first.queryItems?.first(where: { $0.name == "video_id" })?.value, "dQw4w9WgXcQ")
+        let second = URLComponents(url: transport.recorded[1].url!, resolvingAgainstBaseURL: false)!
+        XCTAssertEqual(second.path, "/api/v1/radio/stations")
+        XCTAssertEqual(Set(second.queryItems!.map(\.name)), ["limit", "tag"])  // empty q omitted
+        do {
+            _ = try await client.upNext(videoID: "bad", limit: 5)
+            XCTFail("expected validation error")
+        } catch {
+            XCTAssertEqual(transport.recorded.count, 2)
+        }
+    }
+}

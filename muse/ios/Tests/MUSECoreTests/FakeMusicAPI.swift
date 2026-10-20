@@ -1,8 +1,12 @@
 import Foundation
+#if canImport(MUSECore)
+@testable import MUSECore
+#else
+@testable import MUSE
+#endif
 
-/// In-memory backend used by SwiftUI previews, unit tests and the `-MUSEMockAPI` launch
-/// argument. All content is labelled demo data and cannot be handed off to a browser.
-public actor MockMusicAPI: MusicAPI {
+/// In-memory MusicAPI for unit tests. Test-only; never part of the app.
+actor FakeMusicAPI: MusicAPI {
     public private(set) var catalog: [Track]
     private var remotePlaylists: [UUID: RemotePlaylist] = [:]
     private var prefs = Preferences()
@@ -10,7 +14,7 @@ public actor MockMusicAPI: MusicAPI {
     public var failNextRequest: APIError?
     public private(set) var searchCalls: [(query: String, pageToken: String?)] = []
 
-    public init(catalog: [Track] = MockMusicAPI.sampleCatalog()) {
+    public init(catalog: [Track] = FakeMusicAPI.sampleCatalog()) {
         self.catalog = catalog
     }
 
@@ -35,20 +39,19 @@ public actor MockMusicAPI: MusicAPI {
             ("Midnight Coffee", "Northern Static"), ("Godavari Evenings", "Godavari Collective"),
         ]
         return names.enumerated().map { index, entry in
-            let id = "demo" + String(format: "%07d", index)
+            let id = "tst" + String(format: "%08d", index)
             return Track(
                 videoId: id, title: entry.0, channelTitle: entry.1,
                 thumbnails: ["high": Thumbnail(
-                    url: "https://picsum.photos/seed/\(id)/480/360", width: 480, height: 360)],
+                    url: "https://i.ytimg.com/vi/\(id)/hqdefault.jpg", width: 480, height: 360)],
                 durationSeconds: 150 + index * 17, viewCount: 1_000 * (index + 1) * (index + 1),
                 watchUrl: "https://www.youtube.com/watch?v=\(id)",
-                attribution: Attribution(
-                    provider: .demo, label: "MUSE demo catalog (not real YouTube data)"))
+                attribution: Attribution(provider: .youtube, label: "YouTube"))
         }
     }
 
     public func health() async throws -> HealthResponse {
-        HealthResponse(status: "ok", metadataProvider: .demo, aiPlanner: "heuristic")
+        HealthResponse(status: "ok", metadataProvider: .youtube, aiPlanner: "heuristic", checks: ["youtube": "ok"])
     }
 
     public func search(query: String, kind: SearchKind, pageToken: String?, limit: Int)
@@ -73,7 +76,7 @@ public actor MockMusicAPI: MusicAPI {
         return SearchResponse(
             query: query, kind: kind, items: page, nextPageToken: next,
             prevPageToken: offset > 0 ? String(max(0, offset - limit)) : nil,
-            totalResultsEstimate: matches.count, provider: .demo, cached: false)
+            totalResultsEstimate: matches.count, provider: .youtube, cached: false)
     }
 
     public func suggestions(prefix: String) async throws -> [String] {
@@ -90,7 +93,26 @@ public actor MockMusicAPI: MusicAPI {
         let next = offset + limit < ranked.count ? String(offset + limit) : nil
         return TrendingResponse(
             items: Array(ranked.dropFirst(offset).prefix(limit)), nextPageToken: next,
-            prevPageToken: nil, provider: .demo, cached: false, source: "MUSE demo catalog")
+            prevPageToken: nil, provider: .youtube, cached: false, source: "test")
+    }
+
+    public func upNext(videoID: String, limit: Int) async throws -> UpNextResponse {
+        try checkFailure()
+        let picks = catalog.filter { $0.videoId != videoID }.prefix(limit).map {
+            RecommendedTrack(track: $0, score: 1, reasons: ["Similar listeners saved this"],
+                             matchedQuery: "co-listening", source: "co_listen", explore: false)
+        }
+        return UpNextResponse(seedVideoId: videoID, tracks: Array(picks))
+    }
+
+    public func radioStations(tag: String?, language: String?, query: String?, limit: Int)
+        async throws -> [RadioStation]
+    {
+        try checkFailure()
+        return [RadioStation(
+            id: "s1", name: "Test FM", streamUrl: "https://radio.test/live", homepage: nil,
+            favicon: nil, tags: [tag ?? "pop"], countryCode: "IN", language: language, codec: "MP3",
+            bitrate: 128, popularity: 10)]
     }
 
     public func video(id: String) async throws -> Track {
@@ -201,14 +223,14 @@ public actor MockMusicAPI: MusicAPI {
         for track in catalog where !excluding.contains(track.videoId) {
             guard total < minutes * 60 else { break }
             picked.append(RecommendedTrack(
-                track: track, score: 1, reasons: ["Demo pick for “\(text)”"], matchedQuery: text))
+                track: track, score: 1, reasons: ["Test pick for “\(text)”"], matchedQuery: text))
             total += track.durationSeconds ?? 0
         }
         return PlaylistDraft(
-            sessionId: nil, title: "Demo Mix", explanation: "Here's a demo mix for “\(text)”.",
+            sessionId: nil, title: "Test Mix", explanation: "Here's a mix for “\(text)”.",
             planner: "heuristic", queries: [text], tracks: picked, totalDurationSeconds: total,
-            targetDurationSeconds: minutes * 60, provider: .demo,
-            warnings: ["Showing the MUSE demo catalog."])
+            targetDurationSeconds: minutes * 60, provider: .youtube,
+            warnings: [])
     }
 
     public func aiPlaylist(_ request: AIPlaylistRequest) async throws -> PlaylistDraft {

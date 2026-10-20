@@ -90,19 +90,6 @@ final class BrowserHandoffServiceTests: XCTestCase {
         XCTAssertTrue(result.url.absoluteString.contains("playlist%3Flist%3DPLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"))
     }
 
-    func testRefusesDemoTracks() async {
-        opener.installedSchemes = ["brave"]
-        let demo = MockMusicAPI.sampleCatalog()[0]
-        XCTAssertTrue(demo.isDemo)
-        do {
-            _ = try await makeService().open(track: demo)
-            XCTFail("expected failure")
-        } catch {
-            XCTAssertEqual(error as? HandoffError, .demoContent)
-        }
-        XCTAssertTrue(opener.opened.isEmpty)
-    }
-
     func testDestinationDescription() async {
         XCTAssertTrue(makeService().destinationDescription().contains("Brave not detected"))
         opener.installedSchemes = ["brave"]

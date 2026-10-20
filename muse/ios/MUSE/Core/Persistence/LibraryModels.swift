@@ -49,7 +49,6 @@ final class TrackEntity {
 
 extension TrackEntity: TrackDisplayable {
     var artworkURL: URL? { artworkURLString.flatMap(URL.init(string:)) }
-    var isDemo: Bool { providerRaw == MetadataProvider.demo.rawValue }
 }
 
 @Model
@@ -122,7 +121,6 @@ final class PlaylistItemEntity {
 
 extension PlaylistItemEntity: TrackDisplayable {
     var artworkURL: URL? { artworkURLString.flatMap(URL.init(string:)) }
-    var isDemo: Bool { providerRaw == MetadataProvider.demo.rawValue }
 }
 
 @Model

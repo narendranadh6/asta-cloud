@@ -71,7 +71,7 @@ struct SearchView: View {
     @ViewBuilder
     private var idleContent: some View {
         Section {
-            DemoModeBanner().listRowBackground(Color.clear)
+            SearchSetupBanner().listRowBackground(Color.clear)
         }
         if !trending.isEmpty {
             Section {
@@ -186,9 +186,7 @@ struct SearchResultsSection: View {
     }
 
     private var attribution: some View {
-        Text(model.provider == .demo
-             ? "Demo catalog — fictional results for development."
-             : "Results and metadata provided by YouTube.")
+        Text("Results and metadata provided by YouTube.")
             .font(.caption2)
             .foregroundStyle(MUSEColor.mutedText)
     }

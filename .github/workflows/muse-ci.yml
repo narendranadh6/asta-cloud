@@ -76,6 +76,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Regenerate project
         run: brew install xcodegen && xcodegen generate
+      - name: Start backend for UI tests
+        working-directory: muse/backend
+        run: |
+          python3 -m venv .venv && .venv/bin/pip install -q -e ".[dev]"
+          nohup .venv/bin/python -m tests.e2e_server > e2e.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
       - name: Build and test on iOS Simulator
         run: |
           set -o pipefail

@@ -43,6 +43,7 @@ struct NowInBraveView: View {
     @Environment(HandoffController.self) private var handoff
     @Environment(\.dismiss) private var dismiss
     @State private var isSaved = false
+    @State private var suggested: [RecommendedTrack] = []
 
     var body: some View {
         NavigationStack {
@@ -120,6 +121,25 @@ struct NowInBraveView: View {
                         + ". MUSE can't see or control them, so pick the next song below when you're ready.",
                     systemImage: "hand.raised")
 
+                if context.upNext.isEmpty && !suggested.isEmpty {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        SectionHeader(title: "Up next — picked for you")
+                        ForEach(suggested.prefix(8)) { item in
+                            Button {
+                                Task { await handoff.openNext(item.track, using: app.handoff, haptics: settings.hapticsEnabled) }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    TrackRow(track: item.track, showsAttribution: false)
+                                    if let reason = item.reasons.first {
+                                        Text(reason).font(.caption).foregroundStyle(MUSEColor.secondary)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
                 if !context.upNext.isEmpty {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         SectionHeader(title: "Up next — you choose")
@@ -161,6 +181,11 @@ struct NowInBraveView: View {
             .padding(Spacing.md)
         }
         .museDestinations()
-        .task { isSaved = app.library.isSaved(videoId: context.track.videoId) }
+        .task(id: context.track.videoId) {
+            isSaved = app.library.isSaved(videoId: context.track.videoId)
+            if context.upNext.isEmpty {
+                suggested = (try? await app.api.upNext(videoID: context.track.videoId, limit: 8))?.tracks ?? []
+            }
+        }
     }
 }

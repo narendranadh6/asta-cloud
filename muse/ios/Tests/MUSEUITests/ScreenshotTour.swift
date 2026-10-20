@@ -1,7 +1,7 @@
 import XCTest
 
-/// Drives the app against the in-app demo backend and captures a screenshot of each
-/// main screen. Screenshots are attached to the test result and, when
+/// Drives the app against a running backend (CI starts `python -m tests.e2e_server`)
+/// and captures a screenshot of each main screen. Screenshots are attached to the test result and, when
 /// MUSE_SCREENSHOT_DIR is set (CI), written there as PNGs.
 @MainActor
 final class ScreenshotTour: XCTestCase {
@@ -10,7 +10,9 @@ final class ScreenshotTour: XCTestCase {
     private func launch() {
         continueAfterFailure = true
         app = XCUIApplication()
-        app.launchArguments = ["-MUSEMockAPI", "-MUSEInMemoryStore", "-MUSEDemoOnboarded"]
+        app.launchArguments = ["-MUSEInMemoryStore", "-MUSEUITestOnboarded"]
+        app.launchEnvironment["MUSE_API_BASE_URL"] =
+            ProcessInfo.processInfo.environment["MUSE_API_BASE_URL"] ?? "http://127.0.0.1:8000"
         app.launchEnvironment["MUSE_DEMO_NAME"] = "Narendra"
         app.launch()
     }

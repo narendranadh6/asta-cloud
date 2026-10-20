@@ -13,9 +13,10 @@ final class AppModel {
     let sync: PlaylistSyncService
     let network: NetworkMonitor
     let notifications: DiscoveryReminderScheduler
+    let radio = RadioPlayer()
 
-    /// Which metadata source the backend is serving (demo until confirmed otherwise).
-    private(set) var provider: MetadataProvider?
+    /// False when the server reports it has no YouTube API key yet.
+    private(set) var searchConfigured = true
     private(set) var aiPlanner: String?
     /// A prompt another screen wants the AI DJ to run (e.g. "find similar" from Now in Brave).
     var pendingDJPrompt: String?
@@ -35,7 +36,7 @@ final class AppModel {
     /// Startup work: provider status, retention, pending sync.
     func bootstrap() async {
         if let health = try? await api.health() {
-            provider = health.metadataProvider
+            searchConfigured = health.isSearchConfigured
             aiPlanner = health.aiPlanner
         }
         await library.enforceRetention(using: api)
@@ -58,14 +59,11 @@ final class AppModel {
     }
 
     static func makeAPI() -> MusicAPI {
-        let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("-MUSEMockAPI") {
-            return MockMusicAPI()
-        }
-        let raw = Bundle.main.object(forInfoDictionaryKey: "MUSEAPIBaseURL") as? String
-        guard let raw, let url = URL(string: raw), !raw.isEmpty else {
-            assertionFailure("MUSEAPIBaseURL missing from Info.plist; using the demo API")
-            return MockMusicAPI()
+        // UI tests and staging builds can point at another server.
+        let override = ProcessInfo.processInfo.environment["MUSE_API_BASE_URL"]
+        let raw = override ?? Bundle.main.object(forInfoDictionaryKey: "MUSEAPIBaseURL") as? String
+        guard let raw, let url = URL(string: raw), url.scheme != nil else {
+            preconditionFailure("MUSEAPIBaseURL is missing from Info.plist")
         }
         return APIClient(
             configuration: .init(baseURL: url), transport: URLSessionTransport.makeDefault(),

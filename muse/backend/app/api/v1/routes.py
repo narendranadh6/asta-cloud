@@ -11,6 +11,7 @@ from app.api.deps import (
     CurrentUser,
     PipelineDep,
     PlannerDep,
+    RadioDep,
     SearchServiceDep,
     SessionDep,
     SettingsDep,
@@ -25,6 +26,7 @@ from app.core.rate_limit import rate_limit
 from app.core.security import create_access_token
 from app.models import RecommendationSession
 from app.repositories import playlists as playlist_repo
+from app.repositories import recommendations as rec_repo
 from app.repositories import users as user_repo
 from app.schemas import (
     AIChatRequest,
@@ -50,8 +52,12 @@ from app.schemas import (
     TokenResponse,
     Track,
     TrendingResponse,
+    UpNextResponse,
 )
+from app.services.ai.intent import MusicIntent
 from app.services.ai.providers import PlanOverrides
+from app.services.music_sources.radio import RadioStation, RadioUnavailableError
+from app.services.recommendations.pipeline import Candidate
 from app.services.youtube.base import (
     ProviderConfigurationError,
     ProviderUnavailableError,
@@ -81,7 +87,8 @@ def translate_provider_error(exc: YouTubeError) -> AppError:
         )
     if isinstance(exc, ProviderConfigurationError):
         return ServiceUnavailableError(
-            "Music search is not configured correctly on the server.", code="search_misconfigured"
+            str(exc) or "Music search is not configured correctly on the server.",
+            code="search_misconfigured"
         )
     if isinstance(exc, ProviderUnavailableError):
         return UpstreamError(
@@ -424,6 +431,28 @@ async def reorder_playlist_items(
 # --- AI ---------------------------------------------------------------------------------
 
 
+async def colisten_candidates(
+    session: SessionDep, search: SearchServiceDep, seeds: list[str], limit: int = 25
+) -> list[Candidate]:
+    """Co-listening candidates, re-verified with the provider before use."""
+    pairs = await rec_repo.co_listened(session, seeds, limit=limit)
+    if not pairs:
+        return []
+    try:
+        verified = await search.get_videos([p.video_id for p in pairs])
+    except YouTubeError:
+        return []
+    return [
+        Candidate(
+            track=verified[p.video_id], query="co-listening", rank=rank, source="co_listen",
+            source_reason=f"Listeners who saved “{p.seed_title}” also saved this",
+            cf_score=min(p.score, 1.0),
+        )
+        for rank, p in enumerate(pairs) if p.video_id in verified
+    ]
+
+
+
 async def _build_draft(
     *,
     text: str,
@@ -445,8 +474,18 @@ async def _build_draft(
         if prefs.personalization_enabled
         else None
     )
+    personal = prefs.personalization_enabled
+    extra = (
+        await colisten_candidates(session, search, await rec_repo.listener_seeds(session, user_id))
+        if personal else []
+    )
     try:
-        result = await pipeline.run(plan.intent, hints, feedback, exclude_video_ids)
+        result = await pipeline.run(
+            plan.intent, hints, feedback, exclude_video_ids,
+            extra_candidates=extra,
+            ranker=await rec_repo.load_ranker(session),
+            posteriors=await rec_repo.arm_posteriors(session, user_id if personal else None),
+        )
     except YouTubeError as exc:
         raise translate_provider_error(exc) from exc
 
@@ -459,6 +498,7 @@ async def _build_draft(
             intent=plan.intent.summary_fields(),
             planner=plan.planner,
             result_video_ids=[t.track.video_id for t in result.tracks],
+            result_details=result.details,
         )
         session.add(record)
         await session.flush()
@@ -467,10 +507,6 @@ async def _build_draft(
     warnings = list(result.warnings)
     if plan.warning:
         warnings.insert(0, plan.warning)
-    if search.provider.name == "demo":
-        warnings.append(
-            "Showing the MUSE demo catalog because YouTube search is not configured."
-        )
     return PlaylistDraft(
         session_id=session_id,
         title=plan.intent.playlist_title,
@@ -582,9 +618,84 @@ async def recommendation_feedback(
     row = await user_repo.upsert_feedback(
         session, user.id, body.video_id, body.rating, body.session_id, body.channel_title
     )
+    await rec_repo.record_bandit_reward(
+        session, user.id, row.session_id, body.video_id, body.rating
+    )
     return FeedbackResponse(
         id=row.id, video_id=row.video_id, rating=body.rating, recorded=True
     )
+
+
+@router.get(
+    "/recommendations/next",
+    response_model=UpNextResponse,
+    tags=["ai"],
+    dependencies=[SEARCH_LIMIT],
+    summary="Songs to choose next after a song (co-listening, same and similar artists)",
+)
+async def up_next(
+    user: CurrentUser,
+    session: SessionDep,
+    pipeline: PipelineDep,
+    search: SearchServiceDep,
+    video_id: Annotated[str, Query(min_length=11, max_length=11, pattern=r"^[A-Za-z0-9_-]{11}$")],
+    limit: Annotated[int, Query(ge=1, le=25)] = 10,
+) -> UpNextResponse:
+    try:
+        seed = await search.get_video(video_id)
+    except YouTubeError as exc:
+        raise translate_provider_error(exc) from exc
+    prefs = await user_repo.get_preferences(session, user.id)
+    hints = await user_repo.preference_hints(session, user.id)
+    personal = prefs.personalization_enabled
+    intent = MusicIntent(
+        search_queries=[f"{seed.channel_title} songs"],
+        reference_artists=[seed.channel_title],
+        exclude_artists=hints.excluded_artists[:20],
+        duration_minutes=max(10, limit * 4),
+        discovery=prefs.discovery_preference,  # type: ignore[arg-type]
+        playlist_title="Up next",
+    )
+    extra = await colisten_candidates(session, search, [video_id])
+    try:
+        result = await pipeline.run(
+            intent, hints,
+            await user_repo.feedback_signals(session, user.id) if personal else None,
+            {video_id},
+            extra_candidates=extra,
+            ranker=await rec_repo.load_ranker(session),
+            posteriors=await rec_repo.arm_posteriors(session, user.id if personal else None),
+        )
+    except YouTubeError as exc:
+        raise translate_provider_error(exc) from exc
+    return UpNextResponse(seed_video_id=video_id, tracks=result.tracks[:limit])
+
+
+# --- Live radio -------------------------------------------------------------------------
+
+
+@router.get(
+    "/radio/stations",
+    response_model=list[RadioStation],
+    tags=["radio"],
+    dependencies=[SEARCH_LIMIT],
+    summary="Live internet radio stations from the Radio Browser community directory",
+)
+async def radio_stations(
+    user: CurrentUser,
+    radio: RadioDep,
+    tag: Annotated[str | None, Query(max_length=40)] = None,
+    language: Annotated[str | None, Query(max_length=40)] = None,
+    country: Annotated[str | None, Query(min_length=2, max_length=2)] = None,
+    q: Annotated[str | None, Query(max_length=60)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 30,
+) -> list[RadioStation]:
+    try:
+        return await radio.search(tag=tag, language=language, country_code=country, name=q,
+                                  limit=limit)
+    except RadioUnavailableError as exc:
+        raise UpstreamError(str(exc), code="radio_unavailable",
+                            headers={"Retry-After": "30"}) from exc
 
 
 # --- Preferences ------------------------------------------------------------------------

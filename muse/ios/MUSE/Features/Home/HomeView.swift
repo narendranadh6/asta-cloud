@@ -21,7 +21,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 header
                 quickChips
-                DemoModeBanner()
+                SearchSetupBanner()
                 hero
                 playSomethingFor
                 if !discovered.isEmpty { recentlyDiscovered }
@@ -68,6 +68,7 @@ struct HomeView: View {
                 NavigationLink(value: MoodRoute(mood: .workout)) { chipLabel("Workout") }
                 NavigationLink(value: MoodRoute(mood: .focused)) { chipLabel("Focus") }
                 NavigationLink { DiscoverView() } label: { chipLabel("Discover") }
+                NavigationLink { RadioView() } label: { chipLabel("Live Radio") }
             }
         }
         .buttonStyle(.plain)
@@ -91,8 +92,8 @@ struct HomeView: View {
             ZStack(alignment: .bottomLeading) {
                 RoundedRectangle(cornerRadius: Spacing.cornerLarge, style: .continuous)
                     .fill(LinearGradient(
-                        colors: [MUSEColor.primary.opacity(0.9), MUSEColor.secondary.opacity(0.75),
-                                 Color(hex: 0xFF8A5B).opacity(0.7)],
+                        colors: [MUSEColor.secondary.opacity(0.9), MUSEColor.primary.opacity(0.85),
+                                 MUSEColor.gold.opacity(0.75)],
                         startPoint: .topLeading, endPoint: .bottomTrailing))
                 AIOrb(size: 120)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

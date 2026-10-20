@@ -10,10 +10,16 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass
+from typing import Literal
 
 from app.core.cache import KeyValueStore
 from app.schemas import SearchKind, Track
-from app.services.youtube.base import MetadataProvider, SearchPage, VideoUnavailableError
+from app.services.youtube.base import (
+    MetadataProvider,
+    ProviderConfigurationError,
+    SearchPage,
+    VideoUnavailableError,
+)
 from app.services.youtube.ids import is_valid_video_id
 
 logger = logging.getLogger("muse.youtube")
@@ -156,19 +162,47 @@ class YouTubeSearchService:
         return videos[video_id]
 
 
+class UnconfiguredProvider:
+    """Used when no YouTube API key is set: every call fails with a clear setup error."""
+
+    name: Literal["youtube"] = "youtube"
+    configured = False
+
+    async def _fail(self) -> SearchPage:
+        raise ProviderConfigurationError(
+            "Music search isn't set up yet: the server needs MUSE_YOUTUBE_API_KEY."
+        )
+
+    async def search(
+        self, query: str, *, page_token: str | None = None, max_results: int = 20
+    ) -> SearchPage:
+        return await self._fail()
+
+    async def trending(
+        self, *, page_token: str | None = None, max_results: int = 20
+    ) -> SearchPage:
+        return await self._fail()
+
+    async def get_videos(self, video_ids: list[str]) -> dict[str, Track]:
+        await self._fail()
+        return {}
+
+    async def aclose(self) -> None:
+        return None
+
+
 def build_provider(settings: object) -> MetadataProvider:
     from app.core.config import Settings
     from app.services.youtube.client import YouTubeDataAPIClient
-    from app.services.youtube.mock import DemoMetadataProvider
 
     assert isinstance(settings, Settings)
-    if settings.youtube_provider == "youtube":
-        key = settings.youtube_api_key.get_secret_value() if settings.youtube_api_key else ""
-        return YouTubeDataAPIClient(
-            key,
-            base_url=settings.youtube_api_base_url,
-            region_code=settings.youtube_region_code,
-            timeout_seconds=settings.youtube_timeout_seconds,
-        )
-    logger.warning("YouTube API key not configured: serving the labelled demo catalog")
-    return DemoMetadataProvider()
+    key = settings.youtube_api_key.get_secret_value() if settings.youtube_api_key else ""
+    if not key.strip():
+        logger.error("MUSE_YOUTUBE_API_KEY is not set: music search will return 503")
+        return UnconfiguredProvider()
+    return YouTubeDataAPIClient(
+        key,
+        base_url=settings.youtube_api_base_url,
+        region_code=settings.youtube_region_code,
+        timeout_seconds=settings.youtube_timeout_seconds,
+    )

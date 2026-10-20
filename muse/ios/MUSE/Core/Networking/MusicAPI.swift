@@ -25,6 +25,11 @@ public protocol MusicAPI: Sendable {
     func aiPlaylist(_ request: AIPlaylistRequest) async throws -> PlaylistDraft
     func aiChat(_ request: AIChatRequest) async throws -> AIChatResponse
     func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse
+    /// Songs to choose next after `videoID` (co-listening, same and similar artists).
+    func upNext(videoID: String, limit: Int) async throws -> UpNextResponse
+    /// Live internet radio stations (Radio Browser directory).
+    func radioStations(tag: String?, language: String?, query: String?, limit: Int) async throws
+        -> [RadioStation]
 
     func preferences() async throws -> Preferences
     func updatePreferences(_ preferences: Preferences) async throws -> Preferences
@@ -275,6 +280,27 @@ public actor APIClient: MusicAPI {
 
     public func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse {
         try await send(.post, "api/v1/recommendations/feedback", body: try encode(request))
+    }
+
+    public func upNext(videoID: String, limit: Int) async throws -> UpNextResponse {
+        guard YouTubeIdentifier.isValidVideoID(videoID) else {
+            throw APIError.server(
+                status: 422, code: "invalid_video_id", message: "Invalid video id", retryAfter: nil)
+        }
+        return try await send(.get, "api/v1/recommendations/next", query: [
+            URLQueryItem(name: "video_id", value: videoID),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
+    public func radioStations(tag: String?, language: String?, query: String?, limit: Int)
+        async throws -> [RadioStation]
+    {
+        var items = [URLQueryItem(name: "limit", value: String(limit))]
+        if let tag, !tag.isEmpty { items.append(URLQueryItem(name: "tag", value: tag)) }
+        if let language, !language.isEmpty { items.append(URLQueryItem(name: "language", value: language)) }
+        if let query, !query.isEmpty { items.append(URLQueryItem(name: "q", value: query)) }
+        return try await send(.get, "api/v1/radio/stations", query: items)
     }
 
     public func preferences() async throws -> Preferences {

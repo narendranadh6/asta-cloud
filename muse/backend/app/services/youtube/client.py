@@ -101,7 +101,7 @@ def track_from_video_resource(item: dict[str, Any]) -> Track | None:
 
 
 class YouTubeDataAPIClient:
-    name: Literal["youtube", "demo"] = "youtube"
+    name: Literal["youtube"] = "youtube"
 
     def __init__(
         self,

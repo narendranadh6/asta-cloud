@@ -44,10 +44,8 @@ struct DraftEditorView: View {
             } header: {
                 Text("Queue · \(draft.queue.count) songs")
             } footer: {
-                Text(draft.provider == .demo
-                     ? "Demo catalog results (fictional)."
-                     : "Every song is a verified YouTube result. Searched for: "
-                        + draft.queries.joined(separator: " · "))
+                Text("Every song is a verified YouTube result. Searched for: "
+                     + draft.queries.joined(separator: " · "))
                     .font(.caption2)
             }
             .listRowBackground(Color.clear)
@@ -97,15 +95,13 @@ struct DraftEditorView: View {
             }
         }
         .swipeActions(edge: .leading) {
-            if !item.track.isDemo {
-                Button {
-                    Task {
-                        await handoff.open(item.track, upNext: upNext(after: item.track.videoId),
-                                           using: app.handoff, haptics: settings.hapticsEnabled)
-                    }
-                } label: { Label("Open", systemImage: "arrow.up.forward.app") }
-                    .tint(MUSEColor.accent)
-            }
+            Button {
+                Task {
+                    await handoff.open(item.track, upNext: upNext(after: item.track.videoId),
+                                       using: app.handoff, haptics: settings.hapticsEnabled)
+                }
+            } label: { Label("Open", systemImage: "arrow.up.forward.app") }
+                .tint(MUSEColor.accent)
             if settings.personalizationEnabled {
                 Button { rate(item, .like) } label: { Label("Like", systemImage: "hand.thumbsup") }
                     .tint(MUSEColor.success)

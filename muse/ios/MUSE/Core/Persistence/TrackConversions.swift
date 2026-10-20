@@ -16,8 +16,8 @@ extension Track {
             durationSeconds: reference.durationSeconds, watchUrl: watch,
             attribution: Attribution(
                 provider: provider,
-                label: provider == .demo ? "MUSE demo catalog (not real YouTube data)" : "YouTube",
-                url: provider == .demo ? nil : watch))
+                label: "YouTube",
+                url: watch))
     }
 
     init(entity: TrackEntity) {

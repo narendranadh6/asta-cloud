@@ -31,13 +31,17 @@ class Settings(BaseSettings):
     access_token_ttl_days: int = Field(default=30, ge=1, le=365)
 
     # YouTube Data API v3
-    youtube_provider: Literal["youtube", "mock"] = "mock"
     youtube_api_key: SecretStr | None = None
     youtube_api_base_url: str = "https://www.googleapis.com/youtube/v3"
     youtube_region_code: str = "US"
     youtube_timeout_seconds: float = 8.0
     youtube_search_cache_ttl_seconds: int = 6 * 60 * 60
     youtube_video_cache_ttl_seconds: int = 24 * 60 * 60
+
+    # Open music data (optional). Similar artists improve candidate generation.
+    lastfm_api_key: SecretStr | None = None
+    deezer_enabled: bool = True
+    radio_browser_base_url: str = "https://de1.api.radio-browser.info"
 
     # LLM planner
     llm_provider: Literal["none", "anthropic", "openai"] = "none"
@@ -74,8 +78,8 @@ class Settings(BaseSettings):
             problems.append("MUSE_JWT_SECRET must be set")
         if len(self.jwt_secret.get_secret_value()) < 32:
             problems.append("MUSE_JWT_SECRET must be at least 32 characters")
-        if self.youtube_provider == "youtube" and not self.youtube_api_key:
-            problems.append("MUSE_YOUTUBE_API_KEY is required when MUSE_YOUTUBE_PROVIDER=youtube")
+        if not self.youtube_api_key or not self.youtube_api_key.get_secret_value().strip():
+            problems.append("MUSE_YOUTUBE_API_KEY is required")
         if self.debug:
             problems.append("MUSE_DEBUG must be false")
         if problems:

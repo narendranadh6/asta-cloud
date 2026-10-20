@@ -80,7 +80,7 @@ final class LibraryStoreTests: XCTestCase {
         savedOld.isSaved = true
         store.save()
         XCTAssertNotNil(stale.modelContext)
-        let api = MockMusicAPI(catalog: [])
+        let api = FakeMusicAPI(catalog: [])
         await store.enforceRetention(using: api)
         XCTAssertNil(store.trackEntity(videoId: track(1).videoId))
         let kept = try XCTUnwrap(store.trackEntity(videoId: track(2).videoId))
@@ -101,7 +101,7 @@ final class LibraryStoreTests: XCTestCase {
 
     func testSyncServiceMirrorsPlaylist() async throws {
         let catalog = (0..<4).map { track($0) }
-        let api = MockMusicAPI(catalog: catalog)
+        let api = FakeMusicAPI(catalog: catalog)
         let sync = PlaylistSyncService(api: api, store: store)
         let playlist = store.createPlaylist(name: "Sync", tracks: Array(catalog.prefix(3)))
         try await sync.sync(playlist)

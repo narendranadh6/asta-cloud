@@ -20,16 +20,12 @@ public enum BrowserDestination: String, Codable, Sendable, CaseIterable, Identif
 public enum HandoffError: Error, Equatable, Sendable, LocalizedError {
     case invalidVideoID
     case invalidPlaylistID
-    case demoContent
     case openFailed
 
     public var errorDescription: String? {
         switch self {
         case .invalidVideoID: "This doesn't look like a valid YouTube video."
         case .invalidPlaylistID: "This doesn't look like a valid YouTube playlist."
-        case .demoContent:
-            "This is a demo-catalog item, not a real YouTube video. Configure YouTube search "
-                + "on the server to get real results."
         case .openFailed: "iOS couldn't open the link. Check that a browser is available."
         }
     }
@@ -107,11 +103,9 @@ public final class BraveBrowserHandoffService: BrowserHandoffService {
         return try await open(url)
     }
 
-    /// Opens a track, refusing demo-catalog items.
     @discardableResult
     public func open(track: Track) async throws -> HandoffResult {
-        guard !track.isDemo else { throw HandoffError.demoContent }
-        return try await openYouTubeVideo(id: track.videoId)
+        try await openYouTubeVideo(id: track.videoId)
     }
 
     private func open(_ httpsURL: URL) async throws -> HandoffResult {

@@ -6,7 +6,6 @@ import Foundation
 
 public enum MetadataProvider: String, Codable, Sendable, Hashable {
     case youtube
-    case demo
 }
 
 public struct Thumbnail: Codable, Sendable, Hashable {
@@ -36,9 +35,6 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     public var attribution: Attribution
 
     public var id: String { videoId }
-
-    /// Demo-catalog items are fictional and must never be handed off to a browser.
-    public var isDemo: Bool { attribution.provider == .demo }
 
     public var artworkURL: URL? {
         for key in ["maxres", "high", "medium", "standard", "default"] {
@@ -345,6 +341,10 @@ public struct RecommendedTrack: Codable, Sendable, Hashable, Identifiable {
     public var score: Double
     public var reasons: [String]
     public var matchedQuery: String
+    /// Candidate source: "search", "similar_artist" or "co_listen".
+    public var source: String?
+    /// True when this was an exploration pick ("something new for you").
+    public var explore: Bool?
     public var id: String { track.videoId }
 }
 
@@ -397,6 +397,37 @@ public struct HealthResponse: Codable, Sendable {
     public var status: String
     public var metadataProvider: MetadataProvider
     public var aiPlanner: String
+    public var checks: [String: String]?
+
+    /// False when the server has no YouTube API key yet.
+    public var isSearchConfigured: Bool { checks?["youtube"] != "not_configured" }
+}
+
+public struct UpNextResponse: Codable, Sendable {
+    public var seedVideoId: String
+    public var tracks: [RecommendedTrack]
+}
+
+/// A live internet radio station (Radio Browser directory). Streams belong to the station.
+public struct RadioStation: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var name: String
+    public var streamUrl: String
+    public var homepage: String?
+    public var favicon: String?
+    public var tags: [String]
+    public var countryCode: String?
+    public var language: String?
+    public var codec: String?
+    public var bitrate: Int?
+    public var popularity: Int
+
+    public var streamURL: URL? {
+        guard let url = URL(string: streamUrl), ["https", "http"].contains(url.scheme ?? "") else {
+            return nil
+        }
+        return url
+    }
 }
 
 // MARK: Display abstraction
@@ -408,7 +439,6 @@ public protocol TrackDisplayable {
     var channelTitle: String { get }
     var artworkURL: URL? { get }
     var durationSeconds: Int? { get }
-    var isDemo: Bool { get }
 }
 
 extension Track: TrackDisplayable {}

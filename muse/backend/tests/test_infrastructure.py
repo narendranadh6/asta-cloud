@@ -11,9 +11,9 @@ from sqlalchemy import select
 from app.core.cache import MemoryStore, RedisStore
 from app.core.config import YOUTUBE_MAX_RETENTION_SECONDS, Settings
 from app.models import TrackReference
-from app.services.youtube.mock import DemoMetadataProvider
 from app.tasks.refresh_metadata import refresh_stale_tracks
 from tests.conftest import AppFactory, register
+from tests.fakes import FakeMetadataProvider
 
 
 @pytest.mark.parametrize("kind", ["memory", "redis"])
@@ -45,9 +45,11 @@ def test_production_config_guard() -> None:
         Settings(environment="production").validate_for_production()
     with pytest.raises(RuntimeError, match="YOUTUBE_API_KEY"):
         Settings(
-            environment="production", jwt_secret="x" * 40, youtube_provider="youtube"
+            environment="production", jwt_secret="x" * 40
         ).validate_for_production()
-    Settings(environment="production", jwt_secret="x" * 40).validate_for_production()
+    Settings(
+        environment="production", jwt_secret="x" * 40, youtube_api_key="k"
+    ).validate_for_production()
 
 
 async def test_refresh_stale_track_metadata(app_factory: AppFactory) -> None:
@@ -65,16 +67,16 @@ async def test_refresh_stale_track_metadata(app_factory: AppFactory) -> None:
         ref = (await session.execute(select(TrackReference))).scalar_one()
         ref.metadata_fetched_at = old
         session.add(TrackReference(
-            provider="demo", provider_id="demoGoneXYZ", title="t", channel_title="c",
+            provider="youtube", provider_id="tstGoneXYZ1", title="t", channel_title="c",
             metadata_fetched_at=old,
         ))
         await session.commit()
     async with factory() as session:
-        report = await refresh_stale_tracks(session, DemoMetadataProvider())
+        report = await refresh_stale_tracks(session, FakeMetadataProvider())
     assert (report.refreshed, report.marked_unavailable) == (1, 1)
     async with factory() as session:
         gone = (await session.execute(
-            select(TrackReference).where(TrackReference.provider_id == "demoGoneXYZ")
+            select(TrackReference).where(TrackReference.provider_id == "tstGoneXYZ1")
         )).scalar_one()
         assert gone.is_available is False and gone.thumbnail_url is None
         assert gone.metadata_fetched_at.replace(tzinfo=UTC) > old.replace(tzinfo=UTC)

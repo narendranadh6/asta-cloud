@@ -234,7 +234,7 @@ final class LibraryStore {
         let refreshCutoff = now.addingTimeInterval(-Self.metadataRefreshAge)
         let stale = (try? context.fetch(FetchDescriptor<TrackEntity>(
             predicate: #Predicate { $0.metadataFetchedAt < refreshCutoff }))) ?? []
-        for entity in stale.prefix(25) where !entity.isDemo {
+        for entity in stale.prefix(25) {
             do {
                 let track = try await api.video(id: entity.videoId)
                 entity.update(from: track, now: now)

@@ -3,14 +3,14 @@
  "kind": "song",
  "items": [
   {
-   "video_id": "demorp_mppS",
+   "video_id": "tstrp_mppSC",
    "title": "Telugu Melody No. 1",
    "channel_title": "Aarav Strings",
    "channel_id": null,
-   "description": "Demo catalog entry (calm, energy 70).",
+   "description": "Test catalog entry (calm, energy 70).",
    "thumbnails": {
     "high": {
-     "url": "https://picsum.photos/seed/demorp_mppS/480/360",
+     "url": "https://i.ytimg.com/vi/tstrp_mppSC/hqdefault.jpg",
      "width": 480,
      "height": 360
     }
@@ -19,22 +19,22 @@
    "published_at": "2004-01-01T00:00:00Z",
    "view_count": 1000,
    "is_live": false,
-   "watch_url": "https://www.youtube.com/watch?v=demorp_mppS",
+   "watch_url": "https://www.youtube.com/watch?v=tstrp_mppSC",
    "attribution": {
-    "provider": "demo",
-    "label": "MUSE demo catalog (not real YouTube data)",
-    "url": null
+    "provider": "youtube",
+    "label": "YouTube",
+    "url": "https://www.youtube.com/watch?v=tstrp_mppSC"
    }
   },
   {
-   "video_id": "demoXsmfEf6",
+   "video_id": "tstXsmfEf6h",
    "title": "Telugu Melody No. 2 (Remix)",
    "channel_title": "Keerthi Waves",
    "channel_id": null,
-   "description": "Demo catalog entry (calm, energy 70).",
+   "description": "Test catalog entry (calm, energy 70).",
    "thumbnails": {
     "high": {
-     "url": "https://picsum.photos/seed/demoXsmfEf6/480/360",
+     "url": "https://i.ytimg.com/vi/tstXsmfEf6h/hqdefault.jpg",
      "width": 480,
      "height": 360
     }
@@ -43,22 +43,22 @@
    "published_at": "2004-04-07T00:00:00Z",
    "view_count": 8919,
    "is_live": false,
-   "watch_url": "https://www.youtube.com/watch?v=demoXsmfEf6",
+   "watch_url": "https://www.youtube.com/watch?v=tstXsmfEf6h",
    "attribution": {
-    "provider": "demo",
-    "label": "MUSE demo catalog (not real YouTube data)",
-    "url": null
+    "provider": "youtube",
+    "label": "YouTube",
+    "url": "https://www.youtube.com/watch?v=tstXsmfEf6h"
    }
   },
   {
-   "video_id": "demoVbVxPwr",
+   "video_id": "tstVbVxPwrF",
    "title": "Telugu Melody No. 3 (Live Session)",
    "channel_title": "Godavari Collective",
    "channel_id": null,
-   "description": "Demo catalog entry (calm, energy 70).",
+   "description": "Test catalog entry (calm, energy 70).",
    "thumbnails": {
     "high": {
-     "url": "https://picsum.photos/seed/demoVbVxPwr/480/360",
+     "url": "https://i.ytimg.com/vi/tstVbVxPwrF/hqdefault.jpg",
      "width": 480,
      "height": 360
     }
@@ -67,17 +67,17 @@
    "published_at": "2004-07-13T00:00:00Z",
    "view_count": 16838,
    "is_live": false,
-   "watch_url": "https://www.youtube.com/watch?v=demoVbVxPwr",
+   "watch_url": "https://www.youtube.com/watch?v=tstVbVxPwrF",
    "attribution": {
-    "provider": "demo",
-    "label": "MUSE demo catalog (not real YouTube data)",
-    "url": null
+    "provider": "youtube",
+    "label": "YouTube",
+    "url": "https://www.youtube.com/watch?v=tstVbVxPwrF"
    }
   }
  ],
  "next_page_token": "3",
  "prev_page_token": null,
  "total_results_estimate": 39,
- "provider": "demo",
+ "provider": "youtube",
  "cached": false
 }

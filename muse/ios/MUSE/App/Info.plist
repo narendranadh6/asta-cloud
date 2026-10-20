@@ -37,7 +37,15 @@
 		<!-- Allows http://localhost / *.local during development only. Production uses HTTPS. -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<!-- Many radio stations still stream over plain HTTP; this applies to AVFoundation media only. -->
+		<key>NSAllowsArbitraryLoadsForMedia</key>
+		<true/>
 	</dict>
+	<!-- Live radio keeps playing with the screen locked. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

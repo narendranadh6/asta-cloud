@@ -31,7 +31,7 @@ extension View {
     }
 }
 
-/// "Listen in Brave" with an explicit destination label. Disabled for demo items.
+/// "Listen in Brave" with an explicit destination label.
 struct HandoffButton: View {
     @Environment(AppModel.self) private var app
     @Environment(AppSettings.self) private var settings
@@ -48,7 +48,7 @@ struct HandoffButton: View {
                     .frame(maxWidth: compact ? nil : .infinity)
             }
             .buttonStyle(NeonButtonStyle())
-            .disabled(track.isDemo || handoff.isOpening)
+            .disabled(handoff.isOpening)
             .accessibilityHint(destinationText)
             if !compact {
                 Text(destinationText)
@@ -64,9 +64,7 @@ struct HandoffButton: View {
     }
 
     private var destinationText: String {
-        track.isDemo
-            ? "Demo item — not a real YouTube video, so it can't be opened."
-            : app.handoff.destinationDescription() + ". Playback happens there, outside MUSE."
+        app.handoff.destinationDescription() + ". Playback happens there, outside MUSE."
     }
 }
 
@@ -80,15 +78,15 @@ struct PlaybackBoundaryNote: View {
     }
 }
 
-struct DemoModeBanner: View {
+/// Shown only when the server reports it has no YouTube API key: a setup problem, not data.
+struct SearchSetupBanner: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        if app.provider == .demo {
+        if !app.searchConfigured {
             NoticeBanner(
-                text: "Demo catalog: YouTube search isn't configured on the server, so results "
-                    + "are fictional and can't be opened.",
-                systemImage: "flask")
+                text: "Music search isn't set up on the server yet. Saved songs and playlists still work.",
+                systemImage: "exclamationmark.triangle")
         }
     }
 }

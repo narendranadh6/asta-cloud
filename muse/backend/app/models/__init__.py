@@ -185,6 +185,11 @@ class RecommendationSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     intent: Mapped[dict[str, object]] = mapped_column(JSONType, default=dict, nullable=False)
     planner: Mapped[str] = mapped_column(String(16), nullable=False)  # llm | heuristic
     result_video_ids: Mapped[list[str]] = mapped_column(JSONType, default=list, nullable=False)
+    # Per video: candidate source, ranking features and whether it was an exploration slot.
+    # Used to credit feedback to the right bandit arm and as ranker training data.
+    result_details: Mapped[dict[str, object]] = mapped_column(
+        JSONType, default=dict, nullable=False
+    )
 
     __table_args__ = (Index("ix_recommendation_sessions_user_created", "user_id", "created_at"),)
 
@@ -210,6 +215,34 @@ class RecommendationFeedback(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class BanditArm(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Beta-Bernoulli statistics for one candidate source ("arm").
+
+    scope is "global" or a user id string. successes/failures start at the prior
+    (1, 1) and are updated from recommendation feedback (Thompson sampling).
+    """
+
+    __tablename__ = "bandit_arms"
+
+    scope: Mapped[str] = mapped_column(String(40), nullable=False)
+    arm: Mapped[str] = mapped_column(String(32), nullable=False)
+    successes: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    failures: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+
+    __table_args__ = (UniqueConstraint("scope", "arm", name="uq_bandit_scope_arm"),)
+
+
+class ModelArtifact(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Small learned models (e.g. ranker weights) stored as JSON."""
+
+    __tablename__ = "model_artifacts"
+
+    name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONType, default=dict, nullable=False)
+    trained_examples: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
 class AIConversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """Stored only when the user opted in (UserPreferences.store_ai_conversations)."""
 
@@ -229,6 +262,8 @@ class AIConversation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 __all__ = [
     "AIConversation",
     "ArtistPreference",
+    "BanditArm",
+    "ModelArtifact",
     "Base",
     "Playlist",
     "PlaylistItem",

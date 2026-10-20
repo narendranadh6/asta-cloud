@@ -33,7 +33,7 @@ class Thumbnail(APIModel):
 class Attribution(APIModel):
     """Source attribution that clients must display next to provider metadata."""
 
-    provider: Literal["youtube", "demo"]
+    provider: Literal["youtube"]
     label: str
     url: str | None = None
 
@@ -67,7 +67,7 @@ class SearchResponse(APIModel):
     next_page_token: str | None = None
     prev_page_token: str | None = None
     total_results_estimate: int | None = None
-    provider: Literal["youtube", "demo"]
+    provider: Literal["youtube"]
     cached: bool = False
 
 
@@ -75,7 +75,7 @@ class TrendingResponse(APIModel):
     items: list[Track]
     next_page_token: str | None = None
     prev_page_token: str | None = None
-    provider: Literal["youtube", "demo"]
+    provider: Literal["youtube"]
     cached: bool = False
     source: str = "YouTube most popular music chart"
 
@@ -310,6 +310,8 @@ class RecommendedTrack(APIModel):
     score: float
     reasons: list[str]
     matched_query: str
+    source: Literal["search", "similar_artist", "co_listen"] = "search"
+    explore: bool = False
 
 
 class PlaylistDraft(APIModel):
@@ -322,7 +324,7 @@ class PlaylistDraft(APIModel):
     tracks: list[RecommendedTrack]
     total_duration_seconds: int
     target_duration_seconds: int
-    provider: Literal["youtube", "demo"]
+    provider: Literal["youtube"]
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -331,6 +333,13 @@ class AIChatResponse(APIModel):
     reply: str
     draft: PlaylistDraft | None = None
     stored: bool
+
+
+class UpNextResponse(APIModel):
+    """Songs to pick next after a handoff. The listener chooses; nothing auto-plays."""
+
+    seed_video_id: str
+    tracks: list[RecommendedTrack]
 
 
 class FeedbackRequest(APIModel):

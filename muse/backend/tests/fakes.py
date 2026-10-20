@@ -1,9 +1,7 @@
-"""Demo metadata provider used when no YouTube API key is configured.
+"""In-memory metadata provider for tests only.
 
-Every item is fictional and labelled ``provider="demo"``. Demo ids are deterministic
-11-character strings that start with ``demo`` so clients can recognise them and must not
-offer browser handoff for them. This adapter exists so the app is fully explorable in
-development and tests without inventing credentials or real video ids.
+It stands in for the YouTube Data API so the suite runs without network or credentials.
+It is not importable from the application package and is never shipped.
 """
 
 from __future__ import annotations
@@ -17,7 +15,7 @@ from typing import Literal
 from app.schemas import Attribution, Thumbnail, Track
 from app.services.youtube.base import SearchPage
 
-DEMO_PREFIX = "demo"
+FAKE_PREFIX = "tst"
 
 _LANGUAGES = ["Telugu", "Hindi", "Tamil", "English", "Spanish", "Korean"]
 _STYLES = [
@@ -42,13 +40,10 @@ _ERAS = ["2000s", "2010s", "2020s"]
 _VARIANTS = ["", " (Live Session)", " (Remix)"]
 
 
-def demo_video_id(seed: str) -> str:
+def fake_video_id(seed: str) -> str:
     digest = base64.urlsafe_b64encode(hashlib.sha256(seed.encode()).digest()).decode()
-    return (DEMO_PREFIX + digest.replace("=", ""))[:11]
+    return (FAKE_PREFIX + digest.replace("=", ""))[:11]
 
-
-def is_demo_video_id(video_id: str) -> bool:
-    return video_id.startswith(DEMO_PREFIX)
 
 
 def _build_catalog() -> list[tuple[Track, set[str]]]:
@@ -61,17 +56,17 @@ def _build_catalog() -> list[tuple[Track, set[str]]]:
                 variant = _VARIANTS[(index + artist_index) % len(_VARIANTS)]
                 era = _ERAS[(index + artist_index) % len(_ERAS)]
                 title = f"{language} {style.title()} No. {artist_index + 1}{variant}"
-                video_id = demo_video_id(f"{language}|{style}|{artist}")
+                video_id = fake_video_id(f"{language}|{style}|{artist}")
                 tokens = {
                     language.lower(), mood, era, *tags, *style.split(),
-                    *artist.lower().split(), "demo",
+                    *artist.lower().split()
                 }
                 if "Live" in variant:
                     tokens.update({"live", "performance", "concert"})
                 if "Remix" in variant:
                     tokens.update({"remix", "edit"})
                 published = base_date + timedelta(days=index * 97 % 7000)
-                thumb = f"https://picsum.photos/seed/{video_id}/480/360"
+                thumb = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
                 catalog.append(
                     (
                         Track(
@@ -79,7 +74,7 @@ def _build_catalog() -> list[tuple[Track, set[str]]]:
                             title=title,
                             channel_title=artist,
                             channel_id=None,
-                            description=f"Demo catalog entry ({mood}, energy {energy}).",
+                            description=f"Test catalog entry ({mood}, energy {energy}).",
                             thumbnails={"high": Thumbnail(url=thumb, width=480, height=360)},
                             duration_seconds=150 + (index * 37) % 210,
                             published_at=published,
@@ -87,9 +82,9 @@ def _build_catalog() -> list[tuple[Track, set[str]]]:
                             is_live=False,
                             watch_url=f"https://www.youtube.com/watch?v={video_id}",
                             attribution=Attribution(
-                                provider="demo",
-                                label="MUSE demo catalog (not real YouTube data)",
-                                url=None,
+                                provider="youtube",
+                                label="YouTube",
+                                url=f"https://www.youtube.com/watch?v={video_id}",
                             ),
                         ),
                         tokens,
@@ -103,8 +98,8 @@ _CATALOG = _build_catalog()
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
-class DemoMetadataProvider:
-    name: Literal["youtube", "demo"] = "demo"
+class FakeMetadataProvider:
+    name: Literal["youtube"] = "youtube"
 
     def __init__(self) -> None:
         self.search_calls = 0

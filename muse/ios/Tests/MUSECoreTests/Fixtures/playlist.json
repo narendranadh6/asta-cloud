@@ -1,5 +1,5 @@
 {
- "id": "696679f1-5dbf-4e46-9e86-0086d96a2362",
+ "id": "877eb922-8862-4e33-be3c-21d89dd55b7e",
  "name": "Evening",
  "description": null,
  "mood": null,
@@ -8,48 +8,48 @@
  "youtube_playlist_url": null,
  "item_count": 3,
  "total_duration_seconds": 561,
- "artwork_url": "https://picsum.photos/seed/demorp_mppS/480/360",
- "created_at": "2026-10-18T08:24:29.953791",
- "updated_at": "2026-10-18T08:24:29.953794",
+ "artwork_url": "https://i.ytimg.com/vi/tstrp_mppSC/hqdefault.jpg",
+ "created_at": "2026-10-20T20:34:15.891567",
+ "updated_at": "2026-10-20T20:34:15.891569",
  "items": [
   {
-   "id": "773c5896-7187-49b8-a6f2-84c21d277c18",
+   "id": "03c5ae2d-3434-4d52-a40c-0b25f891f845",
    "position": 0,
    "note": null,
-   "video_id": "demorp_mppS",
+   "video_id": "tstrp_mppSC",
    "title": "Telugu Melody No. 1",
    "channel_title": "Aarav Strings",
-   "thumbnail_url": "https://picsum.photos/seed/demorp_mppS/480/360",
+   "thumbnail_url": "https://i.ytimg.com/vi/tstrp_mppSC/hqdefault.jpg",
    "duration_seconds": 150,
    "is_available": true,
-   "watch_url": "https://www.youtube.com/watch?v=demorp_mppS",
-   "added_at": "2026-10-18T08:24:29.999664"
+   "watch_url": "https://www.youtube.com/watch?v=tstrp_mppSC",
+   "added_at": "2026-10-20T20:34:15.899225"
   },
   {
-   "id": "ae3a7d00-0bbf-4b58-ad60-82a7f69928e1",
+   "id": "1246f64c-c0eb-4912-ba54-28ecaeed8aa1",
    "position": 1,
    "note": null,
-   "video_id": "demoXsmfEf6",
+   "video_id": "tstXsmfEf6h",
    "title": "Telugu Melody No. 2 (Remix)",
    "channel_title": "Keerthi Waves",
-   "thumbnail_url": "https://picsum.photos/seed/demoXsmfEf6/480/360",
+   "thumbnail_url": "https://i.ytimg.com/vi/tstXsmfEf6h/hqdefault.jpg",
    "duration_seconds": 187,
    "is_available": true,
-   "watch_url": "https://www.youtube.com/watch?v=demoXsmfEf6",
-   "added_at": "2026-10-18T08:24:30.001700"
+   "watch_url": "https://www.youtube.com/watch?v=tstXsmfEf6h",
+   "added_at": "2026-10-20T20:34:15.901049"
   },
   {
-   "id": "b9c08ab1-537e-45dc-853c-15f90a45922f",
+   "id": "6d6112ed-fbf4-4393-935f-977fb609d58c",
    "position": 2,
    "note": null,
-   "video_id": "demoVbVxPwr",
+   "video_id": "tstVbVxPwrF",
    "title": "Telugu Melody No. 3 (Live Session)",
    "channel_title": "Godavari Collective",
-   "thumbnail_url": "https://picsum.photos/seed/demoVbVxPwr/480/360",
+   "thumbnail_url": "https://i.ytimg.com/vi/tstVbVxPwrF/hqdefault.jpg",
    "duration_seconds": 224,
    "is_available": true,
-   "watch_url": "https://www.youtube.com/watch?v=demoVbVxPwr",
-   "added_at": "2026-10-18T08:24:30.002283"
+   "watch_url": "https://www.youtube.com/watch?v=tstVbVxPwrF",
+   "added_at": "2026-10-20T20:34:15.901857"
   }
  ]
 }

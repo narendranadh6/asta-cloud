@@ -166,17 +166,12 @@ final class HandoffController {
     /// the next song themselves — MUSE can't auto-advance in Brave.
     func open(_ track: any TrackDisplayable, upNext: [any TrackDisplayable] = [],
               using service: BraveBrowserHandoffService, haptics: Bool) async {
-        guard !track.isDemo else {
-            lastError = HandoffError.demoContent
-            Haptics.warning(enabled: haptics)
-            return
-        }
         guard let result = await run(haptics: haptics, {
             try await service.openYouTubeVideo(id: track.videoId)
         }) else { return }
         nowInBrave = NowInBraveContext(
             track: Self.track(from: track),
-            upNext: upNext.filter { !$0.isDemo && $0.videoId != track.videoId }.prefix(20)
+            upNext: upNext.filter { $0.videoId != track.videoId }.prefix(20)
                 .map(Self.track(from:)),
             openedAt: .now,
             openedWith: result.openedWith)
@@ -215,6 +210,6 @@ final class HandoffController {
 
     private static func track(from item: any TrackDisplayable) -> Track {
         if let track = item as? Track { return track }
-        return Track(reference: item, provider: item.isDemo ? .demo : .youtube)
+        return Track(reference: item, provider: .youtube)
     }
 }

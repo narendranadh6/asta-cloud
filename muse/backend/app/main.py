@@ -18,6 +18,8 @@ from app.core.errors import install_error_handlers
 from app.core.security import bearer_token, decode_access_token
 from app.db.session import create_engine, create_session_factory
 from app.services.ai.providers import IntentPlanner, build_planner
+from app.services.music_sources.radio import RadioBrowserClient
+from app.services.music_sources.similar_artists import build_similar_artists
 from app.services.recommendations.pipeline import RecommendationPipeline
 from app.services.youtube.base import MetadataProvider
 from app.services.youtube.service import YouTubeSearchService, build_provider
@@ -56,11 +58,17 @@ def create_app(
         app.state.store = kv
         app.state.search_service = search_service
         app.state.planner = planner or build_planner(settings)
-        app.state.pipeline = RecommendationPipeline(search_service)
+        app.state.similar_artists = build_similar_artists(settings, kv)
+        app.state.radio = RadioBrowserClient(kv, base_url=settings.radio_browser_base_url)
+        app.state.pipeline = RecommendationPipeline(
+            search_service, similar_artists=app.state.similar_artists
+        )
         try:
             yield
         finally:
             await app.state.planner.aclose()
+            await app.state.similar_artists.aclose()
+            await app.state.radio.aclose()
             await metadata.aclose()
             await kv.close()
             await engine.dispose()
@@ -117,7 +125,9 @@ def create_app(
         except Exception:
             checks["database"] = "unavailable"
         checks["cache"] = "ok" if await request.app.state.store.ping() else "unavailable"
-        healthy = checks["database"] == "ok"
+        provider = request.app.state.search_service.provider
+        checks["youtube"] = "ok" if getattr(provider, "configured", True) else "not_configured"
+        healthy = checks["database"] == "ok" and checks["youtube"] == "ok"
         return {
             "status": "ok" if healthy else "degraded",
             "version": app.version,

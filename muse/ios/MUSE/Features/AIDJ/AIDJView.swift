@@ -80,7 +80,7 @@ struct AIDJView: View {
                     .padding(Spacing.sm)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .museCard()
-                DemoModeBanner()
+                SearchSetupBanner()
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     ForEach(Self.quickPrompts, id: \.label) { prompt in
                         Button {

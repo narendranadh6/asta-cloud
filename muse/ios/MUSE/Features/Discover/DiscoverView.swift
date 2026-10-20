@@ -10,8 +10,28 @@ struct DiscoverView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 ChipBar(options: DiscoverViewModel.Filter.allCases, selection: $model.filter) { $0.rawValue }
-                DemoModeBanner()
-                if model.filter == .all { featured }
+                SearchSetupBanner()
+                if model.filter == .all {
+                    featured
+                    NavigationLink { RadioView() } label: {
+                        HStack(spacing: Spacing.md) {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                                .font(.title2).foregroundStyle(.white)
+                                .frame(width: 52, height: 52)
+                                .background(RoundedRectangle(cornerRadius: 12).fill(MUSEColor.cool))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Live Radio").font(MUSEFont.headline).foregroundStyle(MUSEColor.text)
+                                Text("Thousands of stations, playing right now")
+                                    .font(.caption).foregroundStyle(MUSEColor.mutedText)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(MUSEColor.mutedText)
+                        }
+                        .padding(Spacing.sm)
+                        .museCard()
+                    }
+                    .buttonStyle(.plain)
+                }
                 ForEach(model.visibleShelves) { shelf in
                     shelfView(shelf)
                 }
@@ -69,8 +89,7 @@ struct DiscoverView: View {
                     }
                 }
                 if shelf == .trending {
-                    Text(model.provider == .demo ? "Demo catalog ranking."
-                         : "Source: YouTube most popular music chart.")
+                    Text("Source: YouTube most popular music chart.")
                         .font(.caption2).foregroundStyle(MUSEColor.mutedText)
                 }
             }
@@ -105,7 +124,7 @@ struct TrackCard: View {
         VStack(alignment: .leading, spacing: 6) {
             ArtworkView(url: track.artworkURL, size: width, cornerRadius: Spacing.corner)
                 .overlay(alignment: .topLeading) {
-                    AttributionBadge(isDemo: track.isDemo).padding(6)
+                    AttributionBadge().padding(6)
                 }
             Text(track.title).font(.subheadline.weight(.semibold))
                 .foregroundStyle(MUSEColor.text).lineLimit(2)

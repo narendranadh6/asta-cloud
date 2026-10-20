@@ -27,7 +27,7 @@ struct BrowserHandoffView: View {
             }
 
             Section("Test") {
-                if let track = saved.first(where: { !$0.isDemo }) {
+                if let track = saved.first {
                     Button {
                         Task { await handoff.open(track, using: app.handoff, haptics: settings.hapticsEnabled) }
                     } label: {

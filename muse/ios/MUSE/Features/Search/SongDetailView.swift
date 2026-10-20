@@ -16,13 +16,11 @@ final class SongDetailViewModel {
 
     /// Refreshes metadata (verifies the video is still available) and loads related music.
     func load(api: MusicAPI) async {
-        if !track.isDemo {
-            do {
-                track = try await api.video(id: track.videoId)
-            } catch let error as APIError where error.code == "video_unavailable" {
-                unavailable = true
-            } catch {}
-        }
+        do {
+            track = try await api.video(id: track.videoId)
+        } catch let error as APIError where error.code == "video_unavailable" {
+            unavailable = true
+        } catch {}
         isLoadingRelated = true
         defer { isLoadingRelated = false }
         // YouTube removed relatedToVideoId search in 2023; related music is the channel's
@@ -112,7 +110,7 @@ struct SongDetailView: View {
                 .font(.headline)
                 .foregroundStyle(MUSEColor.mutedText)
             HStack(spacing: Spacing.xs) {
-                AttributionBadge(isDemo: model.track.isDemo)
+                AttributionBadge()
                 if let seconds = model.track.durationSeconds {
                     Text(DurationFormatter.clock(seconds)).monospacedDigit()
                 }
@@ -125,9 +123,7 @@ struct SongDetailView: View {
             }
             .font(.caption)
             .foregroundStyle(MUSEColor.mutedText)
-            Text(model.track.isDemo
-                 ? "Source: MUSE demo catalog (fictional)."
-                 : "Source: YouTube. Title, channel and artwork are YouTube metadata.")
+            Text("Source: YouTube. Title, channel and artwork are YouTube metadata.")
                 .font(.caption2)
                 .foregroundStyle(MUSEColor.mutedText)
         }

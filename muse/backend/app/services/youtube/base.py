@@ -39,7 +39,7 @@ class SearchPage:
 
 
 class MetadataProvider(Protocol):
-    name: Literal["youtube", "demo"]
+    name: Literal["youtube"]
 
     async def search(
         self, query: str, *, page_token: str | None = None, max_results: int = 20

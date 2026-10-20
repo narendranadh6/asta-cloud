@@ -1,0 +1,108 @@
+{
+ "seed_video_id": "tstrp_mppSC",
+ "tracks": [
+  {
+   "track": {
+    "video_id": "tsto8s0i2JS",
+    "title": "Telugu Lofi No. 1",
+    "channel_title": "Aarav Strings",
+    "channel_id": null,
+    "description": "Test catalog entry (focused, energy 30).",
+    "thumbnails": {
+     "high": {
+      "url": "https://i.ytimg.com/vi/tsto8s0i2JS/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     }
+    },
+    "duration_seconds": 261,
+    "published_at": "2004-10-18T00:00:00Z",
+    "view_count": 24757,
+    "is_live": false,
+    "watch_url": "https://www.youtube.com/watch?v=tsto8s0i2JS",
+    "attribution": {
+     "provider": "youtube",
+     "label": "YouTube",
+     "url": "https://www.youtube.com/watch?v=tsto8s0i2JS"
+    }
+   },
+   "score": 1.2196,
+   "reasons": [
+    "From Aarav Strings, an artist you like",
+    "Found for \u201cAarav Strings songs\u201d"
+   ],
+   "matched_query": "Aarav Strings songs",
+   "source": "search",
+   "explore": false
+  },
+  {
+   "track": {
+    "video_id": "tstlz3m37zh",
+    "title": "Telugu Road Trip Anthem No. 1",
+    "channel_title": "Aarav Strings",
+    "channel_id": null,
+    "description": "Test catalog entry (travel, energy 75).",
+    "thumbnails": {
+     "high": {
+      "url": "https://i.ytimg.com/vi/tstlz3m37zh/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     }
+    },
+    "duration_seconds": 174,
+    "published_at": "2007-03-10T00:00:00Z",
+    "view_count": 96028,
+    "is_live": false,
+    "watch_url": "https://www.youtube.com/watch?v=tstlz3m37zh",
+    "attribution": {
+     "provider": "youtube",
+     "label": "YouTube",
+     "url": "https://www.youtube.com/watch?v=tstlz3m37zh"
+    }
+   },
+   "score": 0.975,
+   "reasons": [
+    "Something new for you",
+    "From Aarav Strings, an artist you like",
+    "Found for \u201cAarav Strings songs\u201d"
+   ],
+   "matched_query": "Aarav Strings songs",
+   "source": "search",
+   "explore": true
+  },
+  {
+   "track": {
+    "video_id": "tst5vwdv0JQ",
+    "title": "Telugu Dance No. 1",
+    "channel_title": "Aarav Strings",
+    "channel_id": null,
+    "description": "Test catalog entry (energetic, energy 90).",
+    "thumbnails": {
+     "high": {
+      "url": "https://i.ytimg.com/vi/tst5vwdv0JQ/hqdefault.jpg",
+      "width": 480,
+      "height": 360
+     }
+    },
+    "duration_seconds": 162,
+    "published_at": "2005-08-05T00:00:00Z",
+    "view_count": 48514,
+    "is_live": false,
+    "watch_url": "https://www.youtube.com/watch?v=tst5vwdv0JQ",
+    "attribution": {
+     "provider": "youtube",
+     "label": "YouTube",
+     "url": "https://www.youtube.com/watch?v=tst5vwdv0JQ"
+    }
+   },
+   "score": 1.1192,
+   "reasons": [
+    "From Aarav Strings, an artist you like",
+    "Found for \u201cAarav Strings songs\u201d"
+   ],
+   "matched_query": "Aarav Strings songs",
+   "source": "search",
+   "explore": false
+  }
+ ]
+}

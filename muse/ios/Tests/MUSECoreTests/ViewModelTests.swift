@@ -10,15 +10,15 @@ import XCTest
 final class SearchViewModelTests: XCTestCase {
     private func catalog(_ count: Int) -> [Track] {
         (0..<count).map { index in
-            let id = "demo" + String(format: "%07d", index)
+            let id = "tst" + String(format: "%08d", index)
             return Track(videoId: id, title: "Song \(index)", channelTitle: "Artist",
                          watchUrl: "https://www.youtube.com/watch?v=\(id)",
-                         attribution: Attribution(provider: .demo, label: "demo"))
+                         attribution: Attribution(provider: .youtube, label: "YouTube"))
         }
     }
 
     func testSubmitPaginatesAndDeduplicates() async {
-        let api = MockMusicAPI(catalog: catalog(45))
+        let api = FakeMusicAPI(catalog: catalog(45))
         let model = SearchViewModel()
         model.query = "song"
         var recorded: [String] = []
@@ -38,7 +38,7 @@ final class SearchViewModelTests: XCTestCase {
     }
 
     func testEmptyAndBlankQueries() async {
-        let api = MockMusicAPI(catalog: catalog(3))
+        let api = FakeMusicAPI(catalog: catalog(3))
         let model = SearchViewModel()
         model.query = "   "
         await model.submit(api: api)
@@ -49,7 +49,7 @@ final class SearchViewModelTests: XCTestCase {
     }
 
     func testFailureThenRetry() async {
-        let api = MockMusicAPI(catalog: catalog(3))
+        let api = FakeMusicAPI(catalog: catalog(3))
         await api.setFailure(.offline)
         let model = SearchViewModel()
         model.query = "song"
@@ -62,7 +62,7 @@ final class SearchViewModelTests: XCTestCase {
     }
 
     func testLoadMoreFailureKeepsResults() async {
-        let api = MockMusicAPI(catalog: catalog(30))
+        let api = FakeMusicAPI(catalog: catalog(30))
         let model = SearchViewModel()
         model.query = "song"
         await model.submit(api: api)
@@ -79,7 +79,7 @@ final class SearchViewModelTests: XCTestCase {
 @MainActor
 final class AIDJViewModelTests: XCTestCase {
     func testSendProducesEditableDraft() async {
-        let api = MockMusicAPI()
+        let api = FakeMusicAPI()
         let model = AIDJViewModel()
         model.input = "late-night coding"
         await model.send(api: api)
@@ -95,7 +95,7 @@ final class AIDJViewModelTests: XCTestCase {
     }
 
     func testErrorsAreShownAsMessages() async {
-        let api = MockMusicAPI()
+        let api = FakeMusicAPI()
         await api.setFailure(.server(status: 429, code: "rate_limited", message: "Slow down", retryAfter: 30))
         let model = AIDJViewModel()
         model.input = "anything"
@@ -131,7 +131,7 @@ final class PlaylistStudioViewModelTests: XCTestCase {
     }
 
     func testGenerateAndRegenerateKeepsRenamedTitle() async {
-        let api = MockMusicAPI()
+        let api = FakeMusicAPI()
         let model = PlaylistStudioViewModel()
         model.description = "focus"
         model.durationMinutes = 10
@@ -168,19 +168,19 @@ final class AppSettingsTests: XCTestCase {
 @MainActor
 final class DiscoverViewModelTests: XCTestCase {
     func testLoadsAllShelvesAndFilters() async {
-        let api = MockMusicAPI()
+        let api = FakeMusicAPI()
         let model = DiscoverViewModel()
         await model.load(api: api, language: nil)
         let trending = model.tracks(in: .trending)
         XCTAssertFalse(trending.isEmpty)
         XCTAssertEqual(trending.map(\.viewCount), trending.map(\.viewCount).sorted { ($0 ?? 0) > ($1 ?? 0) })
-        XCTAssertEqual(model.provider, .demo)
+        XCTAssertEqual(model.provider, .youtube)
         model.filter = .live
         XCTAssertEqual(model.visibleShelves, [.live])
     }
 
     func testOneShelfFailingDoesNotBreakOthers() async {
-        let api = MockMusicAPI()
+        let api = FakeMusicAPI()
         await api.setFailure(.offline)  // the first request to run fails
         let model = DiscoverViewModel()
         await model.load(api: api, language: "Telugu")

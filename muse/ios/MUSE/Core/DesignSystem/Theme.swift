@@ -2,14 +2,18 @@
 import SwiftUI
 
 /// MUSE design tokens. Dark-first; all text styles are Dynamic Type text styles.
+/// Palette: "Sunset Ember", warm orange/magenta with a gold highlight, balanced by a cool
+/// cyan accent and a cool charcoal ground.
 enum MUSEColor {
-    static let background = Color(hex: 0x080811)
-    static let surface = Color(hex: 0x17132D)
-    static let primary = Color(hex: 0x8355F7)
-    static let secondary = Color(hex: 0xD34EDB)
-    static let accent = Color(hex: 0x488EFF)
-    static let text = Color.white
-    static let mutedText = Color(hex: 0xA6A2BB)
+    static let background = Color(hex: 0x0D0B12)
+    static let surface = Color(hex: 0x1C1620)
+    static let primary = Color(hex: 0xFF6B35)
+    static let secondary = Color(hex: 0xE83F6F)
+    static let accent = Color(hex: 0x4CC9F0)
+    static let text = Color(hex: 0xFFF8F0)
+    static let mutedText = Color(hex: 0xB3A9B4)
+    /// Warm highlight used sparingly (ratings, "new", active states).
+    static let gold = Color(hex: 0xFFC145)
     static let separator = Color.white.opacity(0.08)
     static let danger = Color(hex: 0xFF5C7A)
     static let success = Color(hex: 0x4CD9A0)
@@ -18,7 +22,8 @@ enum MUSEColor {
         LinearGradient(colors: [primary, secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
     static var cool: LinearGradient {
-        LinearGradient(colors: [accent, primary], startPoint: .topLeading, endPoint: .bottomTrailing)
+        // Cool-to-warm: cyan into magenta.
+        LinearGradient(colors: [accent, secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
     static func moodGradient(_ mood: Mood) -> LinearGradient {

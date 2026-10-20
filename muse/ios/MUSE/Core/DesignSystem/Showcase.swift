@@ -132,13 +132,13 @@ struct IconRow: View {
 enum GenreArt {
     static let all: [(name: String, symbol: String, colors: [Color])] = [
         ("Pop", "sparkles", [Color(hex: 0xEE0979), Color(hex: 0xFF6A00)]),
-        ("Lo-fi", "headphones", [Color(hex: 0x4B3F8F), Color(hex: 0x488EFF)]),
+        ("Lo-fi", "headphones", [Color(hex: 0x1F3B57), Color(hex: 0x4CC9F0)]),
         ("Indie", "guitars", [Color(hex: 0x11998E), Color(hex: 0x38EF7D)]),
-        ("Hip Hop", "music.mic", [Color(hex: 0xFF416C), Color(hex: 0x8355F7)]),
-        ("Melody", "music.note", [Color(hex: 0x3A7BD5), Color(hex: 0xD34EDB)]),
-        ("Classical", "pianokeys", [Color(hex: 0x141E30), Color(hex: 0x8355F7)]),
-        ("EDM", "waveform", [Color(hex: 0xD34EDB), Color(hex: 0x488EFF)]),
-        ("Devotional", "sun.haze", [Color(hex: 0xF7971E), Color(hex: 0xD34EDB)]),
+        ("Hip Hop", "music.mic", [Color(hex: 0xE83F6F), Color(hex: 0xFF6B35)]),
+        ("Melody", "music.note", [Color(hex: 0x4CC9F0), Color(hex: 0xE83F6F)]),
+        ("Classical", "pianokeys", [Color(hex: 0x1C1620), Color(hex: 0xFFC145)]),
+        ("EDM", "waveform", [Color(hex: 0xE83F6F), Color(hex: 0x4CC9F0)]),
+        ("Devotional", "sun.haze", [Color(hex: 0xFFC145), Color(hex: 0xFF6B35)]),
     ]
 
     static func gradient(_ colors: [Color]) -> LinearGradient {

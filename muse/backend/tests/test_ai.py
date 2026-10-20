@@ -243,14 +243,12 @@ async def test_ai_playlist_returns_only_verified_tracks(app_factory: AppFactory)
         assert response.status_code == 200, response.text
         draft = response.json()
         assert draft["planner"] == "heuristic"
-        assert draft["provider"] == "demo"
         assert draft["tracks"], draft
         assert draft["session_id"] is None  # personalization off → nothing stored
         ids = [t["track"]["video_id"] for t in draft["tracks"]]
         verified = await app.state.search_service.get_videos(ids)
         assert set(ids) == set(verified)
         assert all(t["reasons"] for t in draft["tracks"])
-        assert any("demo catalog" in w for w in draft["warnings"])
 
         saved = await client.post(
             "/api/v1/playlists",

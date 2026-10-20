@@ -1,4 +1,4 @@
-"""End-to-end API tests against the demo metadata provider and SQLite."""
+"""End-to-end API tests against an in-memory fake YouTube provider and SQLite."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import jwt
 
-from app.services.youtube.mock import DemoMetadataProvider
 from tests.conftest import AppFactory, make_settings, register
+from tests.fakes import FakeMetadataProvider
 
 
 async def search_ids(client: httpx.AsyncClient, auth: dict[str, str], q: str, n: int) -> list[str]:
@@ -23,7 +23,8 @@ async def test_health(client: httpx.AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["metadata_provider"] == "demo"
+    assert body["metadata_provider"] == "youtube"
+    assert body["checks"]["youtube"] == "ok"
     assert body["ai_planner"] == "heuristic"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
@@ -93,8 +94,8 @@ async def test_search_with_pagination_and_attribution(
     body = first.json()
     assert first.status_code == 200
     assert len(body["items"]) == 5
-    assert body["provider"] == "demo"
-    assert all(i["attribution"]["provider"] == "demo" for i in body["items"])
+    assert body["provider"] == "youtube"
+    assert all(i["attribution"]["label"] == "YouTube" for i in body["items"])
     assert body["next_page_token"]
     second = await client.get(
         "/api/v1/search",
@@ -146,7 +147,7 @@ async def test_video_details(client: httpx.AsyncClient, auth: dict[str, str]) ->
     assert invalid.status_code == 422
 
 
-class QuotaProvider(DemoMetadataProvider):
+class QuotaProvider(FakeMetadataProvider):
     async def search(self, query, *, page_token=None, max_results=20):  # type: ignore[no-untyped-def]
         from app.services.youtube.base import QuotaExceededError
 
@@ -391,10 +392,26 @@ async def test_trending_feed(client: httpx.AsyncClient, auth: dict[str, str]) ->
     first = await client.get("/api/v1/discover/trending", params={"limit": 5}, headers=auth)
     body = first.json()
     assert first.status_code == 200
-    assert len(body["items"]) == 5 and body["provider"] == "demo"
+    assert len(body["items"]) == 5 and body["provider"] == "youtube"
     views = [i["view_count"] for i in body["items"]]
     assert views == sorted(views, reverse=True)
     again = await client.get("/api/v1/discover/trending", params={"limit": 5}, headers=auth)
     assert again.json()["cached"] is True
     unauth = await client.get("/api/v1/discover/trending")
     assert unauth.status_code == 401
+
+
+async def test_unconfigured_youtube_is_a_clear_error_not_fake_data(app_factory: AppFactory) -> None:
+    from app.services.youtube.service import UnconfiguredProvider
+
+    _, client = await app_factory(provider=UnconfiguredProvider())
+    async with client:
+        health = (await client.get("/health")).json()
+        auth = await register(client)
+        search = await client.get("/api/v1/search", params={"q": "x"}, headers=auth)
+        trending = await client.get("/api/v1/discover/trending", headers=auth)
+    assert health["status"] == "degraded" and health["checks"]["youtube"] == "not_configured"
+    assert search.status_code == 503
+    assert search.json()["error"]["code"] == "search_misconfigured"
+    assert "MUSE_YOUTUBE_API_KEY" in search.json()["error"]["message"]
+    assert trending.status_code == 503

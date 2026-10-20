@@ -40,18 +40,14 @@ struct PlaylistDetailView: View {
                         }
                     }
                     .swipeActions(edge: .leading) {
-                        if !item.isDemo {
-                            Button {
-                                Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
-                            } label: { Label("Open", systemImage: "arrow.up.forward.app") }
-                                .tint(MUSEColor.accent)
-                        }
+                        Button {
+                            Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
+                        } label: { Label("Open", systemImage: "arrow.up.forward.app") }
+                            .tint(MUSEColor.accent)
                     }
                     .contextMenu {
-                        if !item.isDemo {
-                            Button("Open in \(settings.browserPreference.label)", systemImage: "arrow.up.forward.app") {
-                                Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
-                            }
+                        Button("Open in \(settings.browserPreference.label)", systemImage: "arrow.up.forward.app") {
+                            Task { await handoff.open(item, upNext: upNext(after: item), using: app.handoff, haptics: settings.hapticsEnabled) }
                         }
                     }
                 }
@@ -140,7 +136,7 @@ struct PlaylistDetailView: View {
                 Text(details).font(.subheadline).foregroundStyle(MUSEColor.mutedText)
             }
             HStack(spacing: Spacing.sm) {
-                if let first = playlist.orderedItems.first(where: { !$0.isDemo }) {
+                if let first = playlist.orderedItems.first {
                     Button {
                         Task { await handoff.open(first, upNext: upNext(after: first), using: app.handoff, haptics: settings.hapticsEnabled) }
                     } label: {
