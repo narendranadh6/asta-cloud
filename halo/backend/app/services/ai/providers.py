@@ -53,7 +53,12 @@ class AnthropicClient:
     """Anthropic Messages API (https://docs.anthropic.com/en/api/messages)."""
 
     def __init__(
-        self, api_key: str, model: str, *, base_url: str | None = None, timeout: float = 20.0,
+        self,
+        api_key: str,
+        model: str,
+        *,
+        base_url: str | None = None,
+        timeout: float = 20.0,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._model = model
@@ -86,7 +91,12 @@ class OpenAICompatibleClient:
     """Any OpenAI-compatible /chat/completions endpoint (OpenAI, Azure, local servers)."""
 
     def __init__(
-        self, api_key: str, model: str, *, base_url: str | None = None, timeout: float = 20.0,
+        self,
+        api_key: str,
+        model: str,
+        *,
+        base_url: str | None = None,
+        timeout: float = 20.0,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._model = model
@@ -193,8 +203,14 @@ class IntentPlanner:
     @staticmethod
     def _heuristic(text: str, hints: PreferenceHints, o: PlanOverrides) -> MusicIntent:
         return extract_intent(
-            text, hints, mood=o.mood, language=o.language, genres=o.genres, energy=o.energy,
-            duration_minutes=o.duration_minutes, discovery=o.discovery,
+            text,
+            hints,
+            mood=o.mood,
+            language=o.language,
+            genres=o.genres,
+            energy=o.energy,
+            duration_minutes=o.duration_minutes,
+            discovery=o.discovery,
         )
 
     async def _plan_with_llm(
@@ -233,12 +249,16 @@ def build_planner(settings: object) -> IntentPlanner:
     client: LLMClient
     if settings.llm_provider == "anthropic":
         client = AnthropicClient(
-            key, settings.llm_model, base_url=settings.llm_base_url,
+            key,
+            settings.llm_model,
+            base_url=settings.llm_base_url,
             timeout=settings.llm_timeout_seconds,
         )
     else:
         client = OpenAICompatibleClient(
-            key, settings.llm_model, base_url=settings.llm_base_url,
+            key,
+            settings.llm_model,
+            base_url=settings.llm_base_url,
             timeout=settings.llm_timeout_seconds,
         )
     return IntentPlanner(client)

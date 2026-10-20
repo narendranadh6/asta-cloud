@@ -42,7 +42,9 @@ def parse_iso8601_duration(value: str | None) -> int | None:
         return None
     parts = {k: int(v) for k, v in match.groupdict().items() if v}
     return (
-        parts.get("d", 0) * 86400 + parts.get("h", 0) * 3600 + parts.get("m", 0) * 60
+        parts.get("d", 0) * 86400
+        + parts.get("h", 0) * 3600
+        + parts.get("m", 0) * 60
         + parts.get("s", 0)
     )
 
@@ -198,9 +200,7 @@ class YouTubeDataAPIClient:
             filtered_out=len(ids) - len(items),
         )
 
-    async def trending(
-        self, *, page_token: str | None = None, max_results: int = 20
-    ) -> SearchPage:
+    async def trending(self, *, page_token: str | None = None, max_results: int = 20) -> SearchPage:
         """videos.list chart=mostPopular in the Music category (1 quota unit)."""
         params: dict[str, Any] = {
             "part": "snippet,contentDetails,status,statistics",

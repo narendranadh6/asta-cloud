@@ -67,9 +67,7 @@ async def get_current_user(
 ) -> User:
     token = bearer_token(authorization)
     if token is None:
-        raise AuthenticationError(
-            "Authentication required", headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise AuthenticationError("Authentication required", headers={"WWW-Authenticate": "Bearer"})
     user_id = decode_access_token(token, settings)
     user = await session.get(User, user_id)
     if user is None:

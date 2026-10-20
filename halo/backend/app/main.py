@@ -18,6 +18,9 @@ from app.core.errors import install_error_handlers
 from app.core.security import bearer_token, decode_access_token
 from app.db.session import create_engine, create_session_factory
 from app.services.ai.providers import IntentPlanner, build_planner
+from app.services.music_sources.discovery import ListenBrainzDiscovery
+from app.services.music_sources.listenbrainz import ListenBrainzClient
+from app.services.music_sources.musicbrainz import MusicBrainzClient
 from app.services.music_sources.radio import RadioBrowserClient
 from app.services.music_sources.similar_artists import build_similar_artists
 from app.services.recommendations.pipeline import RecommendationPipeline
@@ -58,10 +61,31 @@ def create_app(
         app.state.store = kv
         app.state.search_service = search_service
         app.state.planner = planner or build_planner(settings)
-        app.state.similar_artists = build_similar_artists(settings, kv)
+        app.state.musicbrainz = (
+            MusicBrainzClient(kv, contact=settings.musicbrainz_contact)
+            if settings.musicbrainz_enabled
+            else None
+        )
+        lb_token = (
+            settings.listenbrainz_token.get_secret_value() if settings.listenbrainz_token else ""
+        )
+        app.state.listenbrainz = (
+            ListenBrainzClient(kv, token=lb_token.strip() or None)
+            if settings.listenbrainz_enabled
+            else None
+        )
+        app.state.discovery = (
+            ListenBrainzDiscovery(app.state.musicbrainz, app.state.listenbrainz)
+            if app.state.musicbrainz and app.state.listenbrainz
+            else None
+        )
+        app.state.similar_artists = build_similar_artists(settings, kv, first=app.state.discovery)
         app.state.radio = RadioBrowserClient(kv, base_url=settings.radio_browser_base_url)
         app.state.pipeline = RecommendationPipeline(
-            search_service, similar_artists=app.state.similar_artists
+            search_service,
+            similar_artists=app.state.similar_artists,
+            track_discovery=app.state.discovery,
+            track_lookups=settings.listenbrainz_track_lookups,
         )
         try:
             yield
@@ -69,6 +93,9 @@ def create_app(
             await app.state.planner.aclose()
             await app.state.similar_artists.aclose()
             await app.state.radio.aclose()
+            for client in (app.state.musicbrainz, app.state.listenbrainz):
+                if client is not None:
+                    await client.aclose()
             await metadata.aclose()
             await kv.close()
             await engine.dispose()

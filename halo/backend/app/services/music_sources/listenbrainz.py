@@ -86,12 +86,10 @@ class ListenBrainzClient:
     ) -> None:
         self._store = store
         self.has_token = bool(token)
-        headers = {"User-Agent": "Halo/0.1 (+https://github.com/narendranadh6/asta-cloud)"}
+        self._headers = {"User-Agent": "Halo/0.1 (+https://github.com/narendranadh6/asta-cloud)"}
         if token:
-            headers["Authorization"] = f"Token {token}"
-        self._client = http_client or httpx.AsyncClient(
-            base_url=base_url, timeout=timeout, headers=headers
-        )
+            self._headers["Authorization"] = f"Token {token}"
+        self._client = http_client or httpx.AsyncClient(base_url=base_url, timeout=timeout)
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -102,7 +100,7 @@ class ListenBrainzClient:
         if cached is not None:
             return cached
         try:
-            response = await self._client.get(path, params=params)
+            response = await self._client.get(path, params=params, headers=self._headers)
         except httpx.HTTPError as exc:
             raise ListenBrainzUnavailableError("ListenBrainz is unreachable") from exc
         if response.status_code == 204:

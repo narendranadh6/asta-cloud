@@ -2,8 +2,9 @@
 
 request -> intent (LLM or heuristic)
 -> candidate generation from several sources:
-     search (planner queries), similar_artist (open artist graphs), co_listen (playlist
-     co-occurrence across opted-in listeners, passed in by the caller)
+     search (planner queries), similar_artist (open artist graphs), listenbrainz (popular
+     tracks by similar artists from ListenBrainz listening data, matched to YouTube),
+     co_listen (playlist co-occurrence across opted-in listeners, passed in by the caller)
 -> verified metadata retrieval -> filtering
 -> ranking (heuristic relevance + learnable feature weights)
 -> exploration budget chosen by Thompson sampling over sources
@@ -219,6 +220,7 @@ def score_candidates(
             "cf_score": cand.cf_score,
             "similar_artist": 1.0 if cand.source == "similar_artist" else 0.0,
             "co_listen": 1.0 if cand.source == "co_listen" else 0.0,
+            "listenbrainz": 1.0 if cand.source == "listenbrainz" else 0.0,
             "liked_channel": 1.0 if channel in feedback.liked_channels else 0.0,
         }
         popularity = (
@@ -327,11 +329,54 @@ class RecommendationPipeline:
         search: YouTubeSearchService,
         *,
         similar_artists: object | None = None,
+        track_discovery: object | None = None,
+        track_lookups: int = 4,
         concurrency: int = 3,
     ) -> None:
         self._search = search
         self._similar = similar_artists
+        self._discovery = track_discovery
+        self._track_lookups = track_lookups
         self._semaphore = asyncio.Semaphore(concurrency)
+
+    async def _match_on_youtube(self, artist: str, title: str) -> Track | None:
+        """Find the verified YouTube upload for a known song, or None if unsure."""
+        _, items, _ = await self._retrieve(f"{artist} {title}", 3)
+        artist_words = set(normalize_name(artist).split())
+        title_words = set(normalize_name(title).split()) - {"the", "a", "of"}
+        for track in items:
+            text = set(normalize_name(f"{track.title} {track.channel_title}").split())
+            if artist_words & text and len(title_words & text) >= max(1, len(title_words) // 2):
+                return track
+        return None
+
+    async def _listenbrainz_candidates(
+        self, intent: MusicIntent, hints: PreferenceHints
+    ) -> list[Candidate]:
+        if self._discovery is None or self._track_lookups <= 0:
+            return []
+        seeds = list(dict.fromkeys([*intent.reference_artists, *hints.favorite_artists]))
+        if not seeds:
+            return []
+        excluded = {normalize_name(a) for a in [*intent.exclude_artists, *hints.excluded_artists]}
+        recordings = await self._discovery.tracks(  # type: ignore[attr-defined]
+            seeds[0], discovery=intent.discovery, limit=self._track_lookups * 2
+        )
+        picks = [r for r in recordings if normalize_name(r.artist_name) not in excluded]
+        matched = await asyncio.gather(
+            *(self._match_on_youtube(r.artist_name, r.title) for r in picks[: self._track_lookups])
+        )
+        return [
+            Candidate(
+                track=track,
+                query=f"{rec.artist_name} {rec.title}",
+                rank=rank,
+                source="listenbrainz",
+                source_reason=f"Popular with fans of {rec.similar_to or seeds[0]} on ListenBrainz",
+            )
+            for rank, (rec, track) in enumerate(zip(picks, matched, strict=False))
+            if track is not None
+        ]
 
     async def _similar_queries(
         self, intent: MusicIntent, hints: PreferenceHints
@@ -399,6 +444,7 @@ class RecommendationPipeline:
                 )
                 for r, t in enumerate(items)
             )
+        candidates.extend(await self._listenbrainz_candidates(intent, hints))
         candidates.extend(extra_candidates or [])
 
         filtered, counts = filter_candidates(

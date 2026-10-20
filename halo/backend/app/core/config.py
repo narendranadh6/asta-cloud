@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     lastfm_api_key: SecretStr | None = None
     deezer_enabled: bool = True
     radio_browser_base_url: str = "https://de1.api.radio-browser.info"
+    # MusicBrainz (canonical metadata) and ListenBrainz (discovery). Both are open data.
+    musicbrainz_enabled: bool = True
+    musicbrainz_contact: str = "https://github.com/narendranadh6/asta-cloud"
+    listenbrainz_enabled: bool = True
+    listenbrainz_token: SecretStr | None = None
+    # YouTube lookups per playlist for ListenBrainz track picks (each search costs 100 units).
+    listenbrainz_track_lookups: int = Field(default=4, ge=0, le=10)
 
     # LLM planner
     llm_provider: Literal["none", "anthropic", "openai"] = "none"

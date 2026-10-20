@@ -112,15 +112,19 @@ async def list_playlists(
         await session.execute(select(func.count(Playlist.id)).where(Playlist.user_id == user_id))
     ).scalar_one()
     rows = (
-        await session.execute(
-            select(Playlist)
-            .where(Playlist.user_id == user_id)
-            .options(selectinload(Playlist.items).joinedload(PlaylistItem.track))
-            .order_by(Playlist.updated_at.desc())
-            .limit(limit)
-            .offset(offset)
+        (
+            await session.execute(
+                select(Playlist)
+                .where(Playlist.user_id == user_id)
+                .options(selectinload(Playlist.items).joinedload(PlaylistItem.track))
+                .order_by(Playlist.updated_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
         )
-    ).scalars().unique()
+        .scalars()
+        .unique()
+    )
     summaries = [
         PlaylistSummary(**_summary_fields(p, sorted(p.items, key=lambda i: i.position)))  # type: ignore[arg-type]
         for p in rows

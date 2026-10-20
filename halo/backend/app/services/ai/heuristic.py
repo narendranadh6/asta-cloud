@@ -12,19 +12,43 @@ from dataclasses import dataclass, field
 from app.services.ai.intent import MusicIntent
 
 LANGUAGES = {
-    "telugu": "Telugu", "hindi": "Hindi", "bollywood": "Hindi", "tamil": "Tamil",
-    "kollywood": "Tamil", "malayalam": "Malayalam", "kannada": "Kannada",
-    "punjabi": "Punjabi", "bengali": "Bengali", "marathi": "Marathi", "english": "English",
-    "spanish": "Spanish", "latin": "Spanish", "korean": "Korean", "k-pop": "Korean",
-    "kpop": "Korean", "japanese": "Japanese", "j-pop": "Japanese", "french": "French",
-    "arabic": "Arabic", "portuguese": "Portuguese",
+    "telugu": "Telugu",
+    "hindi": "Hindi",
+    "bollywood": "Hindi",
+    "tamil": "Tamil",
+    "kollywood": "Tamil",
+    "malayalam": "Malayalam",
+    "kannada": "Kannada",
+    "punjabi": "Punjabi",
+    "bengali": "Bengali",
+    "marathi": "Marathi",
+    "english": "English",
+    "spanish": "Spanish",
+    "latin": "Spanish",
+    "korean": "Korean",
+    "k-pop": "Korean",
+    "kpop": "Korean",
+    "japanese": "Japanese",
+    "j-pop": "Japanese",
+    "french": "French",
+    "arabic": "Arabic",
+    "portuguese": "Portuguese",
 }
 
 MOOD_WORDS: dict[str, tuple[str, ...]] = {
     "calm": ("calm", "relax", "relaxing", "chill", "peaceful", "soothing", "mellow", "soft"),
     "happy": ("happy", "cheerful", "feel good", "feel-good", "uplifting", "sunny", "joyful"),
-    "focused": ("focus", "focused", "coding", "study", "studying", "work", "concentrat",
-                "deep work", "reading"),
+    "focused": (
+        "focus",
+        "focused",
+        "coding",
+        "study",
+        "studying",
+        "work",
+        "concentrat",
+        "deep work",
+        "reading",
+    ),
     "energetic": ("energetic", "energy", "hype", "party", "dance", "upbeat", "pump"),
     "romantic": ("romantic", "love", "romance", "date night", "valentine"),
     "sleep": ("sleep", "sleeping", "bedtime", "lullaby", "insomnia"),
@@ -33,29 +57,89 @@ MOOD_WORDS: dict[str, tuple[str, ...]] = {
 }
 
 MOOD_ENERGY = {
-    "calm": 30, "happy": 70, "focused": 35, "energetic": 85, "romantic": 45, "sleep": 10,
-    "workout": 92, "travel": 65,
+    "calm": 30,
+    "happy": 70,
+    "focused": 35,
+    "energetic": 85,
+    "romantic": 45,
+    "sleep": 10,
+    "workout": 92,
+    "travel": 65,
 }
 
 GENRES = (
-    "melody", "melodies", "acoustic", "lofi", "lo-fi", "jazz", "classical", "carnatic",
-    "hindustani", "ghazal", "folk", "rock", "indie", "pop", "hip hop", "hip-hop", "rap",
-    "edm", "electronic", "house", "techno", "ambient", "r&b", "soul", "blues", "metal",
-    "country", "reggaeton", "devotional", "sufi", "qawwali", "instrumental", "piano",
-    "orchestral", "synthwave", "kuthu", "mass", "remix", "unplugged", "ballad",
+    "melody",
+    "melodies",
+    "acoustic",
+    "lofi",
+    "lo-fi",
+    "jazz",
+    "classical",
+    "carnatic",
+    "hindustani",
+    "ghazal",
+    "folk",
+    "rock",
+    "indie",
+    "pop",
+    "hip hop",
+    "hip-hop",
+    "rap",
+    "edm",
+    "electronic",
+    "house",
+    "techno",
+    "ambient",
+    "r&b",
+    "soul",
+    "blues",
+    "metal",
+    "country",
+    "reggaeton",
+    "devotional",
+    "sufi",
+    "qawwali",
+    "instrumental",
+    "piano",
+    "orchestral",
+    "synthwave",
+    "kuthu",
+    "mass",
+    "remix",
+    "unplugged",
+    "ballad",
 )
 _GENRE_ALIASES = {"melodies": "melody", "lo-fi": "lofi", "hip-hop": "hip hop"}
 
 ACTIVITIES = {
-    "coding": "coding", "programming": "coding", "study": "studying", "studying": "studying",
-    "road trip": "road trip", "roadtrip": "road trip", "drive": "driving",
-    "driving": "driving", "workout": "workout", "gym": "workout", "running": "running",
-    "cooking": "cooking", "party": "party", "sleep": "sleep", "reading": "reading",
-    "meditation": "meditation", "yoga": "yoga",
+    "coding": "coding",
+    "programming": "coding",
+    "study": "studying",
+    "studying": "studying",
+    "road trip": "road trip",
+    "roadtrip": "road trip",
+    "drive": "driving",
+    "driving": "driving",
+    "workout": "workout",
+    "gym": "workout",
+    "running": "running",
+    "cooking": "cooking",
+    "party": "party",
+    "sleep": "sleep",
+    "reading": "reading",
+    "meditation": "meditation",
+    "yoga": "yoga",
 }
 
 _NUMBER_WORDS = {
-    "one": 1, "an": 1, "a": 1, "two": 2, "three": 3, "four": 4, "five": 5, "half": 0.5,
+    "one": 1,
+    "an": 1,
+    "a": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "half": 0.5,
 }
 _DURATION_RE = re.compile(
     r"\b(?P<num>\d+(?:\.\d+)?|one|two|three|four|five|an|a|half)[\s-]*"
@@ -151,11 +235,33 @@ def extract_intent(
 
     found_discovery = discovery
     if not found_discovery:
-        if any(w in lowered for w in ("less popular", "underrated", "hidden gem", "obscure",
-                                      "lesser known", "lesser-known", "new to me", "discover")):
+        if any(
+            w in lowered
+            for w in (
+                "less popular",
+                "underrated",
+                "hidden gem",
+                "obscure",
+                "lesser known",
+                "lesser-known",
+                "new to me",
+                "discover",
+            )
+        ):
             found_discovery = "discovery"
-        elif any(w in lowered for w in ("popular", "hits", "top songs", "classics",
-                                        "familiar", "favorites", "favourites", "best of")):
+        elif any(
+            w in lowered
+            for w in (
+                "popular",
+                "hits",
+                "top songs",
+                "classics",
+                "familiar",
+                "favorites",
+                "favourites",
+                "best of",
+            )
+        ):
             found_discovery = "familiar"
         else:
             found_discovery = hints.discovery
@@ -173,8 +279,15 @@ def extract_intent(
         references.extend(hints.favorite_artists[:4])
 
     queries = build_queries(
-        mood=found_mood, language=found_language, genres=found_genres, activity=activity,
-        era=era, vocals=vocals, references=references, discovery=found_discovery, text=text,
+        mood=found_mood,
+        language=found_language,
+        genres=found_genres,
+        activity=activity,
+        era=era,
+        vocals=vocals,
+        references=references,
+        discovery=found_discovery,
+        text=text,
     )
 
     title_bits = [b for b in (found_language, (found_mood or "").title() or None) if b]
@@ -196,7 +309,8 @@ def extract_intent(
     if vocals != "any":
         explanation_parts.append(f"{vocals} vocals")
     explanation = (
-        "I looked for " + "; ".join(explanation_parts) + "." if explanation_parts
+        "I looked for " + "; ".join(explanation_parts) + "."
+        if explanation_parts
         else "I searched for music matching your description."
     )
 
@@ -219,9 +333,39 @@ def extract_intent(
 
 
 _STOPWORDS = {
-    "find", "create", "make", "build", "a", "an", "the", "me", "some", "for", "playlist",
-    "songs", "song", "music", "with", "of", "from", "to", "my", "please", "recommend", "and",
-    "that", "are", "but", "i", "want", "give", "play", "list", "tracks", "similar", "like",
+    "find",
+    "create",
+    "make",
+    "build",
+    "a",
+    "an",
+    "the",
+    "me",
+    "some",
+    "for",
+    "playlist",
+    "songs",
+    "song",
+    "music",
+    "with",
+    "of",
+    "from",
+    "to",
+    "my",
+    "please",
+    "recommend",
+    "and",
+    "that",
+    "are",
+    "but",
+    "i",
+    "want",
+    "give",
+    "play",
+    "list",
+    "tracks",
+    "similar",
+    "like",
 }
 
 

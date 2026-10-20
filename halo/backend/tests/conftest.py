@@ -23,6 +23,10 @@ def make_settings(**overrides: Any) -> Settings:
         "database_url": TEST_DATABASE_URL,
         "redis_url": None,
         "llm_provider": "none",
+        # Tests never call external music services; they inject fakes where needed.
+        "musicbrainz_enabled": False,
+        "listenbrainz_enabled": False,
+        "deezer_enabled": False,
         "jwt_secret": "test-secret-0123456789-0123456789-abcdef",
         "rate_limit_search_per_minute": 1000,
         "rate_limit_ai_per_minute": 1000,

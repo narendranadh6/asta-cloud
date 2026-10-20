@@ -98,21 +98,20 @@ _NOISE = re.compile(
     r"remaster(ed)?|live|from)[^)\]]*[\)\]]",
     re.IGNORECASE,
 )
-_SEPARATORS = (" - ", " – ", " — ", " | ")
+_SEPARATORS = (" - ", " – ", " — ")  # "Artist - Song"; " | " usually precedes a film/album
 
 
 def parse_youtube_title(title: str, channel: str) -> tuple[str, str]:
     """Best-effort (artist, song) from a YouTube title such as "Artist - Song (Official Video)"."""
-    cleaned = _NOISE.sub("", title).strip()
+    cleaned = _NOISE.sub("", title).strip().split(" | ")[0].strip()
     channel_clean = re.sub(
         r"\s*(- topic|vevo|official)\s*$", "", channel, flags=re.IGNORECASE
     ).strip()
     for separator in _SEPARATORS:
         if separator in cleaned:
             left, right = cleaned.split(separator, 1)
-            right = right.split(" | ")[0].strip()
-            if left.strip() and right:
-                return left.strip(), right
+            if left.strip() and right.strip():
+                return left.strip(), right.strip()
     return channel_clean, cleaned
 
 
@@ -183,11 +182,9 @@ class MusicBrainzClient:
     ) -> None:
         self._store = store
         self._min_interval = min_interval
-        self._client = http_client or httpx.AsyncClient(
-            base_url=base_url,
-            timeout=timeout,
-            headers={"User-Agent": f"Halo/0.1 ( {contact} )", "Accept": "application/json"},
-        )
+        # Sent on every request, also when a custom client is injected.
+        self._headers = {"User-Agent": f"Halo/0.1 ( {contact} )", "Accept": "application/json"}
+        self._client = http_client or httpx.AsyncClient(base_url=base_url, timeout=timeout)
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -203,7 +200,7 @@ class MusicBrainzClient:
             if wait > 0:
                 await asyncio.sleep(wait)
             try:
-                response = await self._client.get(path, params=params)
+                response = await self._client.get(path, params=params, headers=self._headers)
             except httpx.HTTPError as exc:
                 raise MusicBrainzUnavailableError("MusicBrainz is unreachable") from exc
             finally:

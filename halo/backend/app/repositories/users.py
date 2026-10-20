@@ -122,8 +122,10 @@ async def replace_preferences(
     await session.execute(delete(ArtistPreference).where(ArtistPreference.user_id == user_id))
     seen: set[str] = set()
     # Exclusions win if the same artist appears in both lists.
-    for stance, artists in (("excluded", body.excluded_artists),
-                            ("favorite", body.favorite_artists)):
+    for stance, artists in (
+        ("excluded", body.excluded_artists),
+        ("favorite", body.favorite_artists),
+    ):
         for artist in artists:
             normalized = normalize_name(artist.name)
             if not normalized or normalized in seen:

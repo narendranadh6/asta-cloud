@@ -19,6 +19,7 @@ FEATURES = (
     "cf_score",  # co-listening similarity to the listener's seeds (0..1)
     "similar_artist",  # 1 if found via a similar-artist expansion
     "co_listen",  # 1 if found via co-listening
+    "listenbrainz",  # 1 if found via ListenBrainz artist radio (real listening data)
     "liked_channel",  # 1 if the listener liked/saved this channel before
     "popularity_z",  # log10(views) relative to the candidate set median
     "pop_x_discovery",  # popularity_z * (+1 familiar, 0 balanced, -1 discovery)
@@ -29,6 +30,7 @@ DEFAULT_WEIGHTS: dict[str, float] = {
     "cf_score": 0.8,
     "similar_artist": 0.05,
     "co_listen": 0.15,
+    "listenbrainz": 0.12,
     "liked_channel": 0.15,
     "popularity_z": 0.0,
     "pop_x_discovery": 0.08,

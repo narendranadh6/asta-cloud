@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Path, Query, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 
 from app.api.deps import (
     CurrentUser,
@@ -32,6 +32,7 @@ from app.schemas import (
     AIChatRequest,
     AIChatResponse,
     AIPlaylistRequest,
+    ArtistProfileResponse,
     FeedbackRequest,
     FeedbackResponse,
     PlaylistCreate,
@@ -51,11 +52,23 @@ from app.schemas import (
     TasteProfile,
     TokenResponse,
     Track,
+    TrackMetadataResponse,
     TrendingResponse,
     UpNextResponse,
 )
 from app.services.ai.intent import MusicIntent
 from app.services.ai.providers import PlanOverrides
+from app.services.music_sources.listenbrainz import (
+    FreshRelease,
+    ListenBrainzClient,
+    ListenBrainzUnavailableError,
+    PopularRecording,
+)
+from app.services.music_sources.musicbrainz import (
+    MusicBrainzClient,
+    MusicBrainzUnavailableError,
+    parse_youtube_title,
+)
 from app.services.music_sources.radio import RadioStation, RadioUnavailableError
 from app.services.recommendations.pipeline import Candidate
 from app.services.youtube.base import (
@@ -88,7 +101,7 @@ def translate_provider_error(exc: YouTubeError) -> AppError:
     if isinstance(exc, ProviderConfigurationError):
         return ServiceUnavailableError(
             str(exc) or "Music search is not configured correctly on the server.",
-            code="search_misconfigured"
+            code="search_misconfigured",
         )
     if isinstance(exc, ProviderUnavailableError):
         return UpstreamError(
@@ -159,8 +172,11 @@ async def export_data(user: CurrentUser, session: SessionDep) -> dict[str, Any]:
     history = await user_repo.list_search_history(session, user.id, limit=1000)
     taste = await user_repo.taste_profile(session, user.id)
     return {
-        "user": {"id": str(user.id), "display_name": user.display_name,
-                 "created_at": user.created_at.isoformat()},
+        "user": {
+            "id": str(user.id),
+            "display_name": user.display_name,
+            "created_at": user.created_at.isoformat(),
+        },
         "preferences": prefs.model_dump(mode="json"),
         "playlists": playlists,
         "search_history": [
@@ -182,9 +198,7 @@ async def delete_account(user: CurrentUser, session: SessionDep) -> Response:
 # --- Search & videos ------------------------------------------------------------------
 
 
-@router.get(
-    "/search", response_model=SearchResponse, tags=["search"], dependencies=[SEARCH_LIMIT]
-)
+@router.get("/search", response_model=SearchResponse, tags=["search"], dependencies=[SEARCH_LIMIT])
 async def search(
     user: CurrentUser,
     session: SessionDep,
@@ -218,9 +232,18 @@ async def search(
 
 
 _SEED_SUGGESTIONS = [
-    "telugu melodies", "lofi beats for coding", "bollywood romantic hits", "tamil kuthu",
-    "acoustic covers", "k-pop dance", "sufi qawwali", "carnatic instrumental",
-    "road trip rock", "piano for sleep", "workout hip hop", "jazz for focus",
+    "telugu melodies",
+    "lofi beats for coding",
+    "bollywood romantic hits",
+    "tamil kuthu",
+    "acoustic covers",
+    "k-pop dance",
+    "sufi qawwali",
+    "carnatic instrumental",
+    "road trip rock",
+    "piano for sleep",
+    "workout hip hop",
+    "jazz for focus",
 ]
 
 
@@ -335,9 +358,7 @@ async def create_playlist(
     body: PlaylistCreate, user: CurrentUser, session: SessionDep, search: SearchServiceDep
 ) -> PlaylistDetail:
     tracks = await verified_tracks(search, list(dict.fromkeys(body.video_ids)))
-    return await playlist_repo.create_playlist(
-        session, user.id, body, tracks, search.provider.name
-    )
+    return await playlist_repo.create_playlist(session, user.id, body, tracks, search.provider.name)
 
 
 @router.get(
@@ -444,13 +465,16 @@ async def colisten_candidates(
         return []
     return [
         Candidate(
-            track=verified[p.video_id], query="co-listening", rank=rank, source="co_listen",
+            track=verified[p.video_id],
+            query="co-listening",
+            rank=rank,
+            source="co_listen",
             source_reason=f"Listeners who saved “{p.seed_title}” also saved this",
             cf_score=min(p.score, 1.0),
         )
-        for rank, p in enumerate(pairs) if p.video_id in verified
+        for rank, p in enumerate(pairs)
+        if p.video_id in verified
     ]
-
 
 
 async def _build_draft(
@@ -477,11 +501,15 @@ async def _build_draft(
     personal = prefs.personalization_enabled
     extra = (
         await colisten_candidates(session, search, await rec_repo.listener_seeds(session, user_id))
-        if personal else []
+        if personal
+        else []
     )
     try:
         result = await pipeline.run(
-            plan.intent, hints, feedback, exclude_video_ids,
+            plan.intent,
+            hints,
+            feedback,
+            exclude_video_ids,
             extra_candidates=extra,
             ranker=await rec_repo.load_ranker(session),
             posteriors=await rec_repo.arm_posteriors(session, user_id if personal else None),
@@ -523,7 +551,10 @@ async def _build_draft(
 
 
 @router.post(
-    "/ai/playlist", response_model=PlaylistDraft, tags=["ai"], dependencies=[AI_LIMIT],
+    "/ai/playlist",
+    response_model=PlaylistDraft,
+    tags=["ai"],
+    dependencies=[AI_LIMIT],
     summary="Plan and assemble an editable playlist draft from verified search results",
 )
 async def ai_playlist(
@@ -539,8 +570,11 @@ async def ai_playlist(
         text=body.description,
         source="studio",
         overrides=PlanOverrides(
-            mood=body.mood, language=body.language, genres=body.genres or None,
-            energy=body.energy, duration_minutes=body.duration_minutes,
+            mood=body.mood,
+            language=body.language,
+            genres=body.genres or None,
+            energy=body.energy,
+            duration_minutes=body.duration_minutes,
             discovery=body.discovery,
         ),
         exclude_video_ids=exclude,
@@ -595,9 +629,7 @@ async def ai_chat(
         )
         conversation_id = conversation.id
         stored = True
-    return AIChatResponse(
-        conversation_id=conversation_id, reply=reply, draft=draft, stored=stored
-    )
+    return AIChatResponse(conversation_id=conversation_id, reply=reply, draft=draft, stored=stored)
 
 
 @router.post(
@@ -621,9 +653,7 @@ async def recommendation_feedback(
     await rec_repo.record_bandit_reward(
         session, user.id, row.session_id, body.video_id, body.rating
     )
-    return FeedbackResponse(
-        id=row.id, video_id=row.video_id, rating=body.rating, recorded=True
-    )
+    return FeedbackResponse(id=row.id, video_id=row.video_id, rating=body.rating, recorded=True)
 
 
 @router.get(
@@ -659,7 +689,8 @@ async def up_next(
     extra = await colisten_candidates(session, search, [video_id])
     try:
         result = await pipeline.run(
-            intent, hints,
+            intent,
+            hints,
             await user_repo.feedback_signals(session, user.id) if personal else None,
             {video_id},
             extra_candidates=extra,
@@ -669,6 +700,154 @@ async def up_next(
     except YouTubeError as exc:
         raise translate_provider_error(exc) from exc
     return UpNextResponse(seed_video_id=video_id, tracks=result.tracks[:limit])
+
+
+# --- MusicBrainz / ListenBrainz --------------------------------------------------------
+
+
+def _musicbrainz(request: Request) -> MusicBrainzClient:
+    client: MusicBrainzClient | None = request.app.state.musicbrainz
+    if client is None:
+        raise ServiceUnavailableError(
+            "Music metadata is turned off on this server.", code="metadata_disabled"
+        )
+    return client
+
+
+def _listenbrainz(request: Request) -> ListenBrainzClient:
+    client: ListenBrainzClient | None = request.app.state.listenbrainz
+    if client is None:
+        raise ServiceUnavailableError(
+            "Music discovery is turned off on this server.", code="discovery_disabled"
+        )
+    return client
+
+
+@router.get(
+    "/metadata/track",
+    response_model=TrackMetadataResponse,
+    tags=["metadata"],
+    dependencies=[SEARCH_LIMIT],
+    summary="Canonical recording, album, release date, label, ISRC and genres (MusicBrainz)",
+)
+async def track_metadata(
+    request: Request,
+    user: CurrentUser,
+    search: SearchServiceDep,
+    video_id: Annotated[str, Query(min_length=11, max_length=11, pattern=r"^[A-Za-z0-9_-]{11}$")],
+) -> TrackMetadataResponse:
+    musicbrainz = _musicbrainz(request)
+    try:
+        track = await search.get_video(video_id)
+    except YouTubeError as exc:
+        raise translate_provider_error(exc) from exc
+    artist_name, title = parse_youtube_title(track.title, track.channel_title)
+    try:
+        recording = await musicbrainz.match_recording(title, artist_name, track.duration_seconds)
+        artist = None
+        if recording and recording.artist_credit and recording.artist_credit[0].mbid:
+            artist = await musicbrainz.artist(recording.artist_credit[0].mbid)
+    except MusicBrainzUnavailableError as exc:
+        raise UpstreamError(
+            "Music metadata is unavailable right now.",
+            code="metadata_unavailable",
+            headers={"Retry-After": "30"},
+        ) from exc
+    return TrackMetadataResponse(
+        video_id=video_id,
+        parsed_artist=artist_name,
+        parsed_title=title,
+        matched=recording is not None,
+        recording=recording,
+        artist=artist,
+    )
+
+
+@router.get(
+    "/metadata/artist",
+    response_model=ArtistProfileResponse,
+    tags=["metadata"],
+    dependencies=[SEARCH_LIMIT],
+    summary="Artist profile (MusicBrainz) with popular recordings (ListenBrainz)",
+)
+async def artist_profile(
+    request: Request,
+    user: CurrentUser,
+    name: Annotated[str, Query(min_length=1, max_length=100)],
+) -> ArtistProfileResponse:
+    musicbrainz = _musicbrainz(request)
+    try:
+        artist = await musicbrainz.find_artist(name)
+    except MusicBrainzUnavailableError as exc:
+        raise UpstreamError(
+            "Music metadata is unavailable right now.",
+            code="metadata_unavailable",
+            headers={"Retry-After": "30"},
+        ) from exc
+    popular: list[PopularRecording] = []
+    sources = ["MusicBrainz"] if artist else []
+    listenbrainz: ListenBrainzClient | None = request.app.state.listenbrainz
+    if artist and listenbrainz is not None:
+        try:
+            popular = await listenbrainz.artist_top_recordings(artist.mbid)
+        except ListenBrainzUnavailableError:
+            popular = []
+        if popular:
+            sources.append("ListenBrainz")
+    return ArtistProfileResponse(artist=artist, popular_recordings=popular, sources=sources)
+
+
+@router.get(
+    "/discover/fresh-releases",
+    response_model=list[FreshRelease],
+    tags=["search"],
+    dependencies=[SEARCH_LIMIT],
+    summary="New and recent releases with listen counts (ListenBrainz)",
+)
+async def fresh_releases(
+    request: Request,
+    user: CurrentUser,
+    days: Annotated[int, Query(ge=1, le=90)] = 14,
+    upcoming: bool = False,
+    limit: Annotated[int, Query(ge=1, le=200)] = 60,
+) -> list[FreshRelease]:
+    try:
+        releases = await _listenbrainz(request).fresh_releases(
+            days=days, past=True, future=upcoming
+        )
+    except ListenBrainzUnavailableError as exc:
+        raise UpstreamError(
+            "New releases are unavailable right now.",
+            code="discovery_unavailable",
+            headers={"Retry-After": "30"},
+        ) from exc
+    releases.sort(key=lambda r: (r.release_date, r.listen_count), reverse=True)
+    return releases[:limit]
+
+
+@router.get(
+    "/discover/most-listened",
+    response_model=list[PopularRecording],
+    tags=["search"],
+    dependencies=[SEARCH_LIMIT],
+    summary="Most-listened recordings across ListenBrainz for a time range",
+)
+async def most_listened(
+    request: Request,
+    user: CurrentUser,
+    range_: Annotated[
+        str, Query(alias="range", pattern="^(week|month|quarter|year|all_time)$")
+    ] = "week",
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> list[PopularRecording]:
+    try:
+        return await _listenbrainz(request).top_recordings(range_=range_, count=limit)
+    except ListenBrainzUnavailableError as exc:
+        raise UpstreamError(
+            "Listening charts are unavailable right now.",
+            code="discovery_unavailable",
+            headers={"Retry-After": "30"},
+        ) from exc
 
 
 # --- Live radio -------------------------------------------------------------------------
@@ -691,18 +870,22 @@ async def radio_stations(
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
 ) -> list[RadioStation]:
     try:
-        return await radio.search(tag=tag, language=language, country_code=country, name=q,
-                                  limit=limit)
+        return await radio.search(
+            tag=tag, language=language, country_code=country, name=q, limit=limit
+        )
     except RadioUnavailableError as exc:
-        raise UpstreamError(str(exc), code="radio_unavailable",
-                            headers={"Retry-After": "30"}) from exc
+        raise UpstreamError(
+            str(exc), code="radio_unavailable", headers={"Retry-After": "30"}
+        ) from exc
 
 
 # --- Preferences ------------------------------------------------------------------------
 
 
 @router.get(
-    "/preferences", response_model=PreferencesOut, tags=["preferences"],
+    "/preferences",
+    response_model=PreferencesOut,
+    tags=["preferences"],
     dependencies=[DEFAULT_LIMIT],
 )
 async def get_preferences(user: CurrentUser, session: SessionDep) -> PreferencesOut:
@@ -710,7 +893,9 @@ async def get_preferences(user: CurrentUser, session: SessionDep) -> Preferences
 
 
 @router.put(
-    "/preferences", response_model=PreferencesOut, tags=["preferences"],
+    "/preferences",
+    response_model=PreferencesOut,
+    tags=["preferences"],
     dependencies=[DEFAULT_LIMIT],
 )
 async def put_preferences(
@@ -720,7 +905,9 @@ async def put_preferences(
 
 
 @router.get(
-    "/preferences/taste", response_model=TasteProfile, tags=["preferences"],
+    "/preferences/taste",
+    response_model=TasteProfile,
+    tags=["preferences"],
     dependencies=[DEFAULT_LIMIT],
 )
 async def get_taste(user: CurrentUser, session: SessionDep) -> TasteProfile:

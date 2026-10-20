@@ -12,7 +12,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-ARMS = ("search", "similar_artist", "co_listen")
+ARMS = ("search", "similar_artist", "co_listen", "listenbrainz")
 EXPLORE_SHARE = {"familiar": 0.10, "balanced": 0.20, "discovery": 0.35}
 GLOBAL_WEIGHT = 0.1  # how much the population prior counts toward one listener's arm
 

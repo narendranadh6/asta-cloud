@@ -8,6 +8,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.music_sources.listenbrainz import PopularRecording
+from app.services.music_sources.musicbrainz import ArtistInfo, CanonicalRecording
 from app.services.youtube.ids import is_valid_playlist_id, is_valid_video_id
 
 SearchKind = Literal["song", "artist", "remix", "live"]
@@ -310,7 +312,7 @@ class RecommendedTrack(APIModel):
     score: float
     reasons: list[str]
     matched_query: str
-    source: Literal["search", "similar_artist", "co_listen"] = "search"
+    source: Literal["search", "similar_artist", "co_listen", "listenbrainz"] = "search"
     explore: bool = False
 
 
@@ -340,6 +342,24 @@ class UpNextResponse(APIModel):
 
     seed_video_id: str
     tracks: list[RecommendedTrack]
+
+
+class TrackMetadataResponse(APIModel):
+    """Canonical facts about a YouTube song from MusicBrainz (CC0 data)."""
+
+    video_id: str
+    parsed_artist: str
+    parsed_title: str
+    matched: bool
+    recording: CanonicalRecording | None = None
+    artist: ArtistInfo | None = None
+    source: str = "MusicBrainz"
+
+
+class ArtistProfileResponse(APIModel):
+    artist: ArtistInfo | None
+    popular_recordings: list[PopularRecording] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
 
 
 class FeedbackRequest(APIModel):

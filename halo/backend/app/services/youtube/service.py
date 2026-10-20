@@ -178,9 +178,7 @@ class UnconfiguredProvider:
     ) -> SearchPage:
         return await self._fail()
 
-    async def trending(
-        self, *, page_token: str | None = None, max_results: int = 20
-    ) -> SearchPage:
+    async def trending(self, *, page_token: str | None = None, max_results: int = 20) -> SearchPage:
         return await self._fail()
 
     async def get_videos(self, video_ids: list[str]) -> dict[str, Track]:

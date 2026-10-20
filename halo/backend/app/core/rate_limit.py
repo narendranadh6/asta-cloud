@@ -38,8 +38,11 @@ async def enforce_rate_limit(request: Request, bucket: str, limit_per_minute: in
     if count > limit_per_minute:
         raise RateLimitedError(
             "Too many requests. Please slow down and try again shortly.",
-            details={"bucket": bucket, "limit_per_minute": limit_per_minute,
-                     "retry_after_seconds": reset_in},
+            details={
+                "bucket": bucket,
+                "limit_per_minute": limit_per_minute,
+                "retry_after_seconds": reset_in,
+            },
             headers={"Retry-After": str(reset_in)},
         )
 

@@ -173,11 +173,13 @@ class CachedSimilarArtists:
             await provider.aclose()
 
 
-def build_similar_artists(settings: object, store: KeyValueStore) -> CachedSimilarArtists:
+def build_similar_artists(
+    settings: object, store: KeyValueStore, first: SimilarArtistProvider | None = None
+) -> CachedSimilarArtists:
     from app.core.config import Settings
 
     assert isinstance(settings, Settings)
-    providers: list[SimilarArtistProvider] = []
+    providers: list[SimilarArtistProvider] = [first] if first is not None else []
     if settings.lastfm_api_key and settings.lastfm_api_key.get_secret_value().strip():
         providers.append(LastFmSimilarArtists(settings.lastfm_api_key.get_secret_value()))
     if settings.deezer_enabled:
