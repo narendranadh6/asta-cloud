@@ -193,3 +193,28 @@ extension APIClientTests {
         }
     }
 }
+
+final class FallbackTokenStoreTests: XCTestCase {
+    private final class FailingStore: TokenStore, @unchecked Sendable {
+        struct Failure: Error {}
+        func readToken() -> String? { nil }
+        func saveToken(_ token: String) throws { throw Failure() }
+        func deleteToken() {}
+    }
+
+    func testFallsBackToMemoryWhenPrimaryCannotSave() throws {
+        let store = FallbackTokenStore(primary: FailingStore())
+        try store.saveToken("abc")
+        XCTAssertEqual(store.readToken(), "abc")
+        store.deleteToken()
+        XCTAssertNil(store.readToken())
+    }
+
+    func testUsesPrimaryWhenItWorks() throws {
+        let primary = InMemoryTokenStore()
+        let store = FallbackTokenStore(primary: primary)
+        try store.saveToken("xyz")
+        XCTAssertEqual(primary.readToken(), "xyz")
+        XCTAssertEqual(store.readToken(), "xyz")
+    }
+}

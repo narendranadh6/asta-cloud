@@ -65,8 +65,11 @@ final class AppModel {
         guard let raw, let url = URL(string: raw), url.scheme != nil else {
             preconditionFailure("HaloAPIBaseURL is missing from Info.plist")
         }
+        // UI tests run unsigned builds, which have no Keychain access.
+        let tokens: TokenStore = ProcessInfo.processInfo.arguments.contains("-HaloInMemoryStore")
+            ? InMemoryTokenStore() : FallbackTokenStore(primary: KeychainTokenStore())
         return APIClient(
             configuration: .init(baseURL: url), transport: URLSessionTransport.makeDefault(),
-            tokens: KeychainTokenStore())
+            tokens: tokens)
     }
 }

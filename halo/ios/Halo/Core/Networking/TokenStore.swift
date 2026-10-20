@@ -31,11 +31,55 @@ public final class InMemoryTokenStore: TokenStore, @unchecked Sendable {
     }
 }
 
+/// Uses `primary` (the Keychain) and falls back to memory for this launch when it can't
+/// save, e.g. an unsigned simulator build without Keychain entitlements. The app keeps
+/// working; the device simply re-registers on next launch.
+public final class FallbackTokenStore: TokenStore, @unchecked Sendable {
+    private let primary: TokenStore
+    private let memory = InMemoryTokenStore()
+    private let lock = NSLock()
+    private var usingMemory = false
+
+    public init(primary: TokenStore) {
+        self.primary = primary
+    }
+
+    private var isUsingMemory: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return usingMemory
+    }
+
+    public func readToken() -> String? {
+        isUsingMemory ? memory.readToken() : primary.readToken()
+    }
+
+    public func saveToken(_ token: String) throws {
+        do {
+            try primary.saveToken(token)
+        } catch {
+            lock.lock(); usingMemory = true; lock.unlock()
+            try memory.saveToken(token)
+        }
+    }
+
+    public func deleteToken() {
+        primary.deleteToken()
+        memory.deleteToken()
+    }
+}
+
 #if canImport(Security)
 import Security
 
-public enum KeychainError: Error, Equatable {
+public enum KeychainError: Error, Equatable, LocalizedError {
     case unexpectedStatus(OSStatus)
+
+    public var errorDescription: String? {
+        switch self {
+        case let .unexpectedStatus(status):
+            "Halo couldn't use the Keychain (status \(status))."
+        }
+    }
 }
 
 /// Generic-password Keychain item, accessible after first unlock, never synced to iCloud.

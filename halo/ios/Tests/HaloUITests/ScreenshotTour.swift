@@ -60,7 +60,9 @@ final class ScreenshotTour: XCTestCase {
         app.swipeDown()
         settle(1)
 
-        // The Discover chip, falling back to the shelf's "See all" link.
+        // The Discover chip sits off-screen in the horizontal chip row; reveal it first.
+        let chip = app.buttons["Workout"].firstMatch
+        if chip.waitForExistence(timeout: 5) { chip.swipeLeft(); settle(1) }
         for label in ["Discover", "See all"] {
             let link = app.buttons[label].firstMatch
             guard link.waitForExistence(timeout: 5), link.isHittable else { continue }
