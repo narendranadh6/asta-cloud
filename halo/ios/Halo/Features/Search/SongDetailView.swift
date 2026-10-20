@@ -9,6 +9,9 @@ final class SongDetailViewModel {
     private(set) var isLoadingRelated = false
     private(set) var unavailable = false
     private(set) var feedback: FeedbackRating?
+    /// MusicBrainz facts; nil until loaded or when the server has MusicBrainz switched off.
+    private(set) var canonical: TrackMetadataResponse?
+    private(set) var isLoadingCanonical = true
 
     init(track: Track) {
         self.track = track
@@ -16,6 +19,7 @@ final class SongDetailViewModel {
 
     /// Refreshes metadata (verifies the video is still available) and loads related music.
     func load(api: MusicAPI) async {
+        async let canonicalLoad: Void = loadCanonical(api: api)
         do {
             track = try await api.video(id: track.videoId)
         } catch let error as APIError where error.code == "video_unavailable" {
@@ -29,6 +33,12 @@ final class SongDetailViewModel {
             query: track.channelTitle, kind: .artist, pageToken: nil, limit: 10) {
             related = response.items.filter { $0.videoId != track.videoId }
         }
+        await canonicalLoad
+    }
+
+    private func loadCanonical(api: MusicAPI) async {
+        defer { isLoadingCanonical = false }
+        canonical = try? await api.trackMetadata(videoID: track.videoId)
     }
 
     func send(_ rating: FeedbackRating, api: MusicAPI) async {
@@ -68,6 +78,7 @@ struct SongDetailView: View {
                 HandoffButton(track: model.track)
                 actions
                 PlaybackBoundaryNote()
+                RecordingFactsCard(isLoading: model.isLoadingCanonical, metadata: model.canonical)
                 relatedSection
             }
             .padding(Spacing.md)
@@ -195,5 +206,87 @@ struct SongDetailView: View {
         app.playlistChanged(playlist)
         Haptics.success(enabled: settings.hapticsEnabled)
         addedConfirmation = "Created \(playlist.name)"
+    }
+}
+
+/// "About this recording": canonical facts from MusicBrainz (CC0 open data).
+/// Only shown when MusicBrainz is confident it identified the upload.
+struct RecordingFactsCard: View {
+    var isLoading: Bool
+    var metadata: TrackMetadataResponse?
+
+    var body: some View {
+        if isLoading {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                SectionHeader(title: "About this recording")
+                LoadingStateView(message: "Looking it up on MusicBrainz…")
+            }
+        } else if let metadata, let recording = metadata.recording, metadata.matched {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                SectionHeader(title: "About this recording")
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    if let album = recording.album {
+                        HStack(spacing: Spacing.md) {
+                            ArtworkView(url: album.coverArtURL, size: 64, cornerRadius: Spacing.cornerSmall)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(album.title).font(.headline).foregroundStyle(HaloColor.text)
+                                Text([album.releaseGroupType, album.date].compactMap { $0 }
+                                    .joined(separator: " · "))
+                                    .font(.caption).foregroundStyle(HaloColor.mutedText)
+                            }
+                        }
+                    }
+                    fact("Artist", recording.artistName)
+                    fact("Title", recording.title)
+                    fact("First released", recording.firstReleaseDate)
+                    if let seconds = recording.lengthMs.map({ $0 / 1000 }) {
+                        fact("Length", DurationFormatter.clock(seconds))
+                    }
+                    if let label = recording.album?.labels.first {
+                        fact("Label", [label.name, label.catalogNumber].compactMap { $0 }
+                            .joined(separator: " · "))
+                    }
+                    if !recording.isrcs.isEmpty {
+                        fact("ISRC", recording.isrcs.joined(separator: ", "))
+                    }
+                    if let area = metadata.artist?.area ?? metadata.artist?.country {
+                        fact("Artist from", area)
+                    }
+                    let genres = recording.genres.isEmpty ? (metadata.artist?.genres ?? []) : recording.genres
+                    if !genres.isEmpty {
+                        fact("Genres", genres.prefix(5).joined(separator: ", "))
+                    }
+                    if let url = recording.musicBrainzURL {
+                        Link(destination: url) {
+                            Label("View on MusicBrainz", systemImage: "arrow.up.right.square")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .tint(HaloColor.accent)
+                    }
+                }
+                .padding(Spacing.md)
+                .haloCard()
+                Text("Data: MusicBrainz (CC0). Cover art: Cover Art Archive. Matched from the "
+                     + "YouTube title, so it can occasionally be a different version.")
+                    .font(.caption2).foregroundStyle(HaloColor.mutedText)
+            }
+        } else if metadata != nil {
+            Text("MusicBrainz couldn't confidently identify this upload, so no album facts are shown.")
+                .font(.caption).foregroundStyle(HaloColor.mutedText)
+        }
+    }
+
+    @ViewBuilder
+    private func fact(_ label: String, _ value: String?) -> some View {
+        if let value, !value.isEmpty {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label).font(.caption).foregroundStyle(HaloColor.mutedText)
+                    .frame(width: 104, alignment: .leading)
+                Text(value).font(.subheadline).foregroundStyle(HaloColor.text)
+                    .textSelection(.enabled)
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+        }
     }
 }

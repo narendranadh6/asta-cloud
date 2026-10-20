@@ -184,13 +184,43 @@ final class DiscoverViewModelTests: XCTestCase {
         await api.setFailure(.offline)  // the first request to run fails
         let model = DiscoverViewModel()
         await model.load(api: api, language: "Telugu")
-        let failed = DiscoverViewModel.Shelf.allCases.filter {
+        var failed = DiscoverViewModel.Shelf.allCases.filter {
             if case .failed = model.shelves[$0] { return true } else { return false }
-        }
-        XCTAssertEqual(failed.count, 1)
+        }.count
+        if case .failed = model.freshReleases { failed += 1 }
+        if case .failed = model.mostListened { failed += 1 }
+        XCTAssertEqual(failed, 1)
         await model.load(api: api, language: "Telugu")  // retry recovers
         XCTAssertTrue(DiscoverViewModel.Shelf.allCases.allSatisfy {
             if case .loaded = model.shelves[$0] { return true } else { return false }
         })
+        guard case .loaded = model.freshReleases, case .loaded = model.mostListened else {
+            return XCTFail("ListenBrainz shelves should recover")
+        }
+    }
+
+    func testLoadsListenBrainzShelves() async {
+        let model = DiscoverViewModel()
+        await model.load(api: FakeMusicAPI(), language: nil)
+        guard case let .loaded(fresh) = model.freshReleases,
+              case let .loaded(popular) = model.mostListened
+        else { return XCTFail("expected ListenBrainz shelves") }
+        XCTAssertFalse(fresh.isEmpty)
+        XCTAssertEqual(popular.count, 10)
+        XCTAssertEqual(popular.first?.searchQuery, "\(popular[0].artistName) \(popular[0].title)")
+        model.filter = .new
+        XCTAssertEqual(model.visibleShelves, [])
+        XCTAssertTrue(model.filter.showsOpenData)
+    }
+
+    func testDisabledListenBrainzIsHiddenNotAnError() async {
+        let api = FakeMusicAPI()
+        await api.setDiscoveryDisabled(true)
+        let model = DiscoverViewModel()
+        await model.load(api: api, language: nil)
+        guard case .disabled = model.freshReleases, case .disabled = model.mostListened else {
+            return XCTFail("expected disabled")
+        }
+        guard case .loaded = model.shelves[.trending] else { return XCTFail("YouTube still loads") }
     }
 }

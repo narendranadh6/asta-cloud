@@ -60,6 +60,7 @@ explainable model is the right fit for its feedback volume.
 | Technique | Halo implementation |
 |---|---|
 | Explore / exploit with a bandit | `bandit.py`: a share of slots (10% familiar, 20% balanced, 35% discovery) goes to items the ranker would not pick. The source for each slot is chosen by **Thompson sampling** over Beta posteriors per listener, plus a down-weighted population prior |
+| Collaborative filtering from open listening data | `discovery.py`: ListenBrainz LB Radio (similar artists computed from millions of public listens) feeds the `listenbrainz` candidate source and bandit arm, so new listeners get CF-quality picks before Halo has its own data |
 | Explanations | Every pick carries reasons ("Listeners who saved X also saved this", "Similar to Y", "Something new for you") |
 | Playlist co-occurrence | `repositories/recommendations.py::co_listened`: item-to-item co-occurrence across opted-in listeners' playlists, cosine-normalised. A pair needs at least two listeners, so no one's playlist can be read back |
 | Feedback loop | Like/save and dislike/skip update the bandit arm that produced the item (`record_bandit_reward`) |
@@ -92,8 +93,8 @@ and lets you correct what Halo has inferred.
 | [Radio Browser](https://www.radio-browser.info/) | 50,000+ live radio stations with stream URLs, tags, language, country | No | **Yes**: Live Radio | Public-domain data, community run; send a User-Agent |
 | [Last.fm API](https://www.last.fm/api) | `artist.getSimilar`, `track.getSimilar`, tags | Yes (free) | **Yes**: similar artists | Optional (`HALO_LASTFM_API_KEY`) |
 | [Deezer API](https://developers.deezer.com/api) | Search, related artists, charts, 30 s previews | No | **Yes**: related artists fallback | No key needed |
-| [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) | Open music encyclopedia: artists, recordings, tags | No | Not yet | 1 request/second; good for metadata cleanup |
-| [ListenBrainz](https://listenbrainz.readthedocs.io/) | Open listening data, similar artists/recordings | Token for writes | Not yet | Open-data CF signals |
+| [MusicBrainz](https://musicbrainz.org/doc/MusicBrainz_API) | Open music encyclopedia: artists, recordings, releases, labels, ISRCs, genres | No | **Yes**: canonical song facts, artist MBIDs | 1 request/second, descriptive User-Agent; CC0 |
+| [ListenBrainz](https://listenbrainz.readthedocs.io/) | Open listening data: fresh releases, charts, LB Radio, popularity | Token for popularity | **Yes**: Discover shelves, `listenbrainz` candidate source, similar artists | Open-data collaborative filtering |
 | [iTunes Search API](https://performance-partners.apple.com/search-api) | Catalog search, artwork, 30 s previews | No | Not yet | Previews must link back to Apple Music |
 | [Audius API](https://docs.audius.org/) | Full tracks uploaded by artists, trending | App name | Not yet | Candidate for licensed native playback |
 | [Jamendo API](https://developer.jamendo.com/v3.0) | Creative Commons full tracks | Client id | Not yet | Candidate for licensed native playback |
@@ -109,4 +110,5 @@ allows.
   for bandits, the ranker or co-listening.
 * Co-listening only uses playlists of listeners who opted in, with a two-listener minimum
   per pair.
-* Only artist names are sent to Last.fm or Deezer, never user identifiers.
+* Only artist names (or MusicBrainz IDs and song titles) are sent to Last.fm, Deezer,
+  MusicBrainz and ListenBrainz, never user identifiers.

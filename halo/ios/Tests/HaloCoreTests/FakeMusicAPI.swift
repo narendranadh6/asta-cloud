@@ -22,6 +22,19 @@ actor FakeMusicAPI: MusicAPI {
         failNextRequest = error
     }
 
+    /// Answer ListenBrainz calls the way the server does when discovery is switched off.
+    public private(set) var discoveryDisabled = false
+    public func setDiscoveryDisabled(_ disabled: Bool) {
+        discoveryDisabled = disabled
+    }
+
+    private func checkDiscovery() throws {
+        if discoveryDisabled {
+            throw APIError.server(
+                status: 503, code: "discovery_disabled", message: "Discovery is off", retryAfter: nil)
+        }
+    }
+
     private func checkFailure() throws {
         if let error = failNextRequest {
             failNextRequest = nil
@@ -103,6 +116,57 @@ actor FakeMusicAPI: MusicAPI {
                              matchedQuery: "co-listening", source: "co_listen", explore: false)
         }
         return UpNextResponse(seedVideoId: videoID, tracks: Array(picks))
+    }
+
+    public func trackMetadata(videoID: String) async throws -> TrackMetadataResponse {
+        try checkFailure()
+        guard let track = catalog.first(where: { $0.videoId == videoID }) else {
+            return TrackMetadataResponse(
+                videoId: videoID, parsedArtist: "", parsedTitle: "", matched: false,
+                recording: nil, artist: nil, source: "MusicBrainz")
+        }
+        let release = ReleaseInfo(
+            mbid: "rel-1", title: "\(track.title) (Single)", date: "2024-05-01", country: "IN",
+            status: "Official", releaseGroupMbid: "rg-1", releaseGroupType: "Single",
+            labels: [RecordLabel(name: "Test Records", mbid: nil, catalogNumber: "TR-1")],
+            coverArtUrl: nil)
+        let recording = CanonicalRecording(
+            recordingMbid: "rec-1", title: track.title,
+            artistCredit: [ArtistCredit(name: track.channelTitle, mbid: "art-1", joinPhrase: "")],
+            lengthMs: track.durationSeconds.map { $0 * 1000 }, firstReleaseDate: "2024-05-01",
+            isrcs: ["INTST2400001"], genres: ["indie pop"], releases: [release], matchScore: 100,
+            musicbrainzUrl: "https://musicbrainz.org/recording/rec-1")
+        return TrackMetadataResponse(
+            videoId: videoID, parsedArtist: track.channelTitle, parsedTitle: track.title,
+            matched: true, recording: recording, artist: nil, source: "MusicBrainz")
+    }
+
+    public func artistProfile(name: String) async throws -> ArtistProfileResponse {
+        try checkFailure()
+        return ArtistProfileResponse(artist: nil, popularRecordings: [], sources: ["MusicBrainz"])
+    }
+
+    public func freshReleases(days: Int, upcoming: Bool, limit: Int) async throws -> [FreshRelease] {
+        try checkFailure()
+        try checkDiscovery()
+        return catalog.prefix(limit).enumerated().map { index, track in
+            FreshRelease(
+                releaseMbid: "fresh-\(index)", releaseName: track.title, artistName: track.channelTitle,
+                artistMbids: [], releaseDate: "2026-10-1\(index % 10)", releaseGroupMbid: nil,
+                releaseType: "Single", tags: [], listenCount: 100 - index, coverArtUrl: nil,
+                source: "ListenBrainz")
+        }
+    }
+
+    public func mostListened(range: ListeningRange, limit: Int) async throws -> [PopularRecording] {
+        try checkFailure()
+        try checkDiscovery()
+        return catalog.prefix(limit).enumerated().map { index, track in
+            PopularRecording(
+                recordingMbid: "pop-\(index)", title: track.title, artistName: track.channelTitle,
+                releaseName: nil, listenCount: 1000 - index, listenerCount: nil, lengthMs: nil,
+                similarTo: nil, source: "ListenBrainz")
+        }
     }
 
     public func radioStations(tag: String?, language: String?, query: String?, limit: Int)

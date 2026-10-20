@@ -42,6 +42,13 @@ final class ScreenshotTour: XCTestCase {
         settle()
     }
 
+    /// Goes back one screen if there is a back button; never fails the tour.
+    private func back() {
+        let button = app.navigationBars.buttons.firstMatch
+        if button.waitForExistence(timeout: 3) && button.isHittable { button.tap() }
+        settle(1)
+    }
+
     func testTour() {
         launch()
         settle(4)
@@ -51,15 +58,21 @@ final class ScreenshotTour: XCTestCase {
         settle(1)
         snap("02-home-scrolled")
         app.swipeDown()
+        settle(1)
 
-        let discover = app.buttons["Discover"].firstMatch
-        if discover.waitForExistence(timeout: 5) {
-            discover.tap()
-            settle(4)
-            snap("03-discover")
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-            settle(1)
+        // The Discover chip, falling back to the shelf's "See all" link.
+        for label in ["Discover", "See all"] {
+            let link = app.buttons[label].firstMatch
+            guard link.waitForExistence(timeout: 5), link.isHittable else { continue }
+            link.tap()
+            if app.navigationBars["Discover"].waitForExistence(timeout: 5) { break }
         }
+        settle(4)
+        snap("03-discover")
+        app.swipeUp()
+        settle(1)
+        snap("03b-discover-listenbrainz")
+        back()
 
         tab("Search")
         snap("04-search")
@@ -68,6 +81,9 @@ final class ScreenshotTour: XCTestCase {
             firstTrack.tap()
             settle(3)
             snap("05-song-details")
+            app.swipeUp()
+            settle(1)
+            snap("05b-song-musicbrainz")
         }
 
         tab("AI DJ")
@@ -84,8 +100,7 @@ final class ScreenshotTour: XCTestCase {
                 snap("08-review-queue")
                 let save = app.buttons["Save playlist"].firstMatch
                 if save.waitForExistence(timeout: 5) { save.tap(); settle(1) }
-                app.navigationBars.buttons.element(boundBy: 0).tap()
-                settle(1)
+                back()
             }
         }
 

@@ -31,6 +31,15 @@ public protocol MusicAPI: Sendable {
     func radioStations(tag: String?, language: String?, query: String?, limit: Int) async throws
         -> [RadioStation]
 
+    /// Canonical facts about a song from MusicBrainz; `matched` is false when unsure.
+    func trackMetadata(videoID: String) async throws -> TrackMetadataResponse
+    /// MusicBrainz artist facts plus ListenBrainz popular recordings when available.
+    func artistProfile(name: String) async throws -> ArtistProfileResponse
+    /// Recent (or upcoming) releases from ListenBrainz.
+    func freshReleases(days: Int, upcoming: Bool, limit: Int) async throws -> [FreshRelease]
+    /// Most-listened recordings across ListenBrainz.
+    func mostListened(range: ListeningRange, limit: Int) async throws -> [PopularRecording]
+
     func preferences() async throws -> Preferences
     func updatePreferences(_ preferences: Preferences) async throws -> Preferences
     func taste() async throws -> TasteProfile
@@ -301,6 +310,35 @@ public actor APIClient: MusicAPI {
         if let language, !language.isEmpty { items.append(URLQueryItem(name: "language", value: language)) }
         if let query, !query.isEmpty { items.append(URLQueryItem(name: "q", value: query)) }
         return try await send(.get, "api/v1/radio/stations", query: items)
+    }
+
+    public func trackMetadata(videoID: String) async throws -> TrackMetadataResponse {
+        guard YouTubeIdentifier.isValidVideoID(videoID) else {
+            throw APIError.server(
+                status: 422, code: "invalid_video_id", message: "Invalid video id", retryAfter: nil)
+        }
+        return try await send(.get, "api/v1/metadata/track", query: [
+            URLQueryItem(name: "video_id", value: videoID),
+        ])
+    }
+
+    public func artistProfile(name: String) async throws -> ArtistProfileResponse {
+        try await send(.get, "api/v1/metadata/artist", query: [URLQueryItem(name: "name", value: name)])
+    }
+
+    public func freshReleases(days: Int, upcoming: Bool, limit: Int) async throws -> [FreshRelease] {
+        try await send(.get, "api/v1/discover/fresh-releases", query: [
+            URLQueryItem(name: "days", value: String(days)),
+            URLQueryItem(name: "upcoming", value: upcoming ? "true" : "false"),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
+    }
+
+    public func mostListened(range: ListeningRange, limit: Int) async throws -> [PopularRecording] {
+        try await send(.get, "api/v1/discover/most-listened", query: [
+            URLQueryItem(name: "range", value: range.rawValue),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
     }
 
     public func preferences() async throws -> Preferences {

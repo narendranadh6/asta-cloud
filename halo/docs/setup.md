@@ -38,8 +38,15 @@ ruff check app tests alembic && mypy app
 | `HALO_JWT_SECRET` | Production auth (32+ chars) | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `HALO_YOUTUBE_API_KEY` | Music search (required) | Google Cloud Console → enable *YouTube Data API v3* → Credentials → API key. Restrict it to that API and to your server's IPs |
 | `HALO_LASTFM_API_KEY` | Optional: similar artists for recommendations | https://www.last.fm/api/account/create (free). Deezer related artists work without a key (`HALO_DEEZER_ENABLED=true`) |
+| `HALO_MUSICBRAINZ_ENABLED` / `HALO_MUSICBRAINZ_CONTACT` | Canonical song metadata (on by default, no key) | MusicBrainz asks for a contact URL or email in the User-Agent; set `HALO_MUSICBRAINZ_CONTACT` to yours. Requests are limited to 1/s per process |
+| `HALO_LISTENBRAINZ_ENABLED` / `HALO_LISTENBRAINZ_TOKEN` | Fresh releases, charts and artist radio (on by default) | The token is optional; it unlocks per-artist popularity. Get one at https://listenbrainz.org/settings/ |
+| `HALO_LISTENBRAINZ_TRACK_LOOKUPS` | How many ListenBrainz picks per request are matched on YouTube (default 4, max 10) | Each costs one YouTube search (100 quota units) |
 | `HALO_RADIO_BROWSER_BASE_URL` | Optional: live radio directory mirror | Defaults to `https://de1.api.radio-browser.info` |
 | `HALO_LLM_PROVIDER` / `HALO_LLM_API_KEY` / `HALO_LLM_MODEL` | Optional AI planner | `anthropic` (default model `claude-sonnet-5-5`) or `openai` (any OpenAI-compatible `/chat/completions`, set `HALO_LLM_BASE_URL` if needed) |
+
+The server must be able to reach `www.googleapis.com`, `musicbrainz.org`,
+`api.listenbrainz.org`, `coverartarchive.org`, `api.deezer.com`, `ws.audioscrobbler.com` and
+`de1.api.radio-browser.info`. Each open source degrades on its own if unreachable.
 
 Without a YouTube key the API still starts, but search endpoints return
 `503 search_misconfigured` and the app shows a setup notice. Without an LLM key the

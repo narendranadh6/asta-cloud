@@ -1397,6 +1397,290 @@
     }
    }
   },
+  "/api/v1/metadata/track": {
+   "get": {
+    "tags": [
+     "metadata"
+    ],
+    "summary": "Canonical recording, album, release date, label, ISRC and genres (MusicBrainz)",
+    "operationId": "track_metadata_api_v1_metadata_track_get",
+    "parameters": [
+     {
+      "name": "video_id",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 11,
+       "maxLength": 11,
+       "pattern": "^[A-Za-z0-9_-]{11}$",
+       "title": "Video Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/TrackMetadataResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/metadata/artist": {
+   "get": {
+    "tags": [
+     "metadata"
+    ],
+    "summary": "Artist profile (MusicBrainz) with popular recordings (ListenBrainz)",
+    "operationId": "artist_profile_api_v1_metadata_artist_get",
+    "parameters": [
+     {
+      "name": "name",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 100,
+       "title": "Name"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ArtistProfileResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/discover/fresh-releases": {
+   "get": {
+    "tags": [
+     "search"
+    ],
+    "summary": "New and recent releases with listen counts (ListenBrainz)",
+    "operationId": "fresh_releases_api_v1_discover_fresh_releases_get",
+    "parameters": [
+     {
+      "name": "days",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 90,
+       "minimum": 1,
+       "default": 14,
+       "title": "Days"
+      }
+     },
+     {
+      "name": "upcoming",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Upcoming"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 200,
+       "minimum": 1,
+       "default": 60,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/FreshRelease"
+         },
+         "title": "Response Fresh Releases Api V1 Discover Fresh Releases Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/discover/most-listened": {
+   "get": {
+    "tags": [
+     "search"
+    ],
+    "summary": "Most-listened recordings across ListenBrainz for a time range",
+    "operationId": "most_listened_api_v1_discover_most_listened_get",
+    "parameters": [
+     {
+      "name": "range",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "pattern": "^(week|month|quarter|year|all_time)$",
+       "default": "week",
+       "title": "Range"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "maximum": 100,
+       "minimum": 1,
+       "default": 25,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/PopularRecording"
+         },
+         "title": "Response Most Listened Api V1 Discover Most Listened Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/radio/stations": {
    "get": {
     "tags": [
@@ -1899,6 +2183,147 @@
     ],
     "title": "AIPlaylistRequest"
    },
+   "ArtistCredit": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "mbid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mbid"
+     },
+     "join_phrase": {
+      "type": "string",
+      "title": "Join Phrase",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "ArtistCredit"
+   },
+   "ArtistInfo": {
+    "properties": {
+     "mbid": {
+      "type": "string",
+      "title": "Mbid"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "sort_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sort Name"
+     },
+     "type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Type"
+     },
+     "country": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Country"
+     },
+     "area": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Area"
+     },
+     "disambiguation": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Disambiguation"
+     },
+     "begin": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Begin"
+     },
+     "end": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "End"
+     },
+     "genres": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Genres"
+     },
+     "match_score": {
+      "type": "integer",
+      "title": "Match Score",
+      "default": 0
+     },
+     "musicbrainz_url": {
+      "type": "string",
+      "title": "Musicbrainz Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "mbid",
+     "name",
+     "musicbrainz_url"
+    ],
+    "title": "ArtistInfo"
+   },
    "ArtistPreferenceIn": {
     "properties": {
      "name": {
@@ -1925,6 +2350,39 @@
      "name"
     ],
     "title": "ArtistPreferenceIn"
+   },
+   "ArtistProfileResponse": {
+    "properties": {
+     "artist": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ArtistInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "popular_recordings": {
+      "items": {
+       "$ref": "#/components/schemas/PopularRecording"
+      },
+      "type": "array",
+      "title": "Popular Recordings"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "type": "object",
+    "required": [
+     "artist"
+    ],
+    "title": "ArtistProfileResponse"
    },
    "Attribution": {
     "properties": {
@@ -1956,6 +2414,91 @@
     ],
     "title": "Attribution",
     "description": "Source attribution that clients must display next to provider metadata."
+   },
+   "CanonicalRecording": {
+    "properties": {
+     "recording_mbid": {
+      "type": "string",
+      "title": "Recording Mbid"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "artist_credit": {
+      "items": {
+       "$ref": "#/components/schemas/ArtistCredit"
+      },
+      "type": "array",
+      "title": "Artist Credit"
+     },
+     "length_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Length Ms"
+     },
+     "first_release_date": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Release Date"
+     },
+     "isrcs": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Isrcs"
+     },
+     "genres": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Genres"
+     },
+     "releases": {
+      "items": {
+       "$ref": "#/components/schemas/ReleaseInfo"
+      },
+      "type": "array",
+      "title": "Releases"
+     },
+     "match_score": {
+      "type": "integer",
+      "title": "Match Score",
+      "default": 0
+     },
+     "musicbrainz_url": {
+      "type": "string",
+      "title": "Musicbrainz Url"
+     },
+     "source": {
+      "type": "string",
+      "title": "Source",
+      "default": "MusicBrainz"
+     }
+    },
+    "type": "object",
+    "required": [
+     "recording_mbid",
+     "title",
+     "artist_credit",
+     "musicbrainz_url"
+    ],
+    "title": "CanonicalRecording",
+    "description": "What a song really is, according to MusicBrainz."
    },
    "ChatMessage": {
     "properties": {
@@ -2064,6 +2607,91 @@
     ],
     "title": "FeedbackResponse"
    },
+   "FreshRelease": {
+    "properties": {
+     "release_mbid": {
+      "type": "string",
+      "title": "Release Mbid"
+     },
+     "release_name": {
+      "type": "string",
+      "title": "Release Name"
+     },
+     "artist_name": {
+      "type": "string",
+      "title": "Artist Name"
+     },
+     "artist_mbids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Artist Mbids"
+     },
+     "release_date": {
+      "type": "string",
+      "title": "Release Date"
+     },
+     "release_group_mbid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Group Mbid"
+     },
+     "release_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Type"
+     },
+     "tags": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Tags"
+     },
+     "listen_count": {
+      "type": "integer",
+      "title": "Listen Count",
+      "default": 0
+     },
+     "cover_art_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cover Art Url"
+     },
+     "source": {
+      "type": "string",
+      "title": "Source",
+      "default": "ListenBrainz"
+     }
+    },
+    "type": "object",
+    "required": [
+     "release_mbid",
+     "release_name",
+     "artist_name",
+     "release_date"
+    ],
+    "title": "FreshRelease"
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -2076,6 +2704,41 @@
     },
     "type": "object",
     "title": "HTTPValidationError"
+   },
+   "Label": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "mbid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mbid"
+     },
+     "catalog_number": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Catalog Number"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "Label"
    },
    "PlaylistCreate": {
     "properties": {
@@ -2689,6 +3352,89 @@
     "type": "object",
     "title": "PlaylistUpdate"
    },
+   "PopularRecording": {
+    "properties": {
+     "recording_mbid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Recording Mbid"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "artist_name": {
+      "type": "string",
+      "title": "Artist Name"
+     },
+     "release_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Name"
+     },
+     "listen_count": {
+      "type": "integer",
+      "title": "Listen Count",
+      "default": 0
+     },
+     "listener_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Listener Count"
+     },
+     "length_ms": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Length Ms"
+     },
+     "similar_to": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Similar To"
+     },
+     "source": {
+      "type": "string",
+      "title": "Source",
+      "default": "ListenBrainz"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "artist_name"
+    ],
+    "title": "PopularRecording"
+   },
    "PreferencesBody": {
     "properties": {
      "personalization_enabled": {
@@ -3012,7 +3758,8 @@
       "enum": [
        "search",
        "similar_artist",
-       "co_listen"
+       "co_listen",
+       "listenbrainz"
       ],
       "title": "Source",
       "default": "search"
@@ -3049,6 +3796,97 @@
     },
     "type": "object",
     "title": "RegisterRequest"
+   },
+   "ReleaseInfo": {
+    "properties": {
+     "mbid": {
+      "type": "string",
+      "title": "Mbid"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "date": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Date"
+     },
+     "country": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Country"
+     },
+     "status": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Status"
+     },
+     "release_group_mbid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Group Mbid"
+     },
+     "release_group_type": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Group Type"
+     },
+     "labels": {
+      "items": {
+       "$ref": "#/components/schemas/Label"
+      },
+      "type": "array",
+      "title": "Labels"
+     },
+     "cover_art_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cover Art Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "mbid",
+     "title"
+    ],
+    "title": "ReleaseInfo"
    },
    "SearchHistoryEntry": {
     "properties": {
@@ -3437,6 +4275,60 @@
      "attribution"
     ],
     "title": "Track"
+   },
+   "TrackMetadataResponse": {
+    "properties": {
+     "video_id": {
+      "type": "string",
+      "title": "Video Id"
+     },
+     "parsed_artist": {
+      "type": "string",
+      "title": "Parsed Artist"
+     },
+     "parsed_title": {
+      "type": "string",
+      "title": "Parsed Title"
+     },
+     "matched": {
+      "type": "boolean",
+      "title": "Matched"
+     },
+     "recording": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/CanonicalRecording"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "artist": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ArtistInfo"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "source": {
+      "type": "string",
+      "title": "Source",
+      "default": "MusicBrainz"
+     }
+    },
+    "type": "object",
+    "required": [
+     "video_id",
+     "parsed_artist",
+     "parsed_title",
+     "matched"
+    ],
+    "title": "TrackMetadataResponse",
+    "description": "Canonical facts about a YouTube song from MusicBrainz (CC0 data)."
    },
    "TrendingResponse": {
     "properties": {

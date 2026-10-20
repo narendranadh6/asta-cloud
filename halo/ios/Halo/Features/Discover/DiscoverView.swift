@@ -32,9 +32,11 @@ struct DiscoverView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                if model.filter.showsOpenData { freshReleasesShelf }
                 ForEach(model.visibleShelves) { shelf in
                     shelfView(shelf)
                 }
+                if model.filter.showsOpenData { mostListenedShelf }
                 if model.filter == .all { genres }
             }
             .padding(Spacing.md)
@@ -96,6 +98,76 @@ struct DiscoverView: View {
         }
     }
 
+    // MARK: ListenBrainz shelves
+
+    @ViewBuilder
+    private var freshReleasesShelf: some View {
+        openDataShelf(title: "Fresh releases", state: model.freshReleases) { releases in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
+                    ForEach(releases) { release in
+                        NavigationLink(value: SearchRoute(
+                            query: release.searchQuery, kind: .song, title: release.releaseName)) {
+                            FreshReleaseCard(release: release)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            Text("Source: ListenBrainz fresh releases. Cover art: Cover Art Archive. "
+                 + "Tap to find it on YouTube.")
+                .font(.caption2).foregroundStyle(HaloColor.mutedText)
+        }
+    }
+
+    @ViewBuilder
+    private var mostListenedShelf: some View {
+        openDataShelf(title: "Most listened this week", state: model.mostListened) { recordings in
+            VStack(spacing: Spacing.xs) {
+                ForEach(Array(recordings.enumerated()), id: \.element.id) { index, recording in
+                    NavigationLink(value: SearchRoute(
+                        query: recording.searchQuery, kind: .song, title: recording.title)) {
+                        ChartRow(rank: index + 1, recording: recording)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Text("Source: ListenBrainz listening statistics (open data).")
+                .font(.caption2).foregroundStyle(HaloColor.mutedText)
+        }
+    }
+
+    /// A ListenBrainz shelf. Hidden entirely when the server has ListenBrainz switched off.
+    @ViewBuilder
+    private func openDataShelf<Value: Collection, Content: View>(
+        title: String, state: DiscoverViewModel.OpenDataState<Value>,
+        @ViewBuilder content: @escaping (Value) -> Content
+    ) -> some View {
+        switch state {
+        case .disabled:
+            EmptyView()
+        case .loading:
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                SectionHeader(title: title)
+                LoadingStateView(message: "Loading \(title.lowercased())…")
+            }
+        case let .failed(error):
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                SectionHeader(title: title)
+                ErrorStateView(error: error) {
+                    Task { await model.load(api: app.api, language: settings.preferredLanguage) }
+                }
+            }
+        case let .loaded(value) where value.isEmpty:
+            EmptyView()
+        case let .loaded(value):
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                SectionHeader(title: title)
+                content(value)
+            }
+        }
+    }
+
     private var genres: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             SectionHeader(title: "Explore by genre")
@@ -131,6 +203,71 @@ struct TrackCard: View {
             Text(track.channelTitle).font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
         }
         .frame(width: width, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A new release from ListenBrainz, with Cover Art Archive artwork when there is some.
+struct FreshReleaseCard: View {
+    var release: FreshRelease
+    var width: CGFloat = 150
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ZStack {
+                if release.coverArtURL != nil {
+                    ArtworkView(url: release.coverArtURL, size: width, cornerRadius: Spacing.corner)
+                } else {
+                    RoundedRectangle(cornerRadius: Spacing.corner, style: .continuous)
+                        .fill(HaloColor.neon)
+                        .frame(width: width, height: width)
+                        .overlay {
+                            Image(systemName: "sparkles").font(.largeTitle)
+                                .foregroundStyle(.white.opacity(0.9))
+                        }
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if let type = release.releaseType {
+                    Text(type).font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(.black.opacity(0.55)))
+                        .foregroundStyle(.white).padding(6)
+                }
+            }
+            Text(release.releaseName).font(.subheadline.weight(.semibold))
+                .foregroundStyle(HaloColor.text).lineLimit(2)
+            Text(release.artistName).font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
+            Text(release.releaseDate).font(.caption2).foregroundStyle(HaloColor.mutedText)
+        }
+        .frame(width: width, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Finds this release on YouTube")
+    }
+}
+
+/// A row in the ListenBrainz most-listened chart.
+struct ChartRow: View {
+    var rank: Int
+    var recording: PopularRecording
+
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            Text("\(rank)").font(.headline.monospacedDigit())
+                .foregroundStyle(rank <= 3 ? HaloColor.primary : HaloColor.mutedText)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(recording.title).font(.subheadline.weight(.semibold))
+                    .foregroundStyle(HaloColor.text).lineLimit(1)
+                Text(recording.artistName).font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
+            }
+            Spacer()
+            Text("\(recording.listenCount.formatted(.number.notation(.compactName))) plays")
+                .font(.caption2).foregroundStyle(HaloColor.mutedText)
+            Image(systemName: "magnifyingglass").font(.caption).foregroundStyle(HaloColor.mutedText)
+        }
+        .padding(Spacing.sm)
+        .haloCard()
         .accessibilityElement(children: .combine)
     }
 }

@@ -1,0 +1,36 @@
+{
+  "artist": {
+    "mbid": "8f6bd1e4-fbe1-4f50-aa9b-94c450ec0f11",
+    "name": "Portishead",
+    "sort_name": "Portishead",
+    "type": "Group",
+    "country": "GB",
+    "area": "United Kingdom",
+    "disambiguation": null,
+    "begin": "1991",
+    "end": null,
+    "genres": [
+      "trip hop",
+      "electronic"
+    ],
+    "match_score": 100,
+    "musicbrainz_url": "https://musicbrainz.org/artist/8f6bd1e4-fbe1-4f50-aa9b-94c450ec0f11"
+  },
+  "popular_recordings": [
+    {
+      "recording_mbid": "e97f805a-ab48-4c52-855e-07049142113d",
+      "title": "Roads",
+      "artist_name": "Portishead",
+      "release_name": "Dummy",
+      "listen_count": 1380798,
+      "listener_count": 129454,
+      "length_ms": 305000,
+      "similar_to": null,
+      "source": "ListenBrainz"
+    }
+  ],
+  "sources": [
+    "MusicBrainz",
+    "ListenBrainz"
+  ]
+}

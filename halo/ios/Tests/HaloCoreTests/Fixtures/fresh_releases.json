@@ -1,0 +1,19 @@
+[
+  {
+    "release_mbid": "r1",
+    "release_name": "Profound Mysteries IV",
+    "artist_name": "R\u00f6yksopp",
+    "artist_mbids": [
+      "8f6bd1e4-fbe1-4f50-aa9b-94c450ec0f11"
+    ],
+    "release_date": "2026-10-16",
+    "release_group_mbid": "rg1",
+    "release_type": "Album",
+    "tags": [
+      "electronic"
+    ],
+    "listen_count": 120,
+    "cover_art_url": "https://coverartarchive.org/release/r1/42-250.jpg",
+    "source": "ListenBrainz"
+  }
+]

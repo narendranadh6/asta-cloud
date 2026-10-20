@@ -20,6 +20,33 @@ final class DecodingTests: XCTestCase {
         XCTAssertNotNil(response.nextPageToken)
     }
 
+    func testDecodesMusicBrainzTrackMetadata() throws {
+        let meta = try JSONDecoder.halo.decode(
+            TrackMetadataResponse.self, from: Fixture.data("track_metadata"))
+        XCTAssertTrue(meta.matched)
+        let recording = try XCTUnwrap(meta.recording)
+        XCTAssertEqual(recording.artistName, "Portishead")
+        XCTAssertEqual(recording.isrcs, ["GBF089400250"])
+        let album = try XCTUnwrap(recording.album)
+        XCTAssertEqual(album.title, "Dummy")
+        XCTAssertEqual(album.labels.first?.name, "Go! Beat")
+        XCTAssertNotNil(album.coverArtURL)
+        XCTAssertEqual(recording.musicBrainzURL?.host, "musicbrainz.org")
+        XCTAssertEqual(meta.artist?.name, "Portishead")
+    }
+
+    func testDecodesListenBrainzShelvesAndArtistProfile() throws {
+        let fresh = try JSONDecoder.halo.decode([FreshRelease].self, from: Fixture.data("fresh_releases"))
+        XCTAssertEqual(fresh.first?.releaseName, "Profound Mysteries IV")
+        XCTAssertNotNil(fresh.first?.coverArtURL)
+        let top = try JSONDecoder.halo.decode([PopularRecording].self, from: Fixture.data("most_listened"))
+        XCTAssertEqual(top.first?.searchQuery, "Ellie Goulding Love Me Like You Do")
+        let profile = try JSONDecoder.halo.decode(
+            ArtistProfileResponse.self, from: Fixture.data("artist_profile"))
+        XCTAssertEqual(profile.sources, ["MusicBrainz", "ListenBrainz"])
+        XCTAssertEqual(profile.popularRecordings.first?.title, "Roads")
+    }
+
     func testDecodesPlaylistWithNaiveMicrosecondDates() throws {
         let playlist = try JSONDecoder.halo.decode(RemotePlaylist.self, from: Fixture.data("playlist"))
         XCTAssertEqual(playlist.name, "Evening")

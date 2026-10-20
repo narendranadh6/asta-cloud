@@ -33,6 +33,10 @@ cd backend && python -c "import json; from app.main import create_app; \
 
 ## Endpoints
 
+The MusicBrainz and ListenBrainz endpoints return `503 metadata_disabled` /
+`503 discovery_disabled` when switched off in configuration, and `502 metadata_unavailable` /
+`502 discovery_unavailable` when the upstream service is down.
+
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Status, DB/cache/YouTube checks (`checks.youtube` is `not_configured` without a key), `ai_planner` |
@@ -56,6 +60,10 @@ cd backend && python -c "import json; from app.main import create_app; \
 | GET | `/api/v1/discover/trending?page_token=&limit=` | YouTube most-popular music chart for the configured region |
 | GET | `/api/v1/recommendations/next?video_id=&limit=` | Up next: co-listening, same artist and similar artists, ranked. The listener chooses; nothing auto-plays |
 | GET | `/api/v1/radio/stations?tag=&language=&country=&q=&limit=` | Live internet radio stations (Radio Browser). `502 radio_unavailable` if the directory is down |
+| GET | `/api/v1/metadata/track?video_id=` | Canonical facts from MusicBrainz: recording MBID, artist credit, earliest official release (album, date, label, catalog number, cover art), ISRCs, genres. `matched=false` when MusicBrainz isn't confident (score ≥ 85 and length within 25 s are required) |
+| GET | `/api/v1/metadata/artist?name=` | MusicBrainz artist (MBID, type, area, life span, genres) plus ListenBrainz popular recordings when `HALO_LISTENBRAINZ_TOKEN` is set |
+| GET | `/api/v1/discover/fresh-releases?days=&upcoming=&limit=` | Recent (or upcoming) releases from ListenBrainz with listen counts and Cover Art Archive artwork |
+| GET | `/api/v1/discover/most-listened?range=week\|month\|quarter\|year\|all_time&limit=` | Most-listened recordings across ListenBrainz |
 | POST | `/api/v1/recommendations/feedback` | `{video_id, rating: like\|dislike\|skip\|save, session_id?, channel_title?}`. Stored only with consent |
 | GET | `/api/v1/preferences` | Explicit preferences |
 | PUT | `/api/v1/preferences` | Replace preferences. Turning personalization on records the consent time |

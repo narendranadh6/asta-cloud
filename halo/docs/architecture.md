@@ -50,10 +50,15 @@ from (YouTube's two-stage recommender, Spotify's BaRT bandits and playlist co-oc
 
 1. **Intent extraction.** The LLM returns `MusicIntent` JSON, validated by Pydantic. On any
    failure the heuristic planner runs instead. Studio form values override both.
-2. **Candidate generation** from three sources:
+2. **Candidate generation** from four sources:
    * `search`: 1–5 planner queries against the YouTube Data API (results re-verified).
    * `similar_artist`: artists similar to the request's or listener's favourites, from
      Last.fm `artist.getSimilar` or Deezer related artists, then searched on YouTube.
+   * `listenbrainz`: LB Radio for the seed artist (resolved to an MBID through
+     MusicBrainz): popular recordings by similar artists, with the popularity window set by
+     the discovery level. Up to `HALO_LISTENBRAINZ_TRACK_LOOKUPS` of them are matched on
+     YouTube by search, and kept only when the result's title overlaps the recording's.
+     ListenBrainz artist radio is also the first similar-artist provider.
    * `co_listen`: item-to-item co-occurrence in playlists of listeners who opted in to
      personalization, cosine-normalised. A pair must come from at least two listeners, so
      no single person's playlist can be read back.
@@ -115,3 +120,16 @@ weights); `playlists` 1–n `playlist_items` n–1 `track_references` (global, u
   (`DELETE /api/v1/me` plus a local wipe).
 * Logs never include prompts, queries or preferences. The YouTube client logs only error
   classes.
+
+### Open music metadata
+
+* **MusicBrainz** (`app/services/music_sources/musicbrainz.py`) identifies what a YouTube
+  upload is. The title is parsed ("Artist - Song (Official Video)"), searched, and accepted
+  only with score ≥ 85 and a length within 25 s. Halo then reads the recording, its ISRCs and
+  genres, and the earliest official release with labels and Cover Art Archive artwork.
+  Responses are cached for 30 days and requests are spaced to 1/s. The iOS Song Details
+  screen shows this as "About this recording", credited to MusicBrainz (CC0).
+* **ListenBrainz** (`listenbrainz.py`, `discovery.py`) provides fresh releases, sitewide
+  most-listened charts, LB Radio and per-artist popularity. Discover shows "Fresh releases"
+  and "Most listened this week"; tapping one searches YouTube for it, so playback stays
+  a Brave handoff of a real, verified video.
