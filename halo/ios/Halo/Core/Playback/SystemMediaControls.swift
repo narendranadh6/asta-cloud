@@ -88,6 +88,11 @@ final class SystemMediaControls {
         loadArtwork(item.artworkURL)
     }
 
+    /// iOS asks for artwork on a background thread, so the closure must not be main-actor bound.
+    private nonisolated static func artwork(for image: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    }
+
     private func loadArtwork(_ url: URL?) {
         guard url != artworkFor else { return }
         artworkFor = url
@@ -97,7 +102,7 @@ final class SystemMediaControls {
         artworkTask = Task { [weak self] in
             guard let (data, _) = try? await URLSession.shared.data(from: url),
                   let image = UIImage(data: data), !Task.isCancelled else { return }
-            let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            let artwork = Self.artwork(for: image)
             await MainActor.run {
                 guard let self, self.artworkFor == url else { return }
                 self.artwork = artwork

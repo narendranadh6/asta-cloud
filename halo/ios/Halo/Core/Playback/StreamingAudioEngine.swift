@@ -30,9 +30,8 @@ final class StreamingAudioEngine: AudioEngine {
                 self.onProgress?(time.seconds, self.isLive ? nil : duration)
             }
         }
-        controlObservation = player.observe(\.timeControlStatus) { [weak self] player, _ in
-            let playing = player.timeControlStatus == .playing
-            Task { @MainActor in if playing { self?.onStartedPlaying?() } }
+        controlObservation = Self.observePlaying(player) { [weak self] in
+            self?.onStartedPlaying?()
         }
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
@@ -53,11 +52,8 @@ final class StreamingAudioEngine: AudioEngine {
         self.isLive = isLive
         activateSession()
         let item = AVPlayerItem(url: url)
-        statusObservation = item.observe(\.status) { [weak self] item, _ in
-            let failed = item.status == .failed
-            Task { @MainActor in
-                if failed { self?.onFailed?(Self.message(isLive: isLive)) }
-            }
+        statusObservation = Self.observeFailure(item) { [weak self] in
+            self?.onFailed?(Self.message(isLive: isLive))
         }
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         if let failObserver { NotificationCenter.default.removeObserver(failObserver) }
@@ -98,6 +94,27 @@ final class StreamingAudioEngine: AudioEngine {
     private func activateSession() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
         try? AVAudioSession.sharedInstance().setActive(true)
+    }
+
+    // AVFoundation delivers KVO changes on its own queues. These closures are built outside
+    // the main actor so Swift doesn't assert they run on main; they hop there explicitly.
+
+    private nonisolated static func observePlaying(
+        _ player: AVPlayer, _ handler: @escaping @MainActor () -> Void
+    ) -> NSKeyValueObservation {
+        player.observe(\.timeControlStatus) { player, _ in
+            guard player.timeControlStatus == .playing else { return }
+            Task { @MainActor in handler() }
+        }
+    }
+
+    private nonisolated static func observeFailure(
+        _ item: AVPlayerItem, _ handler: @escaping @MainActor () -> Void
+    ) -> NSKeyValueObservation {
+        item.observe(\.status) { item, _ in
+            guard item.status == .failed else { return }
+            Task { @MainActor in handler() }
+        }
     }
 
     private static func message(isLive: Bool) -> String {
