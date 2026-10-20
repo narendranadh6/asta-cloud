@@ -13,6 +13,14 @@ final class HomeViewModel {
     private(set) var isPersonalized = false
     private(set) var hasLoadedFromServer = false
 
+    /// Loads the feed, retrying once after a short pause if the first attempt fails.
+    func loadWithRetry(api: MusicAPI, retryDelay: UInt64 = 1_500_000_000) async {
+        await load(api: api)
+        guard lastError != nil, !hasLoadedFromServer, !Task.isCancelled else { return }
+        try? await Task.sleep(nanoseconds: retryDelay)
+        await load(api: api)
+    }
+
     func load(api: MusicAPI) async {
         isLoading = true
         defer { isLoading = false }

@@ -93,6 +93,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO | tail -200
         env:
           TEST_RUNNER_HALO_SCREENSHOT_DIR: ${{ github.workspace }}/halo/ios/screenshots
+      - name: Show UI-test backend log
+        if: always()
+        working-directory: halo/backend
+        run: tail -n 120 e2e.log || true
       - name: Upload simulator screenshots
         if: always()
         uses: actions/upload-artifact@v4

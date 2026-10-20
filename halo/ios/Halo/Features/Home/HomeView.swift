@@ -21,6 +21,9 @@ struct HomeView: View {
                 quickChips
                 SearchSetupBanner()
                 hero
+                if let error = model.lastError, !model.hasLoadedFromServer {
+                    feedErrorBanner(error)
+                }
                 ForEach(model.sections) { section in
                     sectionView(section)
                 }
@@ -31,7 +34,7 @@ struct HomeView: View {
         .haloScreen()
         .toolbar(.hidden, for: .navigationBar)
         .haloDestinations()
-        .task { await model.load(api: app.api) }
+        .task { await model.loadWithRetry(api: app.api) }
         .refreshable { await model.load(api: app.api) }
     }
 
@@ -177,6 +180,23 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    /// Shown when the server feed couldn't load; Home falls back to on-device sections.
+    private func feedErrorBanner(_ error: Error) -> some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(HaloColor.gold)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text("Couldn't load your Home feed").font(HaloFont.headline).foregroundStyle(HaloColor.text)
+                Text(error.localizedDescription).font(.caption).foregroundStyle(HaloColor.mutedText)
+                Button("Retry") { Task { await model.load(api: app.api) } }
+                    .font(.subheadline.weight(.semibold)).tint(HaloColor.accent)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Spacing.sm)
+        .haloCard(cornerRadius: Radius.medium)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder

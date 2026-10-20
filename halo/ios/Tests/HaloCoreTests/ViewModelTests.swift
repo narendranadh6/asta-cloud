@@ -265,3 +265,15 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(model.sections, HomeViewModel.offlineSections)
     }
 }
+
+@MainActor
+final class HomeRetryTests: XCTestCase {
+    func testRetriesOnceAfterFirstFailure() async {
+        let api = FakeMusicAPI()
+        await api.setFailure(.offline)  // only the first request fails
+        let model = HomeViewModel()
+        await model.loadWithRetry(api: api, retryDelay: 1_000_000)
+        XCTAssertTrue(model.hasLoadedFromServer)
+        XCTAssertNil(model.lastError)
+    }
+}
