@@ -577,6 +577,128 @@
     }
    }
   },
+  "/api/v1/artists/{artist_id}": {
+   "get": {
+    "tags": [
+     "search"
+    ],
+    "summary": "An artist's page: profile, most-played songs and albums (Audius, Jamendo)",
+    "operationId": "get_artist_api_v1_artists__artist_id__get",
+    "parameters": [
+     {
+      "name": "artist_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 3,
+       "maxLength": 60,
+       "pattern": "^(audius|jamendo|itunes):([A-Za-z0-9_-]{1,40})$",
+       "title": "Artist Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ArtistPage"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/albums/{album_id}": {
+   "get": {
+    "tags": [
+     "search"
+    ],
+    "summary": "An album with its playable tracks in order (Audius, Jamendo)",
+    "operationId": "get_album_api_v1_albums__album_id__get",
+    "parameters": [
+     {
+      "name": "album_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "minLength": 3,
+       "maxLength": 60,
+       "pattern": "^(audius|jamendo|itunes):([A-Za-z0-9_-]{1,40})$",
+       "title": "Album Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AlbumPage"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/history/search": {
    "get": {
     "tags": [
@@ -2230,6 +2352,205 @@
     ],
     "title": "AIPlaylistRequest"
    },
+   "AlbumPage": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "audius",
+       "jamendo",
+       "itunes"
+      ],
+      "title": "Source"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "artist": {
+      "type": "string",
+      "title": "Artist"
+     },
+     "artist_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artist Id"
+     },
+     "artwork_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url"
+     },
+     "release_date": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Date"
+     },
+     "track_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Track Count"
+     },
+     "external_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "External Url"
+     },
+     "artwork_url_large": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url Large"
+     },
+     "attribution": {
+      "$ref": "#/components/schemas/Attribution"
+     },
+     "tracks": {
+      "items": {
+       "$ref": "#/components/schemas/Track"
+      },
+      "type": "array",
+      "title": "Tracks"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "source",
+     "title",
+     "artist",
+     "attribution"
+    ],
+    "title": "AlbumPage"
+   },
+   "AlbumSummary": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "audius",
+       "jamendo",
+       "itunes"
+      ],
+      "title": "Source"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "artist": {
+      "type": "string",
+      "title": "Artist"
+     },
+     "artist_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artist Id"
+     },
+     "artwork_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url"
+     },
+     "release_date": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Release Date"
+     },
+     "track_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Track Count"
+     },
+     "external_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "External Url"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "source",
+     "title",
+     "artist"
+    ],
+    "title": "AlbumSummary",
+    "description": "An album (or an artist's release collection) with a Halo id \"<source>:<id>\"."
+   },
    "ArtistCredit": {
     "properties": {
      "name": {
@@ -2370,6 +2691,119 @@
      "musicbrainz_url"
     ],
     "title": "ArtistInfo"
+   },
+   "ArtistPage": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "audius",
+       "jamendo",
+       "itunes"
+      ],
+      "title": "Source"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "handle": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Handle"
+     },
+     "artwork_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url"
+     },
+     "cover_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cover Url"
+     },
+     "bio": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bio"
+     },
+     "follower_count": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Follower Count"
+     },
+     "external_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "External Url"
+     },
+     "attribution": {
+      "$ref": "#/components/schemas/Attribution"
+     },
+     "top_tracks": {
+      "items": {
+       "$ref": "#/components/schemas/Track"
+      },
+      "type": "array",
+      "title": "Top Tracks"
+     },
+     "albums": {
+      "items": {
+       "$ref": "#/components/schemas/AlbumSummary"
+      },
+      "type": "array",
+      "title": "Albums"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "source",
+     "name",
+     "attribution"
+    ],
+    "title": "ArtistPage",
+    "description": "An artist at one source: profile, most-played songs and albums."
    },
    "ArtistPreferenceIn": {
     "properties": {
@@ -4378,6 +4812,17 @@
        }
       ],
       "title": "Album"
+     },
+     "album_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Album Id"
      },
      "artwork_url": {
       "anyOf": [

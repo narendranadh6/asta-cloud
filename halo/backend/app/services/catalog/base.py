@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from app.schemas import Track
+from app.schemas import AlbumPage, ArtistPage, Track
 from app.services.catalog.ids import TrackSource
 
 
@@ -23,6 +23,14 @@ class CatalogNotConfiguredError(CatalogError):
 
 class TrackUnavailableError(CatalogError):
     """The track doesn't exist, was removed, or can no longer be streamed."""
+
+
+class EntityUnavailableError(CatalogError):
+    """An artist or album doesn't exist at its source (or the source has no such pages)."""
+
+    def __init__(self, message: str, kind: str) -> None:
+        super().__init__(message)
+        self.kind = kind
 
 
 @dataclass(slots=True)
@@ -50,6 +58,14 @@ class CatalogSource(Protocol):
 
     async def get_tracks(self, source_ids: list[str]) -> dict[str, Track]:
         """Tracks that still exist and can be streamed, keyed by source id."""
+        ...
+
+    async def get_artist(self, source_id: str) -> ArtistPage | None:
+        """The artist's page, or None when unknown (or the source has no artist pages)."""
+        ...
+
+    async def get_album(self, source_id: str) -> AlbumPage | None:
+        """The album with its playable tracks in order, or None when unknown."""
         ...
 
     async def aclose(self) -> None: ...

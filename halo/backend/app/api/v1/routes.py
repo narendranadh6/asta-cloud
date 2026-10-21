@@ -32,6 +32,8 @@ from app.schemas import (
     AIChatRequest,
     AIChatResponse,
     AIPlaylistRequest,
+    AlbumPage,
+    ArtistPage,
     ArtistProfileResponse,
     FeedbackRequest,
     FeedbackResponse,
@@ -63,6 +65,7 @@ from app.services.catalog.base import (
     CatalogError,
     CatalogNotConfiguredError,
     CatalogUnavailableError,
+    EntityUnavailableError,
     TrackUnavailableError,
 )
 from app.services.catalog.ids import TRACK_ID_PATTERN, is_valid_track_id
@@ -97,6 +100,8 @@ def translate_catalog_error(exc: CatalogError) -> AppError:
         return ServiceUnavailableError(str(exc), code="catalog_not_configured")
     if isinstance(exc, TrackUnavailableError):
         return NotFoundError(str(exc), code="track_unavailable")
+    if isinstance(exc, EntityUnavailableError):
+        return NotFoundError(str(exc), code=f"{exc.kind}_unavailable")
     if isinstance(exc, CatalogUnavailableError):
         return UpstreamError(
             str(exc) or "Music sources are not responding right now. Please retry in a moment.",
@@ -302,6 +307,34 @@ async def trending(
 async def get_track(track_id: TrackIdPath, user: CurrentUser, catalog: CatalogDep) -> Track:
     try:
         return await catalog.get_track(track_id)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
+
+
+@router.get(
+    "/artists/{artist_id}",
+    response_model=ArtistPage,
+    tags=["search"],
+    dependencies=[SEARCH_LIMIT],
+    summary="An artist's page: profile, most-played songs and albums (Audius, Jamendo)",
+)
+async def get_artist(artist_id: TrackIdPath, user: CurrentUser, catalog: CatalogDep) -> ArtistPage:
+    try:
+        return await catalog.get_artist(artist_id)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
+
+
+@router.get(
+    "/albums/{album_id}",
+    response_model=AlbumPage,
+    tags=["search"],
+    dependencies=[SEARCH_LIMIT],
+    summary="An album with its playable tracks in order (Audius, Jamendo)",
+)
+async def get_album(album_id: TrackIdPath, user: CurrentUser, catalog: CatalogDep) -> AlbumPage:
+    try:
+        return await catalog.get_album(album_id)
     except CatalogError as exc:
         raise translate_catalog_error(exc) from exc
 

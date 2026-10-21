@@ -121,6 +121,24 @@ final class ScreenshotTour: XCTestCase {
                     settle(1)
                 }
             }
+            // The artist behind the song, and one of their albums.
+            let artist = app.buttons["artistLink"].firstMatch
+            if artist.waitForExistence(timeout: 3), artist.isHittable {
+                artist.tap()
+                settle(4)
+                snap("05f-artist")
+                app.swipeUp()
+                settle(2)
+                let album = app.scrollViews.buttons.matching(
+                    NSPredicate(format: "label CONTAINS[c] '20'")).firstMatch
+                if album.waitForExistence(timeout: 3), album.isHittable {
+                    album.tap()
+                    settle(4)
+                    snap("05g-album")
+                    back()
+                }
+                back()
+            }
         }
 
         tab("AI DJ")

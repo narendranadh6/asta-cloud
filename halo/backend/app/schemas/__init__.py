@@ -49,8 +49,9 @@ class Track(APIModel):
     source_id: str
     title: str
     artist: str
-    artist_id: str | None = None
+    artist_id: str | None = None  # id at the source; the artist page is "<source>:<artist_id>"
     album: str | None = None
+    album_id: str | None = None  # id at the source, when the source groups tracks in albums
     artwork_url: str | None = None
     # Sharper copy for the full-screen player, when the source has one.
     artwork_url_large: str | None = None
@@ -64,6 +65,43 @@ class Track(APIModel):
     license: TrackLicense | None = None
     external_url: str | None = None  # the track's page at the source
     attribution: Attribution
+
+
+class AlbumSummary(APIModel):
+    """An album (or an artist's release collection) with a Halo id "<source>:<id>"."""
+
+    id: str
+    source: TrackSource
+    title: str
+    artist: str
+    artist_id: str | None = None  # Halo artist id, "<source>:<id>"
+    artwork_url: str | None = None
+    release_date: str | None = None
+    track_count: int | None = None
+    external_url: str | None = None
+
+
+class AlbumPage(AlbumSummary):
+    artwork_url_large: str | None = None
+    attribution: Attribution
+    tracks: list[Track] = Field(default_factory=list)
+
+
+class ArtistPage(APIModel):
+    """An artist at one source: profile, most-played songs and albums."""
+
+    id: str  # "<source>:<id>"
+    source: TrackSource
+    name: str
+    handle: str | None = None
+    artwork_url: str | None = None
+    cover_url: str | None = None
+    bio: str | None = None
+    follower_count: int | None = None
+    external_url: str | None = None
+    attribution: Attribution
+    top_tracks: list[Track] = Field(default_factory=list)
+    albums: list[AlbumSummary] = Field(default_factory=list)
 
 
 class SearchResponse(APIModel):

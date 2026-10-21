@@ -11,7 +11,7 @@ import hashlib
 import re
 from typing import Literal
 
-from app.schemas import Attribution, Track
+from app.schemas import AlbumPage, AlbumSummary, ArtistPage, Attribution, Track
 
 FAKE_PREFIX = "tst"
 
@@ -135,3 +135,50 @@ class FakeCatalogSource:
         self.lookup_calls += 1
         wanted = set(source_ids)
         return {t.source_id: t for t, _ in self._available() if t.source_id in wanted}
+
+    # One artist ("tstArtist") and one album ("tstAlbum"), built from the first artist's songs.
+    def _first_artist_tracks(self) -> list[Track]:
+        first = self._available()[0][0].artist
+        return [t for t, _ in self._available() if t.artist == first]
+
+    async def get_artist(self, source_id: str) -> ArtistPage | None:
+        self.lookup_calls += 1
+        if source_id != "tstArtist":
+            return None
+        tracks = self._first_artist_tracks()
+        page = "https://audius.test/artist"
+        return ArtistPage(
+            id="audius:tstArtist",
+            source="audius",
+            name=tracks[0].artist,
+            follower_count=1200,
+            external_url=page,
+            attribution=Attribution(provider="audius", label="Audius", url=page),
+            top_tracks=tracks[:5],
+            albums=[
+                AlbumSummary(
+                    id="audius:tstAlbum",
+                    source="audius",
+                    title="First Light",
+                    artist=tracks[0].artist,
+                    artist_id="audius:tstArtist",
+                    track_count=3,
+                )
+            ],
+        )
+
+    async def get_album(self, source_id: str) -> AlbumPage | None:
+        self.lookup_calls += 1
+        if source_id != "tstAlbum":
+            return None
+        tracks = self._first_artist_tracks()[:3]
+        return AlbumPage(
+            id="audius:tstAlbum",
+            source="audius",
+            title="First Light",
+            artist=tracks[0].artist,
+            artist_id="audius:tstArtist",
+            track_count=len(tracks),
+            attribution=Attribution(provider="audius", label="Audius"),
+            tracks=tracks,
+        )

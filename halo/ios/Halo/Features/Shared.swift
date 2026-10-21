@@ -12,6 +12,18 @@ struct SearchRoute: Hashable {
     var title: String
 }
 
+/// An artist page ("audius:u1"); `name` shows while it loads.
+struct ArtistRoute: Hashable {
+    var id: String
+    var name: String
+}
+
+/// An album page ("jamendo:900"); `title` shows while it loads.
+struct AlbumRoute: Hashable {
+    var id: String
+    var title: String
+}
+
 struct StudioRoute: Hashable {
     var mood: Mood?
     var description: String
@@ -25,6 +37,8 @@ extension View {
             .navigationDestination(for: SearchRoute.self) {
                 SearchResultsScreen(query: $0.query, kind: $0.kind, title: $0.title)
             }
+            .navigationDestination(for: ArtistRoute.self) { ArtistView(route: $0) }
+            .navigationDestination(for: AlbumRoute.self) { AlbumView(route: $0) }
             .navigationDestination(for: StudioRoute.self) {
                 PlaylistStudioView(initialMood: $0.mood, initialDescription: $0.description)
             }

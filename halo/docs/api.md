@@ -50,6 +50,8 @@ The MusicBrainz and ListenBrainz endpoints return `503 metadata_disabled` /
 | GET | `/api/v1/search?q=&kind=song\|artist&page_token=&limit=` | Results from every enabled source, ranked and deduplicated (full songs win over previews), with `sources` and `next_page_token` |
 | GET | `/api/v1/search/suggestions?q=` | From your Halo history plus curated seeds |
 | GET | `/api/v1/tracks/{track_id}` | One track with a fresh `stream_url`. 404 `track_unavailable` if it was removed or can't be streamed |
+| GET | `/api/v1/artists/{artist_id}` | Artist page (Audius, Jamendo): profile, `top_tracks` (most played first), `albums`. Id is `<source>:<artist_id>` from a track. 404 `artist_unavailable` |
+| GET | `/api/v1/albums/{album_id}` | Album page with its playable `tracks` in album order. 404 `album_unavailable` |
 | GET | `/api/v1/history/search` | Your recent searches |
 | DELETE | `/api/v1/history/search` | Clear search history |
 | GET | `/api/v1/playlists?limit=&offset=` | Your playlists (summaries) |

@@ -131,9 +131,30 @@ struct SongDetailView: View {
             Text(model.track.title)
                 .font(HaloFont.title)
                 .foregroundStyle(HaloColor.text)
-            Text(model.track.artist)
-                .font(.headline)
-                .foregroundStyle(HaloColor.mutedText)
+            if let artistID = model.track.artistPageID {
+                NavigationLink(value: ArtistRoute(id: artistID, name: model.track.artist)) {
+                    HStack(spacing: 4) {
+                        Text(model.track.artist)
+                        Image(systemName: "chevron.right").font(.caption.weight(.bold))
+                    }
+                    .font(.headline)
+                    .foregroundStyle(HaloColor.accent)
+                }
+                .accessibilityHint("Opens the artist")
+                .accessibilityIdentifier("artistLink")
+            } else {
+                Text(model.track.artist)
+                    .font(.headline)
+                    .foregroundStyle(HaloColor.mutedText)
+            }
+            if let albumID = model.track.albumPageID, let album = model.track.album {
+                NavigationLink(value: AlbumRoute(id: albumID, title: album)) {
+                    Label(album, systemImage: "square.stack")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(HaloColor.text.opacity(0.8))
+                }
+                .accessibilityHint("Opens the album")
+            }
             HStack(spacing: Spacing.xs) {
                 SourceBadge(isPreview: model.track.isPreview, source: model.track.source)
                 if let seconds = model.track.durationSeconds, !model.track.isPreview {

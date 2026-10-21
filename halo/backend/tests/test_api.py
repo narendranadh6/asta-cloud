@@ -33,8 +33,12 @@ async def test_health(client: httpx.AsyncClient) -> None:
 
 
 async def test_user_data_requires_auth(client: httpx.AsyncClient) -> None:
-    for method, path in [("GET", "/api/v1/playlists"), ("GET", "/api/v1/preferences"),
-                         ("GET", "/api/v1/search?q=x"), ("POST", "/api/v1/ai/chat")]:
+    for method, path in [
+        ("GET", "/api/v1/playlists"),
+        ("GET", "/api/v1/preferences"),
+        ("GET", "/api/v1/search?q=x"),
+        ("POST", "/api/v1/ai/chat"),
+    ]:
         response = await client.request(method, path, json={"message": "x"})
         assert response.status_code == 401, path
         assert response.json()["error"]["code"] == "unauthenticated"
@@ -44,8 +48,12 @@ async def test_invalid_and_expired_tokens(client: httpx.AsyncClient) -> None:
     bad = await client.get("/api/v1/playlists", headers={"Authorization": "Bearer nope"})
     assert bad.json()["error"]["code"] == "invalid_token"
     expired = jwt.encode(
-        {"sub": str(uuid.uuid4()), "iss": "halo-api", "typ": "access",
-         "exp": int((datetime.now(UTC) - timedelta(minutes=1)).timestamp())},
+        {
+            "sub": str(uuid.uuid4()),
+            "iss": "halo-api",
+            "typ": "access",
+            "exp": int((datetime.now(UTC) - timedelta(minutes=1)).timestamp()),
+        },
         "test-secret-0123456789-0123456789-abcdef",
         algorithm="HS256",
     )
@@ -53,8 +61,12 @@ async def test_invalid_and_expired_tokens(client: httpx.AsyncClient) -> None:
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "token_expired"
     forged = jwt.encode(
-        {"sub": str(uuid.uuid4()), "iss": "halo-api", "typ": "access",
-         "exp": int((datetime.now(UTC) + timedelta(days=1)).timestamp())},
+        {
+            "sub": str(uuid.uuid4()),
+            "iss": "halo-api",
+            "typ": "access",
+            "exp": int((datetime.now(UTC) + timedelta(days=1)).timestamp()),
+        },
         "attacker-secret-attacker-secret-attacker",
         algorithm="HS256",
     )
@@ -151,6 +163,22 @@ async def test_track_details(client: httpx.AsyncClient, auth: dict[str, str]) ->
         )
 
 
+async def test_artist_and_album_pages(client: httpx.AsyncClient, auth: dict[str, str]) -> None:
+    artist = await client.get("/api/v1/artists/audius:tstArtist", headers=auth)
+    assert artist.status_code == 200
+    body = artist.json()
+    assert body["top_tracks"] and body["top_tracks"][0]["stream_url"]
+    assert body["albums"][0]["id"] == "audius:tstAlbum"
+    album = await client.get("/api/v1/albums/audius:tstAlbum", headers=auth)
+    assert album.status_code == 200 and len(album.json()["tracks"]) == 3
+    missing = await client.get("/api/v1/artists/audius:nobody", headers=auth)
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "artist_unavailable"
+    gone = await client.get("/api/v1/albums/itunes:123", headers=auth)
+    assert gone.json()["error"]["code"] == "album_unavailable"
+    assert (await client.get("/api/v1/albums/bad!id", headers=auth)).status_code in (404, 422)
+
+
 class DownSource(FakeCatalogSource):
     async def search(self, query, *, limit, offset=0):  # type: ignore[no-untyped-def]
         raise RuntimeError("down")
@@ -189,8 +217,9 @@ async def test_rate_limit_search(app_factory: AppFactory) -> None:
 async def test_rate_limit_registration_by_ip(app_factory: AppFactory) -> None:
     _, client = await app_factory(settings=make_settings(rate_limit_auth_per_minute=2))
     async with client:
-        codes = [(await client.post("/api/v1/auth/register", json={})).status_code
-                 for _ in range(3)]
+        codes = [
+            (await client.post("/api/v1/auth/register", json={})).status_code for _ in range(3)
+        ]
         last = await client.post("/api/v1/auth/register", json={})
     assert codes == [201, 201, 429]
     assert last.json()["error"]["code"] == "rate_limited"
@@ -363,8 +392,9 @@ async def test_feedback_not_stored_without_consent(
 async def test_export_and_delete_account(client: httpx.AsyncClient, auth: dict[str, str]) -> None:
     await client.put("/api/v1/preferences", json=PREFS, headers=auth)
     ids = await search_ids(client, auth, "spanish", 2)
-    await client.post("/api/v1/playlists", json={"name": "Export me", "track_ids": ids},
-                      headers=auth)
+    await client.post(
+        "/api/v1/playlists", json={"name": "Export me", "track_ids": ids}, headers=auth
+    )
     export = await client.get("/api/v1/me/export", headers=auth)
     data = export.json()
     assert data["playlists"][0]["name"] == "Export me"

@@ -11,7 +11,11 @@ import pytest
 from app.core.cache import MemoryStore
 from app.schemas import Attribution, Track
 from app.services.catalog.audius import AudiusSource
-from app.services.catalog.base import CatalogUnavailableError, TrackUnavailableError
+from app.services.catalog.base import (
+    CatalogUnavailableError,
+    EntityUnavailableError,
+    TrackUnavailableError,
+)
 from app.services.catalog.ids import is_valid_track_id, make_track_id, parse_track_id
 from app.services.catalog.itunes import ITunesPreviewSource
 from app.services.catalog.jamendo import JamendoSource, _license_name
@@ -114,6 +118,65 @@ async def test_audius_outage_is_a_catalog_error() -> None:
         await AudiusSource(base_url="https://a.test", http_client=client).search("x", limit=1)
 
 
+async def test_audius_artist_and_album_pages() -> None:
+    album = {
+        "id": "PlA1",
+        "playlist_name": "Monsoon Sessions",
+        "is_album": True,
+        "track_count": 2,
+        "permalink": "/madras/album/monsoon-sessions",
+        "release_date": "2026-08-01T00:00:00Z",
+        "artwork": {"480x480": "https://a/al480.jpg", "1000x1000": "https://a/al1000.jpg"},
+        "user": {"id": "u1", "name": "Madras Monsoon"},
+    }
+    quieter = {**AUDIUS_TRACK, "id": "Q2", "title": "Quiet Rain", "play_count": 10}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/users/u1"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "id": "u1",
+                        "name": "Madras Monsoon",
+                        "handle": "madras",
+                        "bio": " Rain music. ",
+                        "follower_count": 4200,
+                        "profile_picture": {"480x480": "https://a/p480.jpg"},
+                        "cover_photo": {"2000x": "https://a/cover.jpg"},
+                    }
+                },
+            )
+        if path.endswith("/users/u1/tracks"):
+            assert request.url.params["sort"] == "plays"
+            return httpx.Response(200, json={"data": [quieter, AUDIUS_TRACK]})
+        if path.endswith("/users/u1/albums"):
+            return httpx.Response(500)  # albums failing must not sink the page
+        if path.endswith("/playlists/PlA1"):
+            return httpx.Response(200, json={"data": [album]})
+        if path.endswith("/playlists/PlA1/tracks"):
+            return httpx.Response(200, json={"data": [AUDIUS_TRACK, quieter]})
+        return httpx.Response(404, json={"data": None})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://a.test/v1")
+    source = AudiusSource(base_url="https://a.test/v1", http_client=client)
+    artist = await source.get_artist("u1")
+    assert artist is not None
+    assert (artist.id, artist.name, artist.bio) == ("audius:u1", "Madras Monsoon", "Rain music.")
+    assert artist.external_url == "https://audius.co/madras"
+    assert [t.id for t in artist.top_tracks] == ["audius:D7KyD", "audius:Q2"]  # most played first
+    assert artist.albums == []
+    page = await source.get_album("PlA1")
+    assert page is not None
+    assert (page.id, page.title, page.artist_id) == ("audius:PlA1", "Monsoon Sessions", "audius:u1")
+    assert page.artwork_url_large == "https://a/al1000.jpg"
+    assert page.release_date == "2026-08-01"
+    assert [t.title for t in page.tracks] == ["Monsoon Drive", "Quiet Rain"]
+    assert await source.get_artist("nobody") is None
+    assert await source.get_album("gone") is None
+
+
 # --- Jamendo -----------------------------------------------------------------------------
 
 
@@ -160,6 +223,54 @@ async def test_jamendo_tracks_carry_creative_commons_licence() -> None:
     await jamendo(calls).trending(limit=5, genre="Folk")
     assert calls[-1].url.params["order"] == "popularity_week"
     assert calls[-1].url.params["fuzzytags"] == "folk"
+
+
+async def test_jamendo_album_tracks_follow_album_order() -> None:
+    base = {
+        "artist_id": "77",
+        "artist_name": "Kaveri Echo",
+        "album_id": "900",
+        "album_name": "Rivers",
+        "license_ccurl": "http://creativecommons.org/licenses/by/4.0/",
+    }
+    rows = [
+        {**base, "id": "2", "name": "Second", "position": "2", "audio": "https://j/2.mp3"},
+        {**base, "id": "1", "name": "First", "position": "1", "audio": "https://j/1.mp3"},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path, params = request.url.path, request.url.params
+        if path.endswith("/albums/") and params.get("id") == "900":
+            results = [
+                {
+                    "id": "900",
+                    "name": "Rivers",
+                    "artist_id": "77",
+                    "artist_name": "Kaveri Echo",
+                    "image": "https://j/rivers.jpg",
+                    "releasedate": "2025-04-01",
+                }
+            ]
+        elif path.endswith("/albums/"):
+            results = [
+                {"id": "900", "name": "Rivers", "artist_id": "77", "artist_name": "Kaveri Echo"}
+            ]
+        elif path.endswith("/artists/"):
+            results = [{"id": "77", "name": "Kaveri Echo", "shareurl": "https://jamendo.com/a/77"}]
+        else:
+            results = rows
+        return httpx.Response(200, json={"headers": {"status": "success"}, "results": results})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://j.test")
+    source = JamendoSource("test-client", http_client=client)
+    album = await source.get_album("900")
+    assert album is not None
+    assert [t.title for t in album.tracks] == ["First", "Second"]
+    assert album.track_count == 2 and album.tracks[0].album_id == "900"
+    assert album.artist_id == "jamendo:77"
+    artist = await source.get_artist("77")
+    assert artist is not None and artist.albums[0].id == "jamendo:900"
+    assert artist.attribution.label == "Jamendo"
 
 
 def test_licence_names() -> None:
@@ -299,6 +410,26 @@ async def test_catalog_merges_sources_and_survives_one_failing() -> None:
     assert (await catalog.get_track("audius:a1")).title == "Kaveri"
     with pytest.raises(TrackUnavailableError):
         await catalog.get_track("audius:gone")
+
+
+async def test_catalog_artist_and_album_pages_are_cached_and_validated() -> None:
+    from tests.fakes import FakeCatalogSource
+
+    source = FakeCatalogSource()
+    catalog = CatalogService([source, ITunesPreviewSource()], MemoryStore())
+    artist = await catalog.get_artist("audius:tstArtist")
+    assert artist.albums[0].id == "audius:tstAlbum"
+    calls = source.lookup_calls
+    assert (await catalog.get_artist("audius:tstArtist")).name == artist.name
+    assert source.lookup_calls == calls  # served from cache
+    album = await catalog.get_album("audius:tstAlbum")
+    assert len(album.tracks) == 3
+    for bad in ["audius:nobody", "itunes:123", "jamendo:1", "../etc", "audius:a b"]:
+        with pytest.raises(EntityUnavailableError):
+            await catalog.get_artist(bad)
+    with pytest.raises(EntityUnavailableError) as missing:
+        await catalog.get_album("audius:nothing")
+    assert missing.value.kind == "album"
 
 
 async def test_catalog_with_every_source_down_raises() -> None:

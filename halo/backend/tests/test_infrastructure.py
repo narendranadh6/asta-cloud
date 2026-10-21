@@ -20,7 +20,8 @@ from tests.fakes import FakeCatalogSource
 @pytest.mark.parametrize("kind", ["memory", "redis"])
 async def test_store_window_counter_and_json(kind: str) -> None:
     store = (
-        MemoryStore() if kind == "memory"
+        MemoryStore()
+        if kind == "memory"
         else RedisStore(fakeredis.FakeAsyncRedis(decode_responses=True))
     )
     assert [(await store.incr_window("k", 60))[0] for _ in range(3)] == [1, 2, 3]
@@ -58,28 +59,36 @@ async def test_refresh_stale_track_metadata(app_factory: AppFactory) -> None:
     app, client = await app_factory()
     async with client:
         auth = await register(client)
-        search = await client.get("/api/v1/search", params={"q": "tamil", "limit": 1},
-                                  headers=auth)
+        search = await client.get("/api/v1/search", params={"q": "tamil", "limit": 1}, headers=auth)
         track_id = search.json()["items"][0]["id"]
-        await client.post("/api/v1/playlists", json={"name": "r", "track_ids": [track_id]},
-                          headers=auth)
+        await client.post(
+            "/api/v1/playlists", json={"name": "r", "track_ids": [track_id]}, headers=auth
+        )
     factory = app.state.session_factory
     old = datetime.now(UTC) - timedelta(days=40)
     async with factory() as session:
         ref = (await session.execute(select(TrackReference))).scalar_one()
         ref.metadata_fetched_at = old
-        session.add(TrackReference(
-            provider="audius", provider_id="tstGoneXYZ1", title="t", artist="c",
-            stream_url="https://stream.test/gone.mp3", metadata_fetched_at=old,
-        ))
+        session.add(
+            TrackReference(
+                provider="audius",
+                provider_id="tstGoneXYZ1",
+                title="t",
+                artist="c",
+                stream_url="https://stream.test/gone.mp3",
+                metadata_fetched_at=old,
+            )
+        )
         await session.commit()
     async with factory() as session:
         catalog = CatalogService([FakeCatalogSource()], app.state.store)
         report = await refresh_stale_tracks(session, catalog)
     assert (report.refreshed, report.marked_unavailable) == (1, 1)
     async with factory() as session:
-        gone = (await session.execute(
-            select(TrackReference).where(TrackReference.provider_id == "tstGoneXYZ1")
-        )).scalar_one()
+        gone = (
+            await session.execute(
+                select(TrackReference).where(TrackReference.provider_id == "tstGoneXYZ1")
+            )
+        ).scalar_one()
         assert gone.is_available is False and gone.stream_url is None
         assert gone.metadata_fetched_at.replace(tzinfo=UTC) > old.replace(tzinfo=UTC)

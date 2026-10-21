@@ -42,6 +42,12 @@ struct PlayerGeometry {
     var travel: CGFloat { max(mini.minY, 1) }
 }
 
+/// A page Now Playing can open in the tabs behind it.
+enum PlayerRoute {
+    case artist(ArtistRoute)
+    case album(AlbumRoute)
+}
+
 /// Small math helpers for the transition.
 enum PlayerMath {
     static func lerp(_ a: CGFloat, _ b: CGFloat, _ t: CGFloat) -> CGFloat { a + (b - a) * t }

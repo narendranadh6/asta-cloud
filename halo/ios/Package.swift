@@ -36,6 +36,7 @@ let package = Package(
                 "Features/PlaylistStudio/PlaylistStudioViewModel.swift",
                 "Features/Discover/DiscoverViewModel.swift",
                 "Features/Home/HomeViewModel.swift",
+                "Features/Artist/PageLoader.swift",
             ]
         ),
         .testTarget(

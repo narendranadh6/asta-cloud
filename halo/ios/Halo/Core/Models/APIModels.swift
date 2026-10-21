@@ -50,6 +50,7 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     public var artist: String
     public var artistId: String?
     public var album: String?
+    public var albumId: String?
     public var artworkUrl: String?
     /// Sharper copy for the full-screen player, when the source has one.
     public var artworkUrlLarge: String?
@@ -67,7 +68,8 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
 
     public init(
         id: String, source: TrackSource, sourceId: String, title: String, artist: String,
-        artistId: String? = nil, album: String? = nil, artworkUrl: String? = nil,
+        artistId: String? = nil, album: String? = nil, albumId: String? = nil,
+        artworkUrl: String? = nil,
         artworkUrlLarge: String? = nil, durationSeconds: Int? = nil, genre: String? = nil, mood: String? = nil,
         releaseDate: String? = nil, playCount: Int? = nil, streamUrl: String? = nil,
         isPreview: Bool = false, license: TrackLicense? = nil, externalUrl: String? = nil,
@@ -80,6 +82,7 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
         self.artist = artist
         self.artistId = artistId
         self.album = album
+        self.albumId = albumId
         self.artworkUrl = artworkUrl
         self.artworkUrlLarge = artworkUrlLarge
         self.durationSeconds = durationSeconds
@@ -96,6 +99,17 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
 
     public var artworkURL: URL? { Self.webURL(artworkUrl) }
     public var largeArtworkURL: URL? { Self.webURL(artworkUrlLarge) }
+
+    /// The artist's page id ("audius:u1"), when the source has artist pages.
+    public var artistPageID: String? { Self.pageID(source, artistId) }
+    /// The album's page id, when the source groups this track in an album.
+    public var albumPageID: String? { Self.pageID(source, albumId) }
+
+    private static func pageID(_ source: TrackSource, _ raw: String?) -> String? {
+        guard source == .audius || source == .jamendo, let raw else { return nil }
+        let id = "\(source.rawValue):\(raw)"
+        return TrackID.isValid(id) ? id : nil
+    }
     public var streamURL: URL? { Self.webURL(streamUrl) }
     /// The track's page at its source (for previews: the Apple Music page).
     public var externalURL: URL? { Self.webURL(externalUrl) }
@@ -367,6 +381,64 @@ public struct AIChatRequest: Codable, Sendable {
         self.conversationId = conversationId
         self.history = history
     }
+}
+
+/// An album (or an artist's release collection). Ids look like track ids: "audius:PlA1".
+public struct AlbumSummary: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var source: TrackSource
+    public var title: String
+    public var artist: String
+    public var artistId: String?
+    public var artworkUrl: String?
+    public var releaseDate: String?
+    public var trackCount: Int?
+    public var externalUrl: String?
+
+    public var artworkURL: URL? { Track.webURL(artworkUrl) }
+    public var externalURL: URL? { Track.webURL(externalUrl) }
+    /// "2026" from "2026-08-01".
+    public var year: String? { releaseDate.map { String($0.prefix(4)) } }
+}
+
+public struct AlbumPage: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var source: TrackSource
+    public var title: String
+    public var artist: String
+    public var artistId: String?
+    public var artworkUrl: String?
+    public var artworkUrlLarge: String?
+    public var releaseDate: String?
+    public var trackCount: Int?
+    public var externalUrl: String?
+    public var attribution: Attribution
+    public var tracks: [Track]
+
+    public var artworkURL: URL? { Track.webURL(artworkUrl) }
+    public var largeArtworkURL: URL? { Track.webURL(artworkUrlLarge) ?? artworkURL }
+    public var externalURL: URL? { Track.webURL(externalUrl) }
+    public var year: String? { releaseDate.map { String($0.prefix(4)) } }
+    public var totalSeconds: Int { tracks.compactMap(\.durationSeconds).reduce(0, +) }
+}
+
+public struct ArtistPage: Codable, Sendable, Hashable, Identifiable {
+    public var id: String
+    public var source: TrackSource
+    public var name: String
+    public var handle: String?
+    public var artworkUrl: String?
+    public var coverUrl: String?
+    public var bio: String?
+    public var followerCount: Int?
+    public var externalUrl: String?
+    public var attribution: Attribution
+    public var topTracks: [Track]
+    public var albums: [AlbumSummary]
+
+    public var artworkURL: URL? { Track.webURL(artworkUrl) }
+    public var coverURL: URL? { Track.webURL(coverUrl) }
+    public var externalURL: URL? { Track.webURL(externalUrl) }
 }
 
 public struct RecommendedTrack: Codable, Sendable, Hashable, Identifiable {

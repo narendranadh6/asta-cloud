@@ -15,11 +15,12 @@ import re
 from dataclasses import dataclass
 
 from app.core.cache import KeyValueStore
-from app.schemas import SearchKind, Track
+from app.schemas import AlbumPage, ArtistPage, SearchKind, Track
 from app.services.catalog.base import (
     CatalogNotConfiguredError,
     CatalogSource,
     CatalogUnavailableError,
+    EntityUnavailableError,
     SearchPage,
     TrackUnavailableError,
 )
@@ -268,6 +269,42 @@ class CatalogService:
         if track_id not in tracks:
             raise TrackUnavailableError("This song is no longer available from its source")
         return tracks[track_id]
+
+    async def get_artist(self, artist_id: str) -> ArtistPage:
+        raw = await self._entity("artist", artist_id)
+        page = ArtistPage.model_validate(raw)
+        return page
+
+    async def get_album(self, album_id: str) -> AlbumPage:
+        raw = await self._entity("album", album_id)
+        return AlbumPage.model_validate(raw)
+
+    async def _entity(self, kind: str, entity_id: str) -> dict[str, object]:
+        """An artist or album page from its source, cached like track metadata."""
+        self._require_sources()
+        missing = EntityUnavailableError(f"This {kind} isn't available", kind)
+        if not is_valid_track_id(entity_id):
+            raise missing
+        source_name, source_id = parse_track_id(entity_id)
+        source = self.sources.get(source_name)
+        if source is None:
+            raise missing
+        key = self._key(kind, entity_id)
+        cached = await self._store.get_json(key)
+        if cached is not None:
+            return dict(cached)
+        lookup = source.get_artist(source_id) if kind == "artist" else source.get_album(source_id)
+        try:
+            page = await asyncio.wait_for(lookup, self._timeout)
+        except TimeoutError as exc:
+            raise CatalogUnavailableError(f"{source_name} is unavailable right now") from exc
+        if page is None:
+            raise missing
+        tracks = page.top_tracks if isinstance(page, ArtistPage) else page.tracks
+        await self._remember(tracks)
+        dumped = page.model_dump(mode="json")
+        await self._store.set_json(key, dumped, self._search_ttl)
+        return dumped
 
     async def aclose(self) -> None:
         for source in self.sources.values():

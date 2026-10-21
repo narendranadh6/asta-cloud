@@ -15,6 +15,10 @@ public protocol MusicAPI: Sendable {
     func trending(genre: String?, limit: Int) async throws -> TrendingResponse
     /// One track with a fresh stream URL; `track_unavailable` if it was removed.
     func track(id: String) async throws -> Track
+    /// An artist's page (Audius and Jamendo artists; ids like "audius:u1").
+    func artist(id: String) async throws -> ArtistPage
+    /// An album with its tracks in order.
+    func album(id: String) async throws -> AlbumPage
 
     func playlists(limit: Int, offset: Int) async throws -> PlaylistPage
     func playlist(id: UUID) async throws -> RemotePlaylist
@@ -239,6 +243,16 @@ public actor APIClient: MusicAPI {
     public func track(id: String) async throws -> Track {
         guard TrackID.isValid(id) else { throw Self.invalidTrackID }
         return try await send(.get, "api/v1/tracks/\(id)")
+    }
+
+    public func artist(id: String) async throws -> ArtistPage {
+        guard TrackID.isValid(id) else { throw Self.invalidTrackID }
+        return try await send(.get, "api/v1/artists/\(id)")
+    }
+
+    public func album(id: String) async throws -> AlbumPage {
+        guard TrackID.isValid(id) else { throw Self.invalidTrackID }
+        return try await send(.get, "api/v1/albums/\(id)")
     }
 
     public func playlists(limit: Int, offset: Int) async throws -> PlaylistPage {

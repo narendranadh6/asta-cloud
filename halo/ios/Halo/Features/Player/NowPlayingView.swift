@@ -10,6 +10,7 @@ struct NowPlayingView: View {
     var collapse: () -> Void
     var openQueue: () -> Void
     var askDJ: (String) -> Void
+    var open: (PlayerRoute) -> Void
 
     @Environment(AppModel.self) private var app
     @Environment(PlayerController.self) private var player
@@ -72,6 +73,11 @@ struct NowPlayingView: View {
         .padding(.top, Spacing.xs)
     }
 
+    private var artistRoute: ArtistRoute? {
+        guard let track = item.track, let id = track.artistPageID else { return nil }
+        return ArtistRoute(id: id, name: track.artist)
+    }
+
     private var contextLine: String {
         if item.isLive { return "Live radio" }
         return player.queue.contextTitle ?? item.track?.source.label ?? "Halo"
@@ -80,6 +86,16 @@ struct NowPlayingView: View {
     private var moreMenu: some View {
         Menu {
             if let track = item.track {
+                if let route = artistRoute {
+                    Button { open(.artist(route)) } label: {
+                        Label("Go to artist", systemImage: "person.crop.circle")
+                    }
+                }
+                if let id = track.albumPageID, let album = track.album {
+                    Button { open(.album(AlbumRoute(id: id, title: album))) } label: {
+                        Label("Go to album", systemImage: "square.stack")
+                    }
+                }
                 addToPlaylistItems(track)
                 Button {
                     askDJ("Songs like \(track.title) by \(track.artist)")
@@ -144,13 +160,24 @@ struct NowPlayingView: View {
                     .font(HaloFont.title)
                     .lineLimit(2)
                     .minimumScaleFactor(0.85)
-                Text(item.subtitle)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(HaloColor.text.opacity(0.7))
-                    .lineLimit(1)
+                if let route = artistRoute {
+                    Button { open(.artist(route)) } label: {
+                        Text(item.subtitle)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(HaloColor.text.opacity(0.7))
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens the artist")
+                } else {
+                    Text(item.subtitle)
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(HaloColor.text.opacity(0.7))
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
             if let track = item.track {
                 Button { toggleSave(track) } label: {
                     Image(systemName: isSaved ? "heart.fill" : "heart")

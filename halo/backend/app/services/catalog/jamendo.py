@@ -7,12 +7,13 @@ a Creative Commons licence, which Halo shows with the artist name as attribution
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Literal
 
 import httpx
 
-from app.schemas import Attribution, Track, TrackLicense
+from app.schemas import AlbumPage, AlbumSummary, ArtistPage, Attribution, Track, TrackLicense
 from app.services.catalog.base import CatalogUnavailableError
 from app.services.catalog.ids import make_track_id
 
@@ -47,17 +48,10 @@ class JamendoSource:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def _tracks_query(self, params: dict[str, Any]) -> list[Track]:
-        query = {
-            "client_id": self._client_id,
-            "format": "json",
-            "audioformat": "mp32",
-            "imagesize": 500,
-            "include": "musicinfo",
-            **params,
-        }
+    async def _query(self, endpoint: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        query = {"client_id": self._client_id, "format": "json", **params}
         try:
-            response = await self._client.get("/tracks/", params=query)
+            response = await self._client.get(endpoint, params=query)
         except httpx.HTTPError as exc:
             raise CatalogUnavailableError("Jamendo is unreachable") from exc
         if response.status_code != 200:
@@ -66,7 +60,16 @@ class JamendoSource:
         headers = payload.get("headers") or {}
         if headers.get("status") not in (None, "success"):
             raise CatalogUnavailableError(f"Jamendo error: {headers.get('error_message')}")
-        return [t for t in (self._track(r) for r in payload.get("results") or []) if t]
+        return [r for r in payload.get("results") or [] if isinstance(r, dict)]
+
+    async def _raw_tracks(self, params: dict[str, Any]) -> list[dict[str, Any]]:
+        return await self._query(
+            "/tracks/",
+            {"audioformat": "mp32", "imagesize": 500, "include": "musicinfo", **params},
+        )
+
+    async def _tracks_query(self, params: dict[str, Any]) -> list[Track]:
+        return [t for t in (self._track(r) for r in await self._raw_tracks(params)) if t]
 
     def _track(self, raw: dict[str, Any]) -> Track | None:
         if not raw.get("id") or not raw.get("name") or not raw.get("audio"):
@@ -82,6 +85,7 @@ class JamendoSource:
             artist=str(raw.get("artist_name") or "Unknown artist"),
             artist_id=str(raw["artist_id"]) if raw.get("artist_id") else None,
             album=raw.get("album_name") or None,
+            album_id=str(raw["album_id"]) if raw.get("album_id") else None,
             artwork_url=raw.get("album_image") or raw.get("image") or None,
             duration_seconds=int(raw["duration"]) if raw.get("duration") else None,
             genre=str(genres[0]).title() if genres else None,
@@ -108,3 +112,60 @@ class JamendoSource:
             return {}
         tracks = await self._tracks_query({"id": " ".join(source_ids[:100]), "limit": 100})
         return {t.source_id: t for t in tracks}
+
+    # --- Artists and albums ---------------------------------------------------------------
+
+    def _album(self, raw: dict[str, Any]) -> AlbumSummary | None:
+        if not raw.get("id") or not raw.get("name"):
+            return None
+        return AlbumSummary(
+            id=make_track_id("jamendo", str(raw["id"])),
+            source="jamendo",
+            title=str(raw["name"]),
+            artist=str(raw.get("artist_name") or "Unknown artist"),
+            artist_id=make_track_id("jamendo", str(raw["artist_id"]))
+            if raw.get("artist_id")
+            else None,
+            artwork_url=raw.get("image") or None,
+            release_date=raw.get("releasedate") or None,
+            external_url=raw.get("shareurl") or None,
+        )
+
+    async def get_artist(self, source_id: str) -> ArtistPage | None:
+        artists, top, albums = await asyncio.gather(
+            self._query("/artists/", {"id": source_id}),
+            self._tracks_query({"artist_id": source_id, "order": "popularity_total", "limit": 20}),
+            self._query("/albums/", {"artist_id": source_id, "limit": 20, "imagesize": 500}),
+        )
+        if not artists:
+            return None
+        raw = artists[0]
+        page = raw.get("shareurl") or None
+        return ArtistPage(
+            id=make_track_id("jamendo", str(raw.get("id") or source_id)),
+            source="jamendo",
+            name=str(raw.get("name") or "Unknown artist"),
+            artwork_url=raw.get("image") or None,
+            external_url=page,
+            attribution=Attribution(provider="jamendo", label="Jamendo", url=page),
+            top_tracks=top,
+            albums=[a for a in (self._album(r) for r in albums) if a],
+        )
+
+    async def get_album(self, source_id: str) -> AlbumPage | None:
+        albums, rows = await asyncio.gather(
+            self._query("/albums/", {"id": source_id, "imagesize": 600}),
+            self._raw_tracks({"album_id": source_id, "limit": 100}),
+        )
+        summary = self._album(albums[0]) if albums else None
+        if summary is None:
+            return None
+        rows.sort(key=lambda r: int(r.get("position") or 0))
+        tracks = [t for t in (self._track(r) for r in rows) if t]
+        summary.track_count = len(tracks)
+        return AlbumPage(
+            **summary.model_dump(),
+            artwork_url_large=summary.artwork_url,
+            attribution=Attribution(provider="jamendo", label="Jamendo", url=summary.external_url),
+            tracks=tracks,
+        )

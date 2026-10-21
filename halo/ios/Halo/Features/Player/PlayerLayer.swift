@@ -7,6 +7,7 @@ import SwiftUI
 struct PlayerLayer: View {
     @Binding var isExpanded: Bool
     var tabBarHeight: CGFloat
+    var open: (PlayerRoute) -> Void
     var askDJ: (String) -> Void
 
     @Environment(PlayerController.self) private var player
@@ -112,6 +113,10 @@ struct PlayerLayer: View {
                     askDJ: { prompt in
                         collapse()
                         askDJ(prompt)
+                    },
+                    open: { route in
+                        collapse()
+                        open(route)
                     })
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(y: (1 - controls) * 14 + max(drag, 0) * 0.15)

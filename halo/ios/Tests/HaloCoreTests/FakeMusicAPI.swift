@@ -211,6 +211,38 @@ actor FakeMusicAPI: MusicAPI {
         return track
     }
 
+    /// One artist ("audius:tstArtist") and one album ("audius:tstAlbum") over the sample catalog.
+    public func artist(id: String) async throws -> ArtistPage {
+        try checkFailure()
+        guard id == "audius:tstArtist" else { throw Self.notFound("artist") }
+        return ArtistPage(
+            id: id, source: .audius, name: "Aarav Strings", handle: "aarav", artworkUrl: nil,
+            coverUrl: nil, bio: "Strings from Hyderabad.", followerCount: 1200,
+            externalUrl: "https://audius.test/aarav",
+            attribution: Attribution(provider: .audius, label: "Audius"),
+            topTracks: Array(catalog.prefix(4)),
+            albums: [AlbumSummary(
+                id: "audius:tstAlbum", source: .audius, title: "First Light", artist: "Aarav Strings",
+                artistId: id, artworkUrl: nil, releaseDate: "2026-03-01", trackCount: 3,
+                externalUrl: nil)])
+    }
+
+    public func album(id: String) async throws -> AlbumPage {
+        try checkFailure()
+        guard id == "audius:tstAlbum" else { throw Self.notFound("album") }
+        return AlbumPage(
+            id: id, source: .audius, title: "First Light", artist: "Aarav Strings",
+            artistId: "audius:tstArtist", artworkUrl: nil, artworkUrlLarge: nil,
+            releaseDate: "2026-03-01", trackCount: 3, externalUrl: nil,
+            attribution: Attribution(provider: .audius, label: "Audius"),
+            tracks: Array(catalog.prefix(3)))
+    }
+
+    private static func notFound(_ kind: String) -> APIError {
+        .server(status: 404, code: "\(kind)_unavailable", message: "This \(kind) isn't available",
+                retryAfter: nil)
+    }
+
     private func makeRemote(_ id: UUID, name: String, trackIDs: [String], existing: RemotePlaylist?)
         -> RemotePlaylist
     {

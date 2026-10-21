@@ -13,6 +13,8 @@ struct RootView: View {
     @State private var playerExpanded = false
     @State private var tabBarHeight: CGFloat = 60
     @State private var toast: String?
+    /// Each tab's navigation stack, so the player can open a page in the tab behind it.
+    @State private var paths: [AppTab: NavigationPath] = [:]
 
     var body: some View {
         Group {
@@ -65,7 +67,7 @@ struct RootView: View {
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { tabBarHeight = $0 }
             }
             .accessibilityHidden(playerExpanded)
-            PlayerLayer(isExpanded: $playerExpanded, tabBarHeight: tabBarHeight) { prompt in
+            PlayerLayer(isExpanded: $playerExpanded, tabBarHeight: tabBarHeight, open: open) { prompt in
                 app.pendingDJPrompt = prompt
                 selection = .dj
             }
@@ -86,9 +88,25 @@ struct RootView: View {
     }
 
     private func tab<Content: View>(_ tag: AppTab, @ViewBuilder content: () -> Content) -> some View {
-        NavigationStack { content() }
+        NavigationStack(path: Binding(get: { paths[tag] ?? NavigationPath() },
+                                      set: { paths[tag] = $0 })) { content() }
             .toolbar(.hidden, for: .tabBar)
             .tag(tag)
+    }
+}
+
+extension RootView {
+    /// Opens a page from Now Playing in the current tab (Profile has no music pages, so
+    /// those open in Search).
+    fileprivate func open(_ route: PlayerRoute) {
+        let target: AppTab = selection == .settings ? .search : selection
+        selection = target
+        var path = paths[target] ?? NavigationPath()
+        switch route {
+        case let .artist(artist): path.append(artist)
+        case let .album(album): path.append(album)
+        }
+        paths[target] = path
     }
 }
 

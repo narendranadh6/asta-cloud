@@ -32,9 +32,15 @@ from tests.conftest import AppFactory, register
 
 def test_intent_schema_accepts_valid_payload() -> None:
     intent = MusicIntent.model_validate(
-        {"mood": "focused", "language": "Telugu", "genres": ["melody", "Melody", "acoustic"],
-         "energy": 35, "duration_minutes": 60, "discovery": "balanced",
-         "search_queries": ["telugu melody songs", "telugu acoustic"]}
+        {
+            "mood": "focused",
+            "language": "Telugu",
+            "genres": ["melody", "Melody", "acoustic"],
+            "energy": 35,
+            "duration_minutes": 60,
+            "discovery": "balanced",
+            "search_queries": ["telugu melody songs", "telugu acoustic"],
+        }
     )
     assert intent.genres == ["melody", "acoustic"]
 
@@ -126,8 +132,16 @@ class FakeLLM:
 
 
 async def test_llm_plan_is_used_and_overrides_applied() -> None:
-    llm = FakeLLM(json.dumps({"mood": "happy", "search_queries": ["sunny pop"],
-                              "duration_minutes": 45, "playlist_title": "Sunny"}))
+    llm = FakeLLM(
+        json.dumps(
+            {
+                "mood": "happy",
+                "search_queries": ["sunny pop"],
+                "duration_minutes": 45,
+                "playlist_title": "Sunny",
+            }
+        )
+    )
     planner = IntentPlanner(llm)
     result = await planner.plan(
         "upbeat", PreferenceHints(excluded_artists=["Nope"]), PlanOverrides(duration_minutes=90)
@@ -140,8 +154,12 @@ async def test_llm_plan_is_used_and_overrides_applied() -> None:
 
 @pytest.mark.parametrize(
     "response",
-    [httpx.ConnectError("down"), PlannerError("bad"), '{"search_queries": ["https://x.com"]}',
-     "not json"],
+    [
+        httpx.ConnectError("down"),
+        PlannerError("bad"),
+        '{"search_queries": ["https://x.com"]}',
+        "not json",
+    ],
 )
 async def test_llm_failure_falls_back_to_heuristic(response: str | Exception) -> None:
     result = await IntentPlanner(FakeLLM(response)).plan("calm telugu", PreferenceHints())
@@ -153,11 +171,25 @@ async def test_llm_failure_falls_back_to_heuristic(response: str | Exception) ->
 # --- Pipeline stages --------------------------------------------------------------------
 
 
-def make_track(source_id: str, title: str, artist: str, *, duration: int = 200,
-               plays: int = 1000, playable: bool = True, preview: bool = False) -> Track:
+def make_track(
+    source_id: str,
+    title: str,
+    artist: str,
+    *,
+    duration: int = 200,
+    plays: int = 1000,
+    playable: bool = True,
+    preview: bool = False,
+) -> Track:
     return Track(
-        id=f"audius:{source_id}", source="audius", source_id=source_id, title=title,
-        artist=artist, duration_seconds=duration, play_count=plays, is_preview=preview,
+        id=f"audius:{source_id}",
+        source="audius",
+        source_id=source_id,
+        title=title,
+        artist=artist,
+        duration_seconds=duration,
+        play_count=plays,
+        is_preview=preview,
         stream_url=f"https://stream.test/{source_id}.mp3" if playable else None,
         attribution=Attribution(provider="audius", label="Audius"),
     )
@@ -186,19 +218,33 @@ def test_filtering_rules() -> None:
         {"audius:ggggggggggg"},
     )
     assert [c.track.id for c in kept] == ["audius:aaaaaaaaaaa"]
-    assert counts == {"duplicate": 1, "excluded_artist": 1, "duration": 2, "not_playable": 1,
-                      "disliked": 1, "excluded_track": 1}
+    assert counts == {
+        "duplicate": 1,
+        "excluded_artist": 1,
+        "duration": 2,
+        "not_playable": 1,
+        "disliked": 1,
+        "excluded_track": 1,
+    }
 
 
 def test_scoring_respects_discovery_preference() -> None:
     popular = Candidate(make_track("aaaaaaaaaaa", "Hit", "A", plays=50_000_000), "q", 0)
     obscure = Candidate(make_track("bbbbbbbbbbb", "Gem", "B", plays=2_000), "q", 0)
     middle = Candidate(make_track("ccccccccccc", "Mid", "C", plays=200_000), "q", 0)
-    score_candidates([popular, obscure, middle], intent(discovery="discovery"),
-                     PreferenceHints(), FeedbackSignals())
+    score_candidates(
+        [popular, obscure, middle],
+        intent(discovery="discovery"),
+        PreferenceHints(),
+        FeedbackSignals(),
+    )
     assert obscure.score > popular.score
-    score_candidates([popular, obscure, middle], intent(discovery="familiar"),
-                     PreferenceHints(), FeedbackSignals())
+    score_candidates(
+        [popular, obscure, middle],
+        intent(discovery="familiar"),
+        PreferenceHints(),
+        FeedbackSignals(),
+    )
     assert popular.score > obscure.score
     assert all(c.reasons for c in (popular, obscure, middle))
 
@@ -212,8 +258,7 @@ def test_previews_score_below_full_songs() -> None:
 
 def test_diversity_caps_channels_and_duplicates() -> None:
     cands = [
-        Candidate(make_track(f"a{i:010d}", f"Song {i}", "Same Channel"), "q", i)
-        for i in range(6)
+        Candidate(make_track(f"a{i:010d}", f"Song {i}", "Same Channel"), "q", i) for i in range(6)
     ]
     cands += [
         Candidate(make_track("dup00000001", "Artist - Tune (Official Video)", "X"), "q", 0),
@@ -229,8 +274,10 @@ def test_diversity_caps_channels_and_duplicates() -> None:
 
 
 def test_diversity_stops_at_target_duration() -> None:
-    cands = [Candidate(make_track(f"b{i:010d}", f"T{i}", f"C{i}", duration=300), "q", i)
-             for i in range(30)]
+    cands = [
+        Candidate(make_track(f"b{i:010d}", f"T{i}", f"C{i}", duration=300), "q", i)
+        for i in range(30)
+    ]
     chosen = diversify(cands, intent(), target_seconds=1200)
     assert len(chosen) == 4
 
@@ -244,8 +291,11 @@ async def test_ai_playlist_returns_only_verified_tracks(app_factory: AppFactory)
         auth = await register(client)
         response = await client.post(
             "/api/v1/ai/playlist",
-            json={"description": "relaxing Telugu melodies from the 2000s", "mood": "calm",
-                  "duration_minutes": 30},
+            json={
+                "description": "relaxing Telugu melodies from the 2000s",
+                "mood": "calm",
+                "duration_minutes": 30,
+            },
             headers=auth,
         )
         assert response.status_code == 200, response.text
@@ -273,7 +323,8 @@ async def test_ai_chat_stores_conversation_only_with_consent(app_factory: AppFac
     async with client:
         auth = await register(client)
         first = await client.post(
-            "/api/v1/ai/chat", json={"message": "late-night coding with minimal vocals"},
+            "/api/v1/ai/chat",
+            json={"message": "late-night coding with minimal vocals"},
             headers=auth,
         )
         assert first.status_code == 200
@@ -292,8 +343,11 @@ async def test_ai_chat_stores_conversation_only_with_consent(app_factory: AppFac
         assert body["draft"]["session_id"]
         feedback = await client.post(
             "/api/v1/recommendations/feedback",
-            json={"track_id": body["draft"]["tracks"][0]["track"]["id"],
-                  "rating": "dislike", "session_id": body["draft"]["session_id"]},
+            json={
+                "track_id": body["draft"]["tracks"][0]["track"]["id"],
+                "rating": "dislike",
+                "session_id": body["draft"]["session_id"],
+            },
             headers=auth,
         )
         assert feedback.json()["recorded"] is True

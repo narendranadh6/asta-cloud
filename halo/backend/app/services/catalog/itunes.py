@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 import httpx
 
-from app.schemas import Attribution, Track
+from app.schemas import AlbumPage, ArtistPage, Attribution, Track
 from app.services.catalog.base import CatalogUnavailableError
 from app.services.catalog.ids import make_track_id
 
@@ -25,6 +25,8 @@ def _artwork(url: str | None, size: int = 600) -> str | None:
 
 
 class ITunesPreviewSource:
+    """30-second previews only: Halo shows no artist or album pages for them."""
+
     name: Literal["itunes"] = "itunes"
     full_tracks = False
 
@@ -101,3 +103,9 @@ class ITunesPreviewSource:
         rows = await self._get("/lookup", {"id": ",".join(source_ids[:100]), "entity": "song"})
         tracks = [t for t in (self._track(r) for r in rows) if t]
         return {t.source_id: t for t in tracks}
+
+    async def get_artist(self, source_id: str) -> ArtistPage | None:
+        return None
+
+    async def get_album(self, source_id: str) -> AlbumPage | None:
+        return None
