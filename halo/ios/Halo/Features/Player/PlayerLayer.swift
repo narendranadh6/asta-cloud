@@ -79,13 +79,14 @@ struct PlayerLayer: View {
                     Color.clear.haloGlass(cornerRadius: corner, tint: palette.color(\.glow))
                         .opacity(1 - ambient)
                 }
+                // Interaction is attached before `.position`: a positioned view fills its
+                // container, so anything added after it would cover the whole screen.
+                .contentShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+                .onTapGesture { if !isExpanded { expand() } }
                 .position(x: surface.midX, y: surface.midY)
-            .onTapGesture { if !isExpanded { expand() } }
 
             MiniPlayerContent(item: item, swipe: swipe)
                 .frame(width: geometry.mini.width, height: geometry.mini.height)
-                .position(x: surface.minX + geometry.mini.width / 2,
-                          y: surface.minY + geometry.mini.height / 2)
                 .contentShape(Rectangle())
                 .onTapGesture { expand() }
                 .opacity(1 - PlayerMath.window(p, 0, 0.25))
@@ -95,6 +96,8 @@ struct PlayerLayer: View {
                 .accessibilityIdentifier("miniPlayer")
                 .accessibilityAction(named: "Open Now Playing") { expand() }
                 .accessibilityAction(.magicTap) { player.togglePlayPause() }
+                .position(x: surface.minX + geometry.mini.width / 2,
+                          y: surface.minY + geometry.mini.height / 2)
 
             HaloArtwork(url: item.largeArtworkURL ?? item.artworkURL, size: nil,
                         cornerRadius: artCorner, maxPointSize: ArtworkPoints.nowPlaying)
@@ -103,8 +106,8 @@ struct PlayerLayer: View {
                 .shadow(color: .black.opacity(0.35 * ambient), radius: 30, y: 16)
                 .scaleEffect(paused && !reduceMotion ? 0.96 : 1)
                 .animation(HaloMotion.emphasized, value: paused)
-                .position(x: art.midX, y: art.midY)
                 .onTapGesture { if !isExpanded { expand() } }
+                .position(x: art.midX, y: art.midY)
 
             if p > 0.01 {
                 NowPlayingView(
