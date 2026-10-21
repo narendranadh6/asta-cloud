@@ -78,7 +78,7 @@ struct SearchView: View {
             Section {
                 ForEach(Array(trending.enumerated()), id: \.element.id) { index, track in
                     NavigationLink(value: track) {
-                        TrackRow(track: track) { player.play(trending, startAt: index) }
+                        TrackRow(track: track) { player.play(trending, startAt: index, from: "Trending this week") }
                     }
                     .listRowBackground(Color.clear)
                 }
@@ -167,7 +167,7 @@ struct SearchResultsSection: View {
             Section {
                 ForEach(Array(visible.enumerated()), id: \.element.id) { index, track in
                     NavigationLink(value: track) {
-                        TrackRow(track: track) { player.play(visible, startAt: index) }
+                        TrackRow(track: track) { player.play(visible, startAt: index, from: "Search: \(model.query)") }
                     }
                     .listRowBackground(Color.clear)
                     .task {

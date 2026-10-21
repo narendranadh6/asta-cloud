@@ -108,6 +108,15 @@ final class ScreenshotTour: XCTestCase {
                     mini.tap()
                     settle(3)
                     snap("05d-now-playing")
+                    let queue = app.buttons["Queue"].firstMatch
+                    if queue.waitForExistence(timeout: 3) {
+                        queue.tap()
+                        settle(2)
+                        snap("05e-queue")
+                        let done = app.buttons["Done"].firstMatch
+                        if done.waitForExistence(timeout: 3) { done.tap() }
+                        settle(1)
+                    }
                     app.swipeDown(velocity: .fast)
                     settle(1)
                 }

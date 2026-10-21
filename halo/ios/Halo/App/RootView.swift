@@ -10,7 +10,9 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(PlayerController.self) private var player
     @State private var selection: AppTab = .home
-    @State private var showingNowPlaying = false
+    @State private var playerExpanded = false
+    @State private var tabBarHeight: CGFloat = 60
+    @State private var toast: String?
 
     var body: some View {
         Group {
@@ -33,32 +35,41 @@ struct RootView: View {
                 Task { await app.sync.syncPending() }
             }
         }
-        .sheet(isPresented: $showingNowPlaying) {
-            NowPlayingView(selectTab: { tab in
-                showingNowPlaying = false
-                selection = tab
-            })
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .presentationBackground(HaloColor.background)
+        .onChange(of: player.item == nil) { _, gone in if gone { playerExpanded = false } }
+        .onChange(of: player.skippedCount) { _, count in
+            guard count > 0 else { return }
+            toast = count == 1 ? "Skipped a song that couldn't play"
+                : "Skipped \(count) songs that couldn't play"
+            player.acknowledgeSkips()
         }
     }
 
     private var tabs: some View {
-        VStack(spacing: 0) {
-            TabView(selection: $selection) {
-                tab(.home) { HomeView(selectTab: { selection = $0 }) }
-                tab(.search) { SearchView() }
-                tab(.dj) { AIDJView() }
-                tab(.library) { LibraryView() }
-                tab(.settings) { SettingsView() }
+        ZStack {
+            VStack(spacing: 0) {
+                TabView(selection: $selection) {
+                    tab(.home) { HomeView(selectTab: { selection = $0 }) }
+                    tab(.search) { SearchView() }
+                    tab(.dj) { AIDJView() }
+                    tab(.library) { LibraryView() }
+                    tab(.settings) { SettingsView() }
+                }
+                // Room for the floating mini player so it never covers the last row.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if player.item != nil {
+                        Color.clear.frame(height: PlayerGeometry.miniHeight + Spacing.sm)
+                    }
+                }
+                HaloTabBar(selection: $selection)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { tabBarHeight = $0 }
             }
-            if player.item != nil {
-                MiniPlayer { showingNowPlaying = true }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            .accessibilityHidden(playerExpanded)
+            PlayerLayer(isExpanded: $playerExpanded, tabBarHeight: tabBarHeight) { prompt in
+                app.pendingDJPrompt = prompt
+                selection = .dj
             }
-            HaloTabBar(selection: $selection)
         }
+        .haloToast($toast, edge: .bottom, padding: tabBarHeight + PlayerGeometry.miniHeight + Spacing.lg)
         .background(HaloColor.background.ignoresSafeArea())
         .overlay(alignment: .top) {
             if !app.network.isOnline {

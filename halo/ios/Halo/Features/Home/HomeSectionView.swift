@@ -74,7 +74,7 @@ struct HomeSectionView: View {
                     HomeItemLink(item: item) {
                         if let track = item.track {
                             TrackCard(track: track, width: size) {
-                                player.play(tracks, startAt: tracks.firstIndex(of: track) ?? 0)
+                                player.play(tracks, startAt: tracks.firstIndex(of: track) ?? 0, from: section.title)
                             }
                         } else {
                             ArtworkCard(title: item.title, subtitle: item.subtitle,

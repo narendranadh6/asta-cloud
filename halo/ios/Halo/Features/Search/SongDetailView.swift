@@ -239,7 +239,7 @@ struct SongDetailView: View {
             } else {
                 ForEach(Array(model.related.enumerated()), id: \.element.id) { index, track in
                     NavigationLink(value: track) {
-                        TrackRow(track: track) { player.play(model.related, startAt: index) }
+                        TrackRow(track: track) { player.play(model.related, startAt: index, from: "Up next after \(model.track.title)") }
                     }
                     .buttonStyle(.plain)
                 }

@@ -117,14 +117,14 @@ struct LibraryView: View {
                 .listRowBackground(Color.clear)
         }
         if !playable.isEmpty {
-            PlayButton(tracks: playable, title: "Play saved songs")
+            PlayButton(tracks: playable, title: "Play saved songs", context: "Saved songs")
                 .listRowBackground(Color.clear)
         }
         ForEach(items) { entity in
             NavigationLink(value: Track(entity: entity)) {
                 TrackRow(track: entity, subtitle: entity.isAvailable ? nil : "No longer available") {
                     let index = playable.firstIndex { $0.id == entity.trackID } ?? 0
-                    player.play(playable, startAt: index)
+                    player.play(playable, startAt: index, from: "Saved songs")
                 }
             }
             .listRowBackground(Color.clear)

@@ -146,7 +146,7 @@ struct HomeView: View {
                     let recent = discovered.prefix(12).map(Track.init(entity:))
                     ForEach(Array(recent.enumerated()), id: \.element.id) { index, track in
                         NavigationLink(value: track) {
-                            TrackCard(track: track) { player.play(recent, startAt: index) }
+                            TrackCard(track: track) { player.play(recent, startAt: index, from: section.title) }
                         }
                         .buttonStyle(.plain)
                     }

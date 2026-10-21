@@ -16,7 +16,7 @@ struct DraftEditorView: View {
     var body: some View {
         List {
             Section {
-                PlayButton(tracks: draft.queue.items.map(\.track), title: "Play all")
+                PlayButton(tracks: draft.queue.items.map(\.track), title: "Play all", context: draft.title)
                     .listRowBackground(Color.clear)
                 TextField("Playlist name", text: $draft.title)
                     .font(HaloFont.title)
@@ -89,7 +89,7 @@ struct DraftEditorView: View {
         VStack(alignment: .leading, spacing: 4) {
             NavigationLink(value: item.track) {
                 TrackRow(track: item.track) {
-                    player.play(draft.queue.items.map(\.track), startAt: index)
+                    player.play(draft.queue.items.map(\.track), startAt: index, from: draft.title)
                 }
             }
             if let reason = item.reasons.first {

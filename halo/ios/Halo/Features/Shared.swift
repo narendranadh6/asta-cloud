@@ -38,6 +38,8 @@ struct PlayButton: View {
     var tracks: [Track]
     var startAt = 0
     var title = "Play"
+    /// Shown on Now Playing as "Playing from …".
+    var context: String?
 
     private var target: Track? { tracks.indices.contains(startAt) ? tracks[startAt] : nil }
     private var isCurrent: Bool { target != nil && player.currentTrack?.id == target?.id }
@@ -49,7 +51,7 @@ struct PlayButton: View {
             if isCurrent {
                 player.togglePlayPause()
             } else {
-                player.play(tracks, startAt: startAt)
+                player.play(tracks, startAt: startAt, from: context)
             }
         } label: {
             Label(isCurrent && player.isPlaying ? "Pause" : title,

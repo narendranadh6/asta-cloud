@@ -121,9 +121,9 @@ struct PlaylistDetailView: View {
             }
             if !playlist.items.isEmpty {
                 HStack(spacing: Spacing.sm) {
-                    PlayButton(tracks: tracks)
+                    PlayButton(tracks: tracks, context: playlist.name)
                     Button {
-                        player.play(tracks.shuffled())
+                        player.play(tracks.shuffled(), from: playlist.name)
                     } label: {
                         Label("Shuffle", systemImage: "shuffle").frame(maxWidth: .infinity)
                     }
@@ -136,7 +136,7 @@ struct PlaylistDetailView: View {
     private var tracks: [Track] { playlist.orderedItems.map(Track.init(item:)) }
 
     private func play(startAt index: Int) {
-        player.play(tracks, startAt: index)
+        player.play(tracks, startAt: index, from: playlist.name)
     }
 }
 

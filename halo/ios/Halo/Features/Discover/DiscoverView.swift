@@ -87,7 +87,7 @@ struct DiscoverView: View {
                     HStack(alignment: .top, spacing: Spacing.sm) {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
                             NavigationLink(value: track) {
-                                TrackCard(track: track) { player.play(tracks, startAt: index) }
+                                TrackCard(track: track) { player.play(tracks, startAt: index, from: shelf.rawValue) }
                             }
                             .buttonStyle(.plain)
                         }

@@ -20,7 +20,7 @@ let package = Package(
                 "Features/PlaylistStudio/PlaylistStudioView.swift", "Features/Search/SearchView.swift",
                 "Features/Search/SongDetailView.swift", "Features/Settings", "Features/Shared.swift",
                 "Features/Taste", "Resources", "Features/Discover/DiscoverView.swift",
-                "Features/NowPlaying", "Core/DesignSystem/Showcase.swift", "Features/Radio",
+                "Features/Player", "Core/DesignSystem/Showcase.swift", "Features/Radio",
                 "Core/Playback/StreamingAudioEngine.swift", "Core/Playback/SystemMediaControls.swift",
             ],
             sources: [
