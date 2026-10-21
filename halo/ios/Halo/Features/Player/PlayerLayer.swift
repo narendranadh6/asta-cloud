@@ -24,13 +24,20 @@ struct PlayerLayer: View {
 
     var body: some View {
         if let item = player.item {
+            // Read the safe area here (inside it, the insets are real), then draw the player
+            // over the whole screen, edge to edge.
             GeometryReader { proxy in
+                let insets = proxy.safeAreaInsets
+                let screen = CGSize(width: proxy.size.width + insets.leading + insets.trailing,
+                                    height: proxy.size.height + insets.top + insets.bottom)
                 let geometry = PlayerGeometry(
-                    size: proxy.size, insets: proxy.safeAreaInsets, tabBarHeight: tabBarHeight,
+                    size: screen, insets: insets, tabBarHeight: tabBarHeight,
                     accessibilitySize: typeSize.isAccessibilitySize)
                 content(item, geometry)
+                    .frame(width: screen.width, height: screen.height, alignment: .topLeading)
+                    .offset(x: -insets.leading, y: -insets.top)
             }
-            .ignoresSafeArea(.container)
+            .ignoresSafeArea(.keyboard)
             .task(id: item.largeArtworkURL) { await loadPalette(item) }
             .sheet(isPresented: $showingQueue) { QueueView() }
             .onChange(of: isExpanded) { _, expanded in player.setDetailedProgress(expanded) }
@@ -58,15 +65,20 @@ struct PlayerLayer: View {
 
         ZStack(alignment: .topLeading) {
             // Glass in the mini player, the song's own environment when expanded.
-            ZStack {
-                Color.clear.haloGlass(cornerRadius: corner, tint: palette.color(\.glow))
-                    .opacity(1 - ambient)
-                AmbientBackground(palette: palette, artworkURL: item.largeArtworkURL)
-                    .opacity(ambient)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-            .frame(width: surface.width, height: surface.height)
-            .position(x: surface.midX, y: surface.midY)
+            Color.clear
+                .frame(width: surface.width, height: surface.height)
+                .overlay {
+                    if ambient > 0 {
+                        AmbientBackground(palette: palette, artworkURL: item.largeArtworkURL)
+                            .opacity(ambient)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+                .background {
+                    Color.clear.haloGlass(cornerRadius: corner, tint: palette.color(\.glow))
+                        .opacity(1 - ambient)
+                }
+                .position(x: surface.midX, y: surface.midY)
             .onTapGesture { if !isExpanded { expand() } }
 
             MiniPlayerContent(item: item, swipe: swipe)
@@ -81,6 +93,7 @@ struct PlayerLayer: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("miniPlayer")
                 .accessibilityAction(named: "Open Now Playing") { expand() }
+                .accessibilityAction(.magicTap) { player.togglePlayPause() }
 
             HaloArtwork(url: item.largeArtworkURL ?? item.artworkURL, size: nil,
                         cornerRadius: artCorner, maxPointSize: ArtworkPoints.nowPlaying)
@@ -105,11 +118,11 @@ struct PlayerLayer: View {
                     .opacity(controls)
                     .allowsHitTesting(p > 0.95)
                     .accessibilityHidden(p < 0.5)
+                    .accessibilityAction(.escape) { collapse() }
+                    .accessibilityAction(.magicTap) { player.togglePlayPause() }
             }
         }
         .gesture(dragGesture(geometry), including: allowsDrag ? .all : .subviews)
-        .accessibilityAction(.escape) { if isExpanded { collapse() } }
-        .accessibilityAction(.magicTap) { player.togglePlayPause() }
     }
 
     /// At accessibility text sizes Now Playing scrolls, so it closes with the chevron instead.

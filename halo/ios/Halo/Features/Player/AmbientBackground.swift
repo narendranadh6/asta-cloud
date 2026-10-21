@@ -16,12 +16,16 @@ struct AmbientBackground: View {
         ZStack {
             palette.color(\.base)
             if contrast != .increased, let wash, wash.url == artworkURL {
-                Image(uiImage: wash.image)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFill()
-                    .opacity(0.32)
-                    .transition(.opacity)
+                // Filled into a fixed frame so the image can never resize the background.
+                Color.clear.overlay {
+                    Image(uiImage: wash.image)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFill()
+                }
+                .clipped()
+                .opacity(0.32)
+                .transition(.opacity)
             }
             RadialGradient(
                 colors: [palette.color(\.glow).opacity(0.85), .clear],
