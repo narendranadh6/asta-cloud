@@ -27,6 +27,7 @@ let package = Package(
                 "Core/Networking",
                 "Core/Models",
                 "Core/Playback",
+                "Core/Artwork",
                 // UI-free view models, type-checked and unit tested off-device too.
                 "App/AppSettings.swift",
                 "Features/Search/SearchViewModel.swift",

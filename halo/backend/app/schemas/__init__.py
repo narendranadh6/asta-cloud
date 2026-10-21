@@ -52,6 +52,8 @@ class Track(APIModel):
     artist_id: str | None = None
     album: str | None = None
     artwork_url: str | None = None
+    # Sharper copy for the full-screen player, when the source has one.
+    artwork_url_large: str | None = None
     duration_seconds: int | None = None
     genre: str | None = None
     mood: str | None = None

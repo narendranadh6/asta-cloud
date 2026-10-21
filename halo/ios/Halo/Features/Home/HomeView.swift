@@ -238,7 +238,7 @@ struct PlaylistRow: View {
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
-            ArtworkView(url: playlist.artworkURL, size: 56)
+            HaloArtwork(url: playlist.artworkURL, size: 56)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(playlist.name).font(HaloFont.headline).foregroundStyle(HaloColor.text)

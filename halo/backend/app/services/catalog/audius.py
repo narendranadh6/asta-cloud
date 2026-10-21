@@ -80,6 +80,7 @@ class AudiusSource:
             artwork_url=artwork.get("480x480")
             or artwork.get("1000x1000")
             or artwork.get("150x150"),
+            artwork_url_large=artwork.get("1000x1000") or artwork.get("480x480"),
             duration_seconds=int(raw["duration"]) if raw.get("duration") else None,
             genre=raw.get("genre") or None,
             mood=raw.get("mood") or None,

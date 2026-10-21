@@ -125,31 +125,6 @@ enum Haptics {
 
 // MARK: Artwork & rows
 
-struct ArtworkView: View {
-    var url: URL?
-    var size: CGFloat? = 56
-    var cornerRadius: CGFloat = Spacing.cornerSmall
-
-    var body: some View {
-        AsyncImage(url: url, transaction: Transaction(animation: .easeInOut(duration: 0.2))) { phase in
-            switch phase {
-            case let .success(image):
-                image.resizable().scaledToFill()
-            default:
-                ZStack {
-                    HaloColor.cool.opacity(0.6)
-                    Image(systemName: "music.note")
-                        .font(.title2)
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .accessibilityHidden(true)
-    }
-}
-
 /// Where a song comes from. Previews get a gold "Preview" badge so a 30-second clip is never
 /// mistaken for the full song.
 struct SourceBadge: View {
@@ -181,13 +156,13 @@ struct TrackRow: View {
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
-            ArtworkView(url: track.artworkURL, size: ArtSize.row + 8)
+            HaloArtwork(url: track.artworkURL, size: ArtSize.row + 8)
                 .overlay {
                     if isCurrent {
                         Image(systemName: "waveform")
                             .font(.headline)
                             .foregroundStyle(.white)
-                            .symbolEffect(.variableColor.iterative, isActive: player.state == .playing)
+                            .symbolEffect(.variableColor.iterative, isActive: player.phase == .playing)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(.black.opacity(0.45))
                             .clipShape(RoundedRectangle(cornerRadius: Radius.small, style: .continuous))

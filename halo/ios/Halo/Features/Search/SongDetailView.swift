@@ -67,7 +67,7 @@ struct SongDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                ArtworkView(url: model.track.artworkURL, size: nil, cornerRadius: Radius.large)
+                HaloArtwork(url: model.track.artworkURL, size: nil, cornerRadius: Radius.large)
                     .aspectRatio(1, contentMode: .fit)
                     .frame(maxWidth: 320)
                     .frame(maxWidth: .infinity)
@@ -280,7 +280,7 @@ struct RecordingFactsCard: View {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     if let album = recording.album {
                         HStack(spacing: Spacing.md) {
-                            ArtworkView(url: album.coverArtURL, size: 64, cornerRadius: Spacing.cornerSmall)
+                            HaloArtwork(url: album.coverArtURL, size: 64, cornerRadius: Spacing.cornerSmall)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(album.title).font(.headline).foregroundStyle(HaloColor.text)
                                 Text([album.releaseGroupType, album.date].compactMap { $0 }

@@ -51,6 +51,8 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     public var artistId: String?
     public var album: String?
     public var artworkUrl: String?
+    /// Sharper copy for the full-screen player, when the source has one.
+    public var artworkUrlLarge: String?
     public var durationSeconds: Int?
     public var genre: String?
     public var mood: String?
@@ -66,7 +68,7 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     public init(
         id: String, source: TrackSource, sourceId: String, title: String, artist: String,
         artistId: String? = nil, album: String? = nil, artworkUrl: String? = nil,
-        durationSeconds: Int? = nil, genre: String? = nil, mood: String? = nil,
+        artworkUrlLarge: String? = nil, durationSeconds: Int? = nil, genre: String? = nil, mood: String? = nil,
         releaseDate: String? = nil, playCount: Int? = nil, streamUrl: String? = nil,
         isPreview: Bool = false, license: TrackLicense? = nil, externalUrl: String? = nil,
         attribution: Attribution
@@ -79,6 +81,7 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
         self.artistId = artistId
         self.album = album
         self.artworkUrl = artworkUrl
+        self.artworkUrlLarge = artworkUrlLarge
         self.durationSeconds = durationSeconds
         self.genre = genre
         self.mood = mood
@@ -92,6 +95,7 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     }
 
     public var artworkURL: URL? { Self.webURL(artworkUrl) }
+    public var largeArtworkURL: URL? { Self.webURL(artworkUrlLarge) }
     public var streamURL: URL? { Self.webURL(streamUrl) }
     /// The track's page at its source (for previews: the Apple Music page).
     public var externalURL: URL? { Self.webURL(externalUrl) }

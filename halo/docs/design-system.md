@@ -19,7 +19,18 @@ shows every token and component on one screen.
 | `ArtSize` | row 48 · compact 64 · card 140 · feature 180 · artist 112 | one size per role so rails line up |
 | `Surface` | base · raised · overlay | elevation without heavy shadows |
 | `HaloFont` | display · title · section · headline · body · meta · caption · eyebrow | type ramp |
-| `HaloMotion` | standard spring · quick · emphasized | use `HaloMotion.animation(_:reduceMotion:)` |
+| `HaloMotion` | standard spring · quick · emphasized · player · ambient | use `HaloMotion.animation(_:reduceMotion:)` |
+| `HaloMaterial` | ground · glass · solid | glass only floats above the music, never on glass |
+
+## Surfaces and artwork
+* **`haloGlass()`** (`HaloGlass.swift`): mini player, dock, sheets, toasts. Liquid Glass on iOS 26,
+  thin material with a top highlight before that; solid with Reduce Transparency, a clear edge with
+  Increase Contrast. Primary controls and text are never glass.
+* **`HaloArtwork`** (`Core/Artwork`): every cover in the app. Decoded at display size by
+  `ArtworkPipeline`, kept in a memory cache, and prefetched for the previous and next songs.
+* **`ArtworkPalette`**: base, glow and accent colors from a 24-pixel sample of the cover, computed
+  off the main thread and cached per URL. White text on `base` is always at least 7:1; the accent is
+  at least 3:1 on `base`. Covers that fail get a stable color from the artist name.
 
 ## Components
 * **Rail**: title, optional eyebrow saying *why* the rail exists, optional "See all". Halo's unit of discovery.

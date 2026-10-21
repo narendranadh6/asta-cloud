@@ -9,7 +9,7 @@ struct MiniPlayer: View {
     var body: some View {
         if let item = player.item {
             HStack(spacing: Spacing.sm) {
-                ArtworkView(url: item.artworkURL, size: 44, cornerRadius: Radius.small)
+                HaloArtwork(url: item.artworkURL, size: 44, cornerRadius: Radius.small)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title).font(.subheadline.weight(.semibold))
                         .foregroundStyle(HaloColor.text).lineLimit(1)
@@ -64,7 +64,7 @@ struct MiniPlayer: View {
 
     private var progressLine: some View {
         GeometryReader { proxy in
-            let fraction = player.duration.map { $0 > 0 ? min(player.position / $0, 1) : 0 } ?? 0
+            let fraction = player.clock.fraction ?? 0
             Rectangle()
                 .fill(HaloColor.neon)
                 .frame(width: proxy.size.width * fraction, height: 2)
@@ -73,10 +73,7 @@ struct MiniPlayer: View {
     }
 
     private func statusText(_ item: NowPlayingItem) -> String {
-        switch player.state {
-        case .loading: return "Loading…"
-        case let .failed(message): return message
-        default: return item.subtitle
-        }
+        if let issue = player.phase.issue { return issue.title }
+        return item.subtitle
     }
 }

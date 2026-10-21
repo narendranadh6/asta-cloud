@@ -196,7 +196,7 @@ struct TrackCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ArtworkView(url: track.artworkURL, size: width, cornerRadius: Spacing.corner)
+            HaloArtwork(url: track.artworkURL, size: width, cornerRadius: Spacing.corner)
                 .overlay(alignment: .topLeading) {
                     if track.isPreview {
                         SourceBadge(isPreview: true, source: .itunes).padding(6)

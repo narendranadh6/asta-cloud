@@ -44,21 +44,18 @@ final class SystemMediaControls {
     }
 
     private func resume() {
-        if player.state == .paused || isFailed { player.togglePlayPause() }
+        if !player.isPlaying { player.resume() }
     }
 
-    private var isFailed: Bool {
-        if case .failed = player.state { return true }
-        return false
-    }
-
-    /// Re-publishes Now Playing info whenever the player's observable state changes.
+    /// Re-publishes Now Playing info when the song, phase or length changes. Elapsed time is
+    /// read without tracking it: iOS advances the lock-screen clock itself from the rate.
     private func observe() {
         withObservationTracking {
-            update()
+            _ = (player.item, player.phase, player.hasNext, player.clock.duration)
         } onChange: { [weak self] in
             Task { @MainActor in self?.observe() }
         }
+        update()
     }
 
     private func update() {
@@ -76,17 +73,34 @@ final class SystemMediaControls {
             MPMediaItemPropertyTitle: item.title,
             MPMediaItemPropertyArtist: item.subtitle,
             MPNowPlayingInfoPropertyIsLiveStream: live,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: player.position,
-            MPNowPlayingInfoPropertyPlaybackRate: player.state == .playing ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: player.clock.position,
+            MPNowPlayingInfoPropertyPlaybackRate: player.phase == .playing ? 1.0 : 0.0,
         ]
         if let album = item.track?.album { info[MPMediaItemPropertyAlbumTitle] = album }
-        if let duration = player.duration { info[MPMediaItemPropertyPlaybackDuration] = duration }
+        if let duration = player.clock.duration { info[MPMediaItemPropertyPlaybackDuration] = duration }
         if let artwork, artworkFor == item.artworkURL { info[MPMediaItemPropertyArtwork] = artwork }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState =
-            player.state == .playing ? .playing : .paused
+            player.phase.wantsToPlay ? .playing : .paused
         loadArtwork(item.artworkURL)
+        prefetchNeighbours()
     }
+
+    /// Covers for the previous and next songs, so skipping shows art immediately.
+    private func prefetchNeighbours() {
+        let tracks = (player.queue.history.suffix(1) + player.queue.upNext.prefix(2)).map(\.track)
+        let scale = UITraitCollection.current.displayScale
+        let small = tracks.compactMap(\.artworkURL)
+        let large = tracks.compactMap { $0.largeArtworkURL ?? $0.artworkURL }
+        Task {
+            await ArtworkPipeline.shared.prefetch(
+                small, maxPixels: Int(ArtworkPoints.mini * scale))
+            await ArtworkPipeline.shared.prefetch(
+                large, maxPixels: Int(ArtworkPoints.nowPlaying * scale))
+        }
+    }
+
+    private static let lockScreenPixels = 600
 
     /// iOS asks for artwork on a background thread, so the closure must not be main-actor bound.
     private nonisolated static func artwork(for image: UIImage) -> MPMediaItemArtwork {
@@ -100,8 +114,8 @@ final class SystemMediaControls {
         artworkTask?.cancel()
         guard let url else { return }
         artworkTask = Task { [weak self] in
-            guard let (data, _) = try? await URLSession.shared.data(from: url),
-                  let image = UIImage(data: data), !Task.isCancelled else { return }
+            guard let image = await ArtworkPipeline.shared.image(
+                for: url, maxPixels: Self.lockScreenPixels), !Task.isCancelled else { return }
             let artwork = Self.artwork(for: image)
             await MainActor.run {
                 guard let self, self.artworkFor == url else { return }

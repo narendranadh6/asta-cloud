@@ -22,6 +22,8 @@ struct RootView: View {
         }
         .task { await app.bootstrap() }
         .onChange(of: scenePhase) { _, phase in
+            // Keep the queue and position in case iOS closes Halo in the background.
+            if phase == .background { player.saveSession() }
             if phase == .active, settings.syncPlaylists {
                 Task { await app.sync.syncPending() }
             }

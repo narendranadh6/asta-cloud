@@ -95,6 +95,7 @@ async def test_audius_search_maps_tracks_and_skips_gated() -> None:
         "Electronic",
     )
     assert track.artwork_url == "https://a/480.jpg"
+    assert track.artwork_url_large == "https://a/480.jpg"  # no 1000px copy: best available
     assert track.release_date == "2026-09-30"
     assert track.stream_url == "https://audius.test/v1/tracks/D7KyD/stream?app_name=Halo"
     assert not track.is_preview and track.attribution.label == "Audius"
@@ -214,6 +215,7 @@ async def test_itunes_results_are_labelled_previews() -> None:
     assert track.is_preview and track.attribution.label == "Preview courtesy of Apple Music"
     assert track.external_url and track.external_url.startswith("https://music.apple.com/")
     assert track.artwork_url == "https://is1.mzstatic.com/x/600x600bb.jpg"
+    assert track.artwork_url_large == "https://is1.mzstatic.com/x/1200x1200bb.jpg"
     assert track.duration_seconds == 229 and track.album == "Ala Vaikunthapurramuloo"
     assert calls[0].url.params["country"] == "IN" and calls[0].url.params["entity"] == "song"
 

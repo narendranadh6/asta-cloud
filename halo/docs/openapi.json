@@ -4390,6 +4390,17 @@
       ],
       "title": "Artwork Url"
      },
+     "artwork_url_large": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Artwork Url Large"
+     },
      "duration_seconds": {
       "anyOf": [
        {

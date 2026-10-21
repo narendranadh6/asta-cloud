@@ -171,7 +171,7 @@ struct ArtworkCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ArtworkView(url: artworkURL, size: size, cornerRadius: Radius.medium)
+            HaloArtwork(url: artworkURL, size: size, cornerRadius: Radius.medium)
                 .overlay(alignment: .topLeading) {
                     if let badge {
                         Text(badge)
@@ -201,7 +201,7 @@ struct ArtistBubble: View {
 
     var body: some View {
         VStack(spacing: Spacing.xs) {
-            ArtworkView(url: artworkURL, size: size, cornerRadius: size / 2)
+            HaloArtwork(url: artworkURL, size: size, cornerRadius: size / 2)
                 .overlay(Circle().strokeBorder(HaloColor.neon, lineWidth: 2).padding(-3))
             Text(name).font(.subheadline.weight(.semibold))
                 .foregroundStyle(HaloColor.text).lineLimit(1)

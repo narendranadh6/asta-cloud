@@ -30,8 +30,9 @@ struct NowPlayingView: View {
                         transport(item)
                         actions(item)
                         if let track = item.track { sourceNote(track) }
-                        if case let .failed(message) = player.state {
-                            NoticeBanner(text: message, systemImage: "exclamationmark.triangle")
+                        if let issue = player.phase.issue {
+                            NoticeBanner(text: "\(issue.title). \(issue.message)",
+                                         systemImage: "exclamationmark.triangle")
                         }
                     }
                     .padding(.horizontal, Spacing.lg)
@@ -79,17 +80,17 @@ struct NowPlayingView: View {
     }
 
     private func artwork(_ item: NowPlayingItem) -> some View {
-        ArtworkView(url: item.artworkURL, size: nil, cornerRadius: Radius.large)
+        HaloArtwork(url: item.largeArtworkURL, size: nil, cornerRadius: Radius.large)
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: 340)
             .overlay {
                 RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-                    .strokeBorder(HaloColor.neon, lineWidth: player.state == .playing ? 2 : 0)
+                    .strokeBorder(HaloColor.neon, lineWidth: player.phase == .playing ? 2 : 0)
             }
-            .shadow(color: HaloColor.primary.opacity(player.state == .playing ? 0.55 : 0.2),
+            .shadow(color: HaloColor.primary.opacity(player.phase == .playing ? 0.55 : 0.2),
                     radius: 32, y: 14)
-            .scaleEffect(player.state == .playing ? 1 : 0.92)
-            .animation(HaloMotion.emphasized, value: player.state)
+            .scaleEffect(player.phase == .playing ? 1 : 0.92)
+            .animation(HaloMotion.emphasized, value: player.phase)
     }
 
     private func titleBlock(_ item: NowPlayingItem) -> some View {
@@ -115,8 +116,8 @@ struct NowPlayingView: View {
     }
 
     private var scrubber: some View {
-        let duration = max(player.duration ?? 0, 1)
-        let shown = scrubbing ?? player.position
+        let duration = max(player.clock.duration ?? 0, 1)
+        let shown = scrubbing ?? player.clock.position
         return VStack(spacing: 4) {
             Slider(
                 value: Binding(get: { min(shown, duration) }, set: { scrubbing = $0 }),
@@ -161,7 +162,7 @@ struct NowPlayingView: View {
                 ZStack {
                     Circle().fill(HaloColor.neon).frame(width: 76, height: 76)
                         .shadow(color: HaloColor.primary.opacity(0.5), radius: 16, y: 6)
-                    if player.state == .loading {
+                    if player.phase.isWaiting {
                         ProgressView().tint(.white)
                     } else {
                         Image(systemName: playSymbol(item)).font(.system(size: 30, weight: .bold))
@@ -320,7 +321,17 @@ struct QueueView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .onMove { player.moveUpNext(from: $0, to: $1) }
+                    .onMove { source, destination in
+                        // Moves within the whole upcoming list map onto its bands.
+                        let upcoming = player.queue.upNext
+                        guard let first = source.first, upcoming.indices.contains(first) else { return }
+                        let origin = upcoming[first].origin
+                        let band = upcoming.filter { $0.origin == origin }
+                        let from = IndexSet(source.compactMap { index in
+                            band.firstIndex { $0.id == upcoming[index].id } })
+                        let target = upcoming.prefix(destination).filter { $0.origin == origin }.count
+                        player.move(in: origin, from: from, to: target)
+                    }
                     .onDelete { offsets in
                         let upcoming = player.queue.upNext
                         for offset in offsets where upcoming.indices.contains(offset) {

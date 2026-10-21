@@ -105,7 +105,7 @@ struct PlaylistDetailView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(alignment: .bottom, spacing: Spacing.md) {
-                ArtworkView(url: playlist.artworkURL, size: 120, cornerRadius: Spacing.corner)
+                HaloArtwork(url: playlist.artworkURL, size: 120, cornerRadius: Spacing.corner)
                 VStack(alignment: .leading, spacing: 4) {
                     if playlist.isAIGenerated {
                         Label("AI collection", systemImage: "sparkles")

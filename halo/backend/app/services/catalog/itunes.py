@@ -19,9 +19,9 @@ from app.services.catalog.ids import make_track_id
 logger = logging.getLogger("halo.itunes")
 
 
-def _artwork(url: str | None) -> str | None:
+def _artwork(url: str | None, size: int = 600) -> str | None:
     # Search results carry 100x100 artwork; the same URL scheme serves larger sizes.
-    return url.replace("100x100bb", "600x600bb") if url else None
+    return url.replace("100x100bb", f"{size}x{size}bb") if url else None
 
 
 class ITunesPreviewSource:
@@ -66,6 +66,7 @@ class ITunesPreviewSource:
             artist_id=str(raw["artistId"]) if raw.get("artistId") else None,
             album=raw.get("collectionName") or None,
             artwork_url=_artwork(raw.get("artworkUrl100")),
+            artwork_url_large=_artwork(raw.get("artworkUrl100"), 1200),
             duration_seconds=int(millis) // 1000 if millis else None,
             genre=raw.get("primaryGenreName") or None,
             release_date=(raw.get("releaseDate") or "")[:10] or None,

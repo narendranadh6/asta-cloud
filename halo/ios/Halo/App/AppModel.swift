@@ -30,10 +30,17 @@ final class AppModel {
         sync = PlaylistSyncService(api: api, store: library)
         network = NetworkMonitor()
         notifications = DiscoveryReminderScheduler()
-        player = PlayerController(engine: StreamingAudioEngine())
+        // UI tests start from a clean player every run.
+        let restores = !ProcessInfo.processInfo.arguments.contains("-HaloInMemoryStore")
+        player = PlayerController(
+            engine: StreamingAudioEngine(),
+            sessionStore: restores ? FilePlaybackSessionStore() : nil)
         mediaControls = SystemMediaControls(player: player)
         // Songs that actually start playing count as "recently discovered".
         player.onTrackStarted = { [weak library] track in library?.recordDiscovered(track) }
+        // A restored or failing song gets a fresh stream link from the server first.
+        player.resolveTrack = { [api] track in try await api.track(id: track.id) }
+        player.restoreSession()
     }
 
     /// Startup work: catalog status, retention, pending sync.
