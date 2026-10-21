@@ -117,8 +117,14 @@ final class ScreenshotTour: XCTestCase {
                         if done.waitForExistence(timeout: 3) { done.tap() }
                         settle(1)
                     }
-                    app.swipeDown(velocity: .fast)
-                    settle(1)
+                    let close = app.buttons["Close Now Playing"].firstMatch
+                    if close.waitForExistence(timeout: 3), close.isHittable {
+                        close.tap()
+                    } else {
+                        app.swipeDown(velocity: .fast)
+                    }
+                    settle(2)
+                    snap("05e2-player-closed")
                 }
             }
             // The artist behind the song, and one of their albums.
