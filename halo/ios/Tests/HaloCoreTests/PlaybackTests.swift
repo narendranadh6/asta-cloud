@@ -392,6 +392,73 @@ final class PlayerControllerTests: XCTestCase {
         XCTAssertEqual(engine.progressInterval, 0.25)
     }
 
+    func testHaloFlowRefillsLowQueuesAndContinuesAtTheEnd() async throws {
+        let engine = FakeEngine()
+        let player = PlayerController(engine: engine)
+        var seeds: [String] = []
+        player.flowProvider = { seed in
+            seeds.append(seed.id)
+            let n = 100 + seeds.count * 10
+            return [FlowSuggestion(track: makeTrack(n), reason: "Fans also play"),
+                    FlowSuggestion(track: makeTrack(1), reason: nil),  // already queued: dropped
+                    FlowSuggestion(track: makeTrack(n + 1, playable: false), reason: nil)]
+        }
+        player.play([makeTrack(1), makeTrack(2)])  // one song left after this: refill
+        try await waitUntil { !player.queue.upNext(.flow).isEmpty }
+        XCTAssertEqual(seeds, ["audius:t1"])
+        XCTAssertEqual(player.queue.upNext.map(\.track.id), ["audius:t2", "audius:t110"])
+        XCTAssertEqual(player.queue.upNext(.flow).first?.reason, "Fans also play")
+        player.addToQueue([makeTrack(7)])  // the listener's song still goes before Flow
+        XCTAssertEqual(player.queue.upNext.map(\.track.id), ["audius:t7", "audius:t2", "audius:t110"])
+
+        player.autoplayEnabled = false
+        XCTAssertTrue(player.queue.upNext(.flow).isEmpty)
+        player.next()
+        player.next()  // t2, the last song
+        engine.startPlaying()
+        engine.onFinished?()
+        XCTAssertEqual(player.phase, .ended)  // autoplay off: the music stops
+
+        player.autoplayEnabled = true
+        player.play([makeTrack(3)], from: "Single")
+        try await waitUntil { !player.isLoadingFlow }
+        let flow = player.queue.upNext(.flow).map(\.track.id)
+        XCTAssertFalse(flow.isEmpty)
+        for _ in flow { engine.onFinished?() }  // play through Flow
+        engine.onFinished?()  // out of songs again: Flow fetches more and keeps going
+        XCTAssertEqual(player.phase, .resolving)
+        try await waitUntil { player.phase == .loading }
+        XCTAssertTrue(player.currentTrack.map { $0.id.hasPrefix("audius:t1") } == true)
+    }
+
+    func testFlowResultsForAnOldSongAreDropped() async throws {
+        let engine = FakeEngine()
+        let player = PlayerController(engine: engine)
+        var release: CheckedContinuation<Void, Never>?
+        player.flowProvider = { _ in
+            await withCheckedContinuation { release = $0 }
+            return [FlowSuggestion(track: makeTrack(50), reason: nil)]
+        }
+        player.play([makeTrack(1)])
+        try await waitUntil { release != nil }
+        player.play([makeTrack(2), makeTrack(3), makeTrack(4)])  // something new started
+        release?.resume()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertFalse(player.queue.items.contains { $0.track.id == "audius:t50" })
+    }
+
+    func testFlowReasonsAreShortAndPlain() {
+        func rec(_ source: String?, explore: Bool = false) -> RecommendedTrack {
+            RecommendedTrack(track: makeTrack(1), score: 1, reasons: ["long server text"],
+                             matchedQuery: "q", source: source, explore: explore)
+        }
+        XCTAssertEqual(FlowSuggestion(rec("co_listen")).reason, "Fans also play")
+        XCTAssertEqual(FlowSuggestion(rec("similar_artist")).reason, "Similar artist")
+        XCTAssertEqual(FlowSuggestion(rec("listenbrainz")).reason, "Popular with listeners")
+        XCTAssertEqual(FlowSuggestion(rec("search", explore: true)).reason, "Something new")
+        XCTAssertEqual(FlowSuggestion(rec(nil)).reason, "Similar sound")
+    }
+
     private func waitUntil(_ condition: @escaping () -> Bool) async throws {
         for _ in 0..<100 where !condition() {
             try await Task.sleep(nanoseconds: 5_000_000)

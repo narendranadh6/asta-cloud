@@ -36,6 +36,7 @@ struct RootView: View {
             }
         }
         .onChange(of: player.item == nil) { _, gone in if gone { playerExpanded = false } }
+        .onChange(of: settings.autoplay) { _, on in player.autoplayEnabled = on }
         .onChange(of: player.skippedCount) { _, count in
             guard count > 0 else { return }
             toast = count == 1 ? "Skipped a song that couldn't play"

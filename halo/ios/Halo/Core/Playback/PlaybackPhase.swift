@@ -96,7 +96,8 @@ extension PlaybackPhase {
         case let (.seeking(target, _), .userPause): return .seeking(target: target, resume: false)
         case let (.seeking(_, resume), .seekFinished): return resume ? .playing : .paused
 
-        case (.playing, .reachedEnd), (.buffering, .reachedEnd), (.paused, .reachedEnd):
+        case (.playing, .reachedEnd), (.buffering, .reachedEnd), (.paused, .reachedEnd),
+             (.resolving, .reachedEnd):
             return .ended
         default: return self
         }

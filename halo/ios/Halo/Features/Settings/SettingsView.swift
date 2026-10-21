@@ -89,6 +89,18 @@ struct SettingsView: View {
                      + "anonymous device account.")
             }
 
+            Section {
+                Toggle(isOn: $settings.autoplay) {
+                    IconRow(symbol: "infinity", color: HaloColor.accent,
+                            title: "Autoplay with Halo Flow",
+                            subtitle: "Keep playing related songs when your queue ends")
+                }
+            } header: {
+                Text("Playback")
+            } footer: {
+                Text("Halo Flow songs are added after everything you queued and never replace it.")
+            }
+
 
             Section {
                 Toggle(isOn: Binding(

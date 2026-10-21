@@ -19,12 +19,16 @@ public struct PlaybackQueue: Sendable, Equatable, Codable {
         public var origin: Origin
         /// Position in the original context, used to undo shuffle.
         public var order: Int
+        /// Why Halo Flow picked this song ("Fans also play"); nil for other origins.
+        public var reason: String?
 
-        public init(track: Track, origin: Origin = .context, order: Int = 0, id: UUID = UUID()) {
+        public init(track: Track, origin: Origin = .context, order: Int = 0, reason: String? = nil,
+                    id: UUID = UUID()) {
             self.id = id
             self.track = track
             self.origin = origin
             self.order = order
+            self.reason = reason
         }
     }
 
@@ -127,11 +131,19 @@ public struct PlaybackQueue: Sendable, Equatable, Codable {
         insertUser(tracks, at: endOfUserBand)
     }
 
-    /// Halo Flow suggestions join at the very end and never displace anything.
-    public mutating func appendFlow(_ tracks: [Track]) {
-        let new = tracks.map { Item(track: $0, origin: .flow, order: takeOrder()) }
+    /// Halo Flow suggestions join at the very end and never displace anything. Songs already
+    /// in the queue are skipped.
+    public mutating func appendFlow(_ suggestions: [FlowSuggestion]) {
+        var seen = Set(items.map(\.track.id))
+        let new = suggestions.filter { seen.insert($0.track.id).inserted }.map {
+            Item(track: $0.track, origin: .flow, order: takeOrder(), reason: $0.reason)
+        }
         items.append(contentsOf: new)
         if currentIndex == nil && !items.isEmpty { currentIndex = 0 }
+    }
+
+    public mutating func appendFlow(_ tracks: [Track]) {
+        appendFlow(tracks.map { FlowSuggestion(track: $0, reason: nil) })
     }
 
     /// Drops upcoming Flow suggestions (e.g. when Autoplay is turned off).
@@ -242,5 +254,27 @@ public struct PlaybackQueue: Sendable, Equatable, Codable {
         }
         let reordered = reorder(positions.map { items[$0] })
         for (position, item) in zip(positions, reordered) { items[position] = item }
+    }
+}
+
+/// A song Halo Flow wants to play next, and why.
+public struct FlowSuggestion: Equatable, Sendable {
+    public var track: Track
+    public var reason: String?
+
+    public init(track: Track, reason: String?) {
+        self.track = track
+        self.reason = reason
+    }
+
+    /// Turns a server recommendation into a suggestion with a short, plain reason.
+    public init(_ recommendation: RecommendedTrack) {
+        let reason: String? = switch recommendation.source {
+        case "co_listen": "Fans also play"
+        case "similar_artist": "Similar artist"
+        case "listenbrainz": "Popular with listeners"
+        default: recommendation.explore == true ? "Something new" : "Similar sound"
+        }
+        self.init(track: recommendation.track, reason: reason)
     }
 }

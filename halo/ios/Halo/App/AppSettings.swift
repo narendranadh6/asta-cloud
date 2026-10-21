@@ -8,6 +8,10 @@ import Observation
 final class AppSettings {
     private let defaults: UserDefaults
 
+    /// Halo Flow: keep playing related music when the queue runs out.
+    var autoplay: Bool {
+        didSet { defaults.set(autoplay, forKey: Keys.autoplay) }
+    }
     var hasCompletedOnboarding: Bool {
         didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.onboarding) }
     }
@@ -45,6 +49,7 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        autoplay = defaults.object(forKey: Keys.autoplay) as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: Keys.onboarding)
         personalizationEnabled = defaults.bool(forKey: Keys.personalization)
         syncPlaylists = defaults.object(forKey: Keys.sync) as? Bool ?? true
@@ -61,6 +66,7 @@ final class AppSettings {
 
     func reset() {
         for key in Keys.all { defaults.removeObject(forKey: key) }
+        autoplay = true
         hasCompletedOnboarding = false
         personalizationEnabled = false
         syncPlaylists = true
@@ -75,6 +81,7 @@ final class AppSettings {
     }
 
     private enum Keys {
+        static let autoplay = "halo.autoplay"
         static let onboarding = "halo.onboardingCompleted"
         static let personalization = "halo.personalizationEnabled"
         static let sync = "halo.syncPlaylists"
@@ -86,7 +93,7 @@ final class AppSettings {
         static let language = "halo.preferredLanguage"
         static let energy = "halo.preferredEnergy"
         static let discovery = "halo.discovery"
-        static let all = [onboarding, personalization, sync, glow, haptics, reminder,
+        static let all = [autoplay, onboarding, personalization, sync, glow, haptics, reminder,
                           name, mood, language, energy, discovery]
     }
 }

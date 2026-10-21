@@ -4,6 +4,7 @@ import SwiftUI
 /// Drag to reorder within a section, swipe left to remove, swipe right to play next.
 struct QueueView: View {
     @Environment(PlayerController.self) private var player
+    @Environment(AppSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss
     @State private var showsHistory = false
 
@@ -22,7 +23,7 @@ struct QueueView: View {
                         .font(.footnote.weight(.semibold))
                 }
                 band(.context, title: contextTitle, footer: nil)
-                band(.flow, title: "Halo Flow", footer: "Picked to follow what you're playing.")
+                if player.currentTrack != nil { flowSection }
                 if !player.queue.history.isEmpty {
                     Section {
                         DisclosureGroup(isExpanded: $showsHistory) {
@@ -55,6 +56,57 @@ struct QueueView: View {
         .presentationDetents([.medium, .large])
         .presentationBackground(.thinMaterial)
         .presentationCornerRadius(Radius.large)
+    }
+
+    /// Halo Flow: always visible for songs, so Autoplay can be switched from here.
+    private var flowSection: some View {
+        @Bindable var settings = settings
+        let items = player.queue.upNext(.flow)
+        return Section {
+            if settings.autoplay {
+                ForEach(items) { item in
+                    Button { player.jump(to: item.id) } label: { row(item, showsHandle: true) }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .leading) {
+                            Button { player.moveToNext(item.id) } label: {
+                                Label("Play next", systemImage: "text.line.first.and.arrowtriangle.forward")
+                            }
+                            .tint(HaloColor.accent)
+                        }
+                }
+                .onMove { player.move(in: .flow, from: $0, to: $1) }
+                .onDelete { offsets in
+                    for offset in offsets where items.indices.contains(offset) {
+                        player.removeFromQueue(items[offset].id)
+                    }
+                }
+                if player.isLoadingFlow {
+                    Label("Finding songs to follow…", systemImage: "sparkles")
+                        .font(.footnote).foregroundStyle(HaloColor.mutedText)
+                } else if items.isEmpty {
+                    Text("Halo Flow picks songs when your queue is nearly done.")
+                        .font(.footnote).foregroundStyle(HaloColor.mutedText)
+                }
+            }
+        } header: {
+            HStack {
+                Text("Halo Flow")
+                Spacer()
+                if settings.autoplay && !items.isEmpty {
+                    Button("Refresh") { player.refreshFlow() }
+                        .font(.footnote.weight(.semibold))
+                        .accessibilityHint("Replaces the suggestions with new ones")
+                }
+                Toggle("Autoplay", isOn: $settings.autoplay)
+                    .labelsHidden()
+                    .controlSize(.mini)
+                    .accessibilityLabel("Autoplay with Halo Flow")
+            }
+        } footer: {
+            Text(settings.autoplay
+                 ? "Plays after your songs, never instead of them."
+                 : "Autoplay is off: music stops when the queue ends.")
+        }
     }
 
     private var contextTitle: String {
@@ -111,7 +163,19 @@ struct QueueView: View {
                 }
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.track.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(item.track.artist).font(.caption).foregroundStyle(HaloColor.mutedText).lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(item.track.artist).lineLimit(1)
+                    if let reason = item.reason {
+                        Text(reason)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Capsule().fill(HaloColor.accent.opacity(0.18)))
+                            .foregroundStyle(HaloColor.accent)
+                            .lineLimit(1)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(HaloColor.mutedText)
             }
             Spacer(minLength: 0)
         }

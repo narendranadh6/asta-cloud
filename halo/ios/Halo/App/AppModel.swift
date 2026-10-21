@@ -40,6 +40,12 @@ final class AppModel {
         player.onTrackStarted = { [weak library] track in library?.recordDiscovered(track) }
         // A restored or failing song gets a fresh stream link from the server first.
         player.resolveTrack = { [api] track in try await api.track(id: track.id) }
+        // Halo Flow continues from the current song with the server's up-next picks.
+        player.autoplayEnabled = settings.autoplay
+        player.flowProvider = { [api] seed in
+            let response = try? await api.upNext(trackID: seed.id, limit: 10)
+            return response?.tracks.map(FlowSuggestion.init) ?? []
+        }
         player.restoreSession()
     }
 

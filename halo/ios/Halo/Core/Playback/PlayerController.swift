@@ -81,11 +81,28 @@ public final class PlayerController {
     public private(set) var outputRoute: OutputRoute?
     /// Songs skipped because they couldn't play since the listener last looked (for a notice).
     public private(set) var skippedCount = 0
+    /// Halo Flow: keep playing related music when the queue runs out.
+    public var autoplayEnabled = true {
+        didSet {
+            guard autoplayEnabled != oldValue else { return }
+            if autoplayEnabled {
+                refillFlowIfNeeded()
+            } else {
+                flowTask?.cancel()
+                isLoadingFlow = false
+                queue.removeUpcomingFlow()
+                saveSession()
+            }
+        }
+    }
+    public private(set) var isLoadingFlow = false
 
     /// Called when a track starts playing for real (for listening history and feedback).
     @ObservationIgnored public var onTrackStarted: ((Track) -> Void)?
     /// Fetches a fresh copy of a track (new stream link) before retrying it.
     @ObservationIgnored public var resolveTrack: ((Track) async throws -> Track)?
+    /// Songs to follow `seed` when the queue runs low (Halo Flow).
+    @ObservationIgnored public var flowProvider: ((Track) async -> [FlowSuggestion])?
 
     @ObservationIgnored private let engine: AudioEngine
     @ObservationIgnored private let sessionStore: PlaybackSessionStoring?
@@ -98,6 +115,11 @@ public final class PlayerController {
     @ObservationIgnored private var failuresInARow = 0
     @ObservationIgnored private let maxFailuresInARow = 3
     @ObservationIgnored private var resolveTask: Task<Void, Never>?
+    @ObservationIgnored private var flowTask: Task<Void, Never>?
+    /// Changes whenever the listener starts something new, so late Flow results are dropped.
+    @ObservationIgnored private var generation = 0
+    /// Flow refills when fewer upcoming songs than this remain.
+    @ObservationIgnored private let flowThreshold = 2
 
     public init(engine: AudioEngine, sessionStore: PlaybackSessionStoring? = nil) {
         self.engine = engine
@@ -127,6 +149,7 @@ public final class PlayerController {
             return
         }
         let index = start.flatMap { s in playable.firstIndex { $0.id == s.id } } ?? 0
+        beginNewContext()
         queue.replace(with: playable, startAt: index, title: title)
         resetFailures()
         loadCurrent()
@@ -142,6 +165,7 @@ public final class PlayerController {
             return
         }
         resolveTask?.cancel()
+        beginNewContext()
         queue.clear()
         item = .station(station)
         sessionStore?.save(nil)
@@ -255,6 +279,7 @@ public final class PlayerController {
     public func removeFromQueue(_ id: UUID) {
         queue.remove(id: id)
         saveSession()
+        refillFlowIfNeeded()
     }
 
     public func move(in origin: PlaybackQueue.Origin, from source: IndexSet, to destination: Int) {
@@ -270,6 +295,15 @@ public final class PlayerController {
     public func clearUserQueue() {
         queue.clearUserQueue()
         saveSession()
+        refillFlowIfNeeded()
+    }
+
+    /// "Change direction": replaces upcoming Flow picks with new ones based on the current song.
+    public func refreshFlow() {
+        flowTask?.cancel()
+        isLoadingFlow = false
+        queue.removeUpcomingFlow()
+        refillFlowIfNeeded(force: true)
     }
 
     /// The listener saw the "skipped songs" notice.
@@ -279,6 +313,7 @@ public final class PlayerController {
 
     public func stop() {
         resolveTask?.cancel()
+        beginNewContext()
         engine.stop()
         engineLoaded = false
         queue.clear()
@@ -348,6 +383,7 @@ public final class PlayerController {
         }
         start(url, isLive: false, duration: track.durationSeconds.map(Double.init), startAt: startAt)
         saveSession()
+        refillFlowIfNeeded()
     }
 
     private func start(_ url: URL, isLive: Bool, duration: Double?, startAt: Double = 0) {
@@ -381,12 +417,63 @@ public final class PlayerController {
         guard item?.isLive == false else { return }
         if queue.advance(automatic: true) != nil {
             loadCurrent()
-        } else {
-            engine.pause()
-            transition(.reachedEnd)
-            clock.position = clock.duration ?? clock.position
-            saveSession()
+            return
         }
+        engine.pause()
+        // Out of songs: Halo Flow keeps the music going if it's on.
+        if canContinueWithFlow, let seed = currentTrack {
+            transition(.resolve)
+            fetchFlow(seed: seed) { [weak self] in
+                guard let self else { return }
+                if self.queue.advance(automatic: false) != nil {
+                    self.loadCurrent()
+                } else {
+                    self.reachEnd()
+                }
+            }
+        } else {
+            reachEnd()
+        }
+    }
+
+    private func reachEnd() {
+        transition(.reachedEnd)
+        clock.position = clock.duration ?? clock.position
+        saveSession()
+    }
+
+    // MARK: Halo Flow
+
+    private var canContinueWithFlow: Bool {
+        autoplayEnabled && flowProvider != nil && queue.repeatMode == .off && item?.track != nil
+    }
+
+    private func refillFlowIfNeeded(force: Bool = false) {
+        guard canContinueWithFlow, !isLoadingFlow, let seed = currentTrack,
+              force || queue.upNext.count < flowThreshold else { return }
+        fetchFlow(seed: seed, then: nil)
+    }
+
+    private func fetchFlow(seed: Track, then: (() -> Void)?) {
+        guard let flowProvider else { return }
+        flowTask?.cancel()
+        isLoadingFlow = true
+        let started = generation
+        flowTask = Task { [weak self] in
+            let suggestions = await flowProvider(seed)
+            guard let self, !Task.isCancelled, self.generation == started else { return }
+            self.isLoadingFlow = false
+            let playable = suggestions.filter { $0.track.streamURL != nil && $0.track.id != seed.id }
+            if self.autoplayEnabled { self.queue.appendFlow(playable) }
+            self.saveSession()
+            then?()
+        }
+    }
+
+    private func beginNewContext() {
+        generation += 1
+        flowTask?.cancel()
+        isLoadingFlow = false
     }
 
     private func trackFailed(_ failure: EngineFailure) {
