@@ -148,10 +148,8 @@ struct SearchResultsSection: View {
     @Environment(PlayerController.self) private var player
     var model: SearchViewModel
 
-    /// Results honouring the "include previews" setting.
-    private var visible: [Track] {
-        settings.includePreviews ? model.results : model.results.filter { !$0.isPreview }
-    }
+    /// Halo plays full songs only; a 30-second preview from a server that still sends them is hidden.
+    private var visible: [Track] { model.results.filter { !$0.isPreview } }
 
     var body: some View {
         switch model.phase {

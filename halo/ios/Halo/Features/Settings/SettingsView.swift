@@ -89,19 +89,6 @@ struct SettingsView: View {
                      + "anonymous device account.")
             }
 
-            Section {
-                Toggle(isOn: Binding(get: { settings.includePreviews },
-                                     set: { settings.includePreviews = $0 })) {
-                    IconRow(symbol: "30.circle", color: HaloColor.gold,
-                            title: "Show 30-second previews",
-                            subtitle: "Apple Music previews of songs not free in full")
-                }
-            } header: {
-                Text("Playback")
-            } footer: {
-                Text("Full songs stream free from Audius and Jamendo. Songs that are only available "
-                     + "as 30-second previews are always labelled Preview.")
-            }
 
             Section {
                 Toggle(isOn: Binding(

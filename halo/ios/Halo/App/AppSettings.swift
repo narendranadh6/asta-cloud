@@ -8,10 +8,6 @@ import Observation
 final class AppSettings {
     private let defaults: UserDefaults
 
-    /// Show 30-second Apple Music previews alongside full songs.
-    var includePreviews: Bool {
-        didSet { defaults.set(includePreviews, forKey: Keys.previews) }
-    }
     var hasCompletedOnboarding: Bool {
         didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.onboarding) }
     }
@@ -49,7 +45,6 @@ final class AppSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        includePreviews = defaults.object(forKey: Keys.previews) as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: Keys.onboarding)
         personalizationEnabled = defaults.bool(forKey: Keys.personalization)
         syncPlaylists = defaults.object(forKey: Keys.sync) as? Bool ?? true
@@ -66,7 +61,6 @@ final class AppSettings {
 
     func reset() {
         for key in Keys.all { defaults.removeObject(forKey: key) }
-        includePreviews = true
         hasCompletedOnboarding = false
         personalizationEnabled = false
         syncPlaylists = true
@@ -81,7 +75,6 @@ final class AppSettings {
     }
 
     private enum Keys {
-        static let previews = "halo.includePreviews"
         static let onboarding = "halo.onboardingCompleted"
         static let personalization = "halo.personalizationEnabled"
         static let sync = "halo.syncPlaylists"
@@ -93,7 +86,7 @@ final class AppSettings {
         static let language = "halo.preferredLanguage"
         static let energy = "halo.preferredEnergy"
         static let discovery = "halo.discovery"
-        static let all = [previews, onboarding, personalization, sync, glow, haptics, reminder,
+        static let all = [onboarding, personalization, sync, glow, haptics, reminder,
                           name, mood, language, energy, discovery]
     }
 }

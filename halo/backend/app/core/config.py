@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     # Jamendo: free full Creative Commons tracks; needs a free client id (devportal.jamendo.com).
     jamendo_client_id: SecretStr | None = None
     # iTunes Search API: 30-second previews, labelled as previews and linked to Apple Music.
-    itunes_previews_enabled: bool = True
+    # Off by default: Halo plays full songs only.
+    itunes_previews_enabled: bool = False
     itunes_country: str = "IN"
     catalog_search_ttl_seconds: int = 6 * 60 * 60
     catalog_track_ttl_seconds: int = 24 * 60 * 60

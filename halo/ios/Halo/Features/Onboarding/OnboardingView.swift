@@ -128,8 +128,8 @@ struct OnboardingView: View {
             Text("Find music with AI, build playlists, and play songs right here in Halo. "
                  + "Halo has no ads and only learns from what you do inside Halo.")
                 .foregroundStyle(HaloColor.mutedText)
-            NoticeBanner(text: "Full songs come from independent artists on Audius and Jamendo. "
-                         + "Mainstream hits play as 30-second Apple Music previews.")
+            NoticeBanner(text: "Every song plays in full, free and legally, from independent "
+                         + "artists on Audius and Jamendo.")
         case .languages:
             title("Which languages do you listen to?")
             FlowLayout {

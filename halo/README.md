@@ -1,12 +1,12 @@
 # Halo
 
-An AI-first iPhone music app. Halo plays free, legal music in its own player: full songs
-from **Audius** and **Jamendo** (Creative Commons) and labelled 30-second **iTunes previews**.
+An AI-first iPhone music app. Halo plays free, legal music in its own player, and every song
+plays in full: independent artists on **Audius** and Creative Commons songs on **Jamendo**.
 It builds playlists with an AI planner that only uses **verified** catalog results, and keeps
 a local-first library. Halo has no ads, no sponsored recommendations and no tracking.
 
 > Audio streams from each source straight to the iPhone. Halo never downloads or stores
-> audio, and previews are always labelled and link to Apple Music.
+> audio. 30-second iTunes previews exist as an opt-in server source but are off by default.
 > See [docs/music-sources.md](docs/music-sources.md).
 
 ## Layout
@@ -33,7 +33,7 @@ Or without Docker, PostgreSQL or Redis (SQLite + in-process cache, real music):
 cd halo/backend && pip install -e ".[dev]" && python -m app.local_server
 ```
 
-Music works with no keys: Audius and iTunes previews are on by default. Add a free Jamendo
+Music works with no keys: Audius is on by default. Add a free Jamendo
 client id (`HALO_JAMENDO_CLIENT_ID`) for Creative Commons songs. An LLM key and a Last.fm key
 are optional. A YouTube API key is no longer used. See [docs/setup.md](docs/setup.md).
 
@@ -54,7 +54,7 @@ are optional. A YouTube API key is no longer used. See [docs/setup.md](docs/setu
 | Discover | Full songs trending this week (Audius, Jamendo), ListenBrainz fresh releases and charts, genres |
 | Live Radio | Thousands of live stations (Radio Browser) in the same player |
 | Now Playing | Mini player on every screen; full player with seek, shuffle, repeat, queue, AirPlay, lock-screen and Control Center controls, background audio |
-| Settings | Appearance, language, AI personalization, privacy, previews, history, notifications, export, account deletion |
+| Settings | Appearance, language, AI personalization, privacy, history, notifications, export, account deletion |
 
 ## Recommendations
 

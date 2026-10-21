@@ -8,7 +8,7 @@ to the iPhone; the backend never downloads, proxies or stores audio. It caches t
 |---|---|---|---|---|
 | [Audius](https://docs.audius.org/) | Full songs published by the artists | None (optional key raises rate limits) | `HALO_AUDIUS_ENABLED` (default `true`), `HALO_AUDIUS_API_KEY` | `backend/app/services/catalog/audius.py` |
 | [Jamendo](https://developer.jamendo.com/v3.0) | Full Creative Commons songs | Free client id | `HALO_JAMENDO_CLIENT_ID` (off while empty) | `jamendo.py` |
-| [iTunes Search API](https://performance-partners.apple.com/search-api) | 30-second previews | None | `HALO_ITUNES_PREVIEWS_ENABLED` (default `true`), `HALO_ITUNES_COUNTRY` (default `IN`) | `itunes.py` |
+| [iTunes Search API](https://performance-partners.apple.com/search-api) | 30-second previews | None | `HALO_ITUNES_PREVIEWS_ENABLED` (default `false`), `HALO_ITUNES_COUNTRY` (default `IN`) | `itunes.py` |
 
 Track ids are `<source>:<id>` (`audius:D7KyD`, `jamendo:1532771`, `itunes:1440857781`).
 `CatalogService` (`service.py`) queries every enabled source concurrently (6 s each; a slow or
@@ -55,8 +55,8 @@ Apple allows previews only to promote the song in its store
 * uses the store set by `HALO_ITUNES_COUNTRY` (two-letter code, default `IN`), which is where
   most mainstream and Indian songs come from.
 
-Enable: on by default, no key. Set `HALO_ITUNES_PREVIEWS_ENABLED=false` to turn it off.
-Listeners can also hide previews in Settings → Playback.
+Enable: off by default, because Halo plays full songs only. Set
+`HALO_ITUNES_PREVIEWS_ENABLED=true` to add previews; the app still hides them in Search.
 
 ## Not used
 

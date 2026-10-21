@@ -6,7 +6,7 @@ Status: proposed, awaiting approval to start Phase 2. Last updated 2026-10-20.
 
 | Decision | Choice | Consequence |
 |---|---|---|
-| Song playback | **In-app audio from free sources** | Full songs stream from Audius and Jamendo (Creative Commons); mainstream songs fall back to labelled 30-second iTunes previews linked to Apple Music. YouTube was removed because its terms forbid audio-only and background playback. One `PlayerController` plays songs and Live Radio with queue, shuffle, repeat, mini player, Now Playing, AirPlay and lock-screen controls. Another licensed source is one more `CatalogSource`. |
+| Song playback | **In-app audio from free sources** | Every song plays in full, from Audius and Jamendo (Creative Commons). 30-second iTunes previews are an opt-in server source, off by default, so mainstream hits that aren't free in full don't appear. YouTube was removed because its terms forbid audio-only and background playback. One `PlayerController` plays songs and Live Radio with queue, shuffle, repeat, mini player, Now Playing, AirPlay and lock-screen controls. Another licensed source is one more `CatalogSource`. |
 | Reference products | Spotify, Apple Music, YouTube Music: studied for user-facing principles only | No proprietary code, private APIs, assets, names ("Quick picks", "Daily Mix", "Made For You", "Listen Now"), or exact layouts |
 | REA (`morluto/rea`) | Installed as a tool, not used on third-party apps | REA is a reverse-engineering toolkit. Running it on Spotify, Apple Music or YouTube Music would break their terms and this project's originality rules. Allowed uses: Halo's own builds and permissively licensed open-source apps. |
 

@@ -145,17 +145,14 @@ final class AppSettingsTests: XCTestCase {
     func testPersistsAndResets() async {
         let defaults = UserDefaults(suiteName: "halo.tests.\(UUID().uuidString)")!
         let settings = AppSettings(defaults: defaults)
-        XCTAssertTrue(settings.includePreviews)
         XCTAssertTrue(settings.syncPlaylists)
-        settings.includePreviews = false
         settings.activeMood = .focused
         settings.hasCompletedOnboarding = true
         let reloaded = AppSettings(defaults: defaults)
-        XCTAssertFalse(reloaded.includePreviews)
         XCTAssertEqual(reloaded.activeMood, .focused)
         XCTAssertTrue(reloaded.hasCompletedOnboarding)
         reloaded.reset()
-        XCTAssertTrue(AppSettings(defaults: defaults).includePreviews)
+        XCTAssertTrue(AppSettings(defaults: defaults).syncPlaylists)
         XCTAssertFalse(AppSettings(defaults: defaults).hasCompletedOnboarding)
     }
 }

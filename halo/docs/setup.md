@@ -12,7 +12,7 @@ curl localhost:8000/health
 ```
 
 Without Docker, PostgreSQL or Redis (SQLite file `halo-local.sqlite3`, in-process cache, real
-music from Audius and iTunes previews, plus Jamendo when its client id is set):
+full songs from Audius, plus Jamendo when its client id is set):
 
 ```bash
 cd halo/backend
@@ -48,7 +48,7 @@ ruff check app tests alembic && mypy app
 | `HALO_JWT_SECRET` | Production auth (32+ chars) | `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `HALO_AUDIUS_ENABLED` / `HALO_AUDIUS_API_KEY` | Full songs from Audius (on by default, no key) | The key is optional and only raises rate limits |
 | `HALO_JAMENDO_CLIENT_ID` | Full Creative Commons songs from Jamendo | Free: create an app at https://devportal.jamendo.com |
-| `HALO_ITUNES_PREVIEWS_ENABLED` / `HALO_ITUNES_COUNTRY` | 30-second previews (on by default, no key; store `IN`) | Two-letter store code. Previews are labelled and link to Apple Music |
+| `HALO_ITUNES_PREVIEWS_ENABLED` / `HALO_ITUNES_COUNTRY` | 30-second previews (off by default: Halo plays full songs only; store `IN`) | Two-letter store code. Previews are labelled and link to Apple Music |
 | `HALO_LASTFM_API_KEY` | Optional: similar artists for recommendations | https://www.last.fm/api/account/create (free). Deezer related artists work without a key (`HALO_DEEZER_ENABLED=true`) |
 | `HALO_MUSICBRAINZ_ENABLED` / `HALO_MUSICBRAINZ_CONTACT` | Canonical song metadata (on by default, no key) | MusicBrainz asks for a contact URL or email in the User-Agent; set `HALO_MUSICBRAINZ_CONTACT` to yours. Requests are limited to 1/s per process |
 | `HALO_LISTENBRAINZ_ENABLED` / `HALO_LISTENBRAINZ_TOKEN` | Fresh releases, charts and artist radio (on by default) | The token is optional; it unlocks per-artist popularity. Get one at https://listenbrainz.org/settings/ |
@@ -97,7 +97,7 @@ xcodebuild test -project Halo.xcodeproj -scheme Halo \
 ```
 
 On a real iPhone, also check background audio, lock-screen and Control Center controls,
-AirPlay, and that previews show the Preview label and **Listen on Apple Music**.
+and AirPlay.
 
 ## 4. Deployment
 
@@ -121,6 +121,5 @@ AirPlay, and that previews show the Preview label and **Listen on Apple Music**.
    user content, linked, used for app functionality and personalization, **not** used for
    tracking.
 6. App Review notes: explain that Halo streams free, artist-published (Audius) and Creative
-   Commons (Jamendo) songs, that iTunes previews are labelled and link to Apple Music, and
-   that it doesn't download audio. `UIBackgroundModes` includes `audio` for the player.
+   Commons (Jamendo) songs in full, and that it doesn't download audio. `UIBackgroundModes` includes `audio` for the player.
 7. Run the real-device playback checks above on at least one device before external testing.
