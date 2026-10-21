@@ -92,7 +92,7 @@ jobs:
             -destination "platform=iOS Simulator,name=$DEVICE" \
             CODE_SIGNING_ALLOWED=NO > xcodebuild.log 2>&1 || status=$?
           # Every compiler/test error first (the tail alone can hide them), then the tail.
-          grep -E "error:|failed|FAILED" xcodebuild.log | sort -u | head -80 || true
+          grep -E "error:|note:|failed|FAILED" xcodebuild.log | sort -u | head -80 || true
           tail -200 xcodebuild.log
           exit ${status:-0}
         env:

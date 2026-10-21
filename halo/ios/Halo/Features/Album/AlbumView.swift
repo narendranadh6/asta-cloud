@@ -37,9 +37,11 @@ struct AlbumView: View {
             if loader == nil { loader = .album(route.id, api: app.api) }
             await loader?.load()
             if let page = loader?.page {
-                let url = page.largeArtworkURL
-                palette = await url.asyncMap { await ArtworkPipeline.shared.palette(for: $0) }
-                    ?? .fallback(seed: page.artist)
+                var found: ArtworkPalette?
+                if let url = page.largeArtworkURL {
+                    found = await ArtworkPipeline.shared.palette(for: url)
+                }
+                palette = found ?? .fallback(seed: page.artist)
             }
         }
     }
@@ -173,12 +175,5 @@ struct AlbumView: View {
         .font(.caption)
         .tint(HaloColor.text.opacity(0.7))
         .foregroundStyle(HaloColor.text.opacity(0.6))
-    }
-}
-
-private extension Optional {
-    func asyncMap<T>(_ transform: (Wrapped) async -> T?) async -> T? {
-        guard let value = self else { return nil }
-        return await transform(value)
     }
 }
