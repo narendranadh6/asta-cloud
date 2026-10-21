@@ -19,7 +19,6 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 header
-                quickChips
                 SearchSetupBanner()
                 hero
                 if let error = model.lastError, !model.hasLoadedFromServer {
@@ -53,31 +52,6 @@ struct HomeView: View {
             }
             .accessibilityLabel("Profile and settings")
         }
-    }
-
-    private var quickChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Spacing.xs) {
-                Chip(title: "For You", isSelected: true) {}
-                Chip(title: "AI DJ", systemImage: "sparkles", isSelected: false) { selectTab(.dj) }
-                NavigationLink(value: MoodRoute(mood: .calm)) { chipLabel("Chill") }
-                NavigationLink(value: MoodRoute(mood: .workout)) { chipLabel("Workout") }
-                NavigationLink(value: MoodRoute(mood: .focused)) { chipLabel("Focus") }
-                NavigationLink { DiscoverView() } label: { chipLabel("Discover") }
-                NavigationLink { RadioView() } label: { chipLabel("Live Radio") }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func chipLabel(_ title: String) -> some View {
-        Text(title)
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(HaloColor.text)
-            .padding(.horizontal, Spacing.sm)
-            .frame(minHeight: 36)
-            .background(Capsule().fill(HaloColor.surface))
-            .overlay(Capsule().strokeBorder(.white.opacity(0.12)))
     }
 
     private var hero: some View {
@@ -116,7 +90,7 @@ struct HomeView: View {
             .shadow(color: HaloColor.primary.opacity(0.4), radius: 20, y: 10)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(greetingText). Ask the AI DJ for a mix")
+        .accessibilityLabel("\(greetingText). Ask Halo for a mix")
     }
 
     private var heroPrompt: String {
@@ -222,7 +196,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Text("Start exploring")
                 .font(HaloFont.section).foregroundStyle(HaloColor.text)
-            Text("Search for a song or ask the AI DJ. Songs you open and save shape this page — "
+            Text("Search for a song or ask Halo. Songs you open and save shape this page — "
                  + "Halo only learns from what you do here.")
                 .font(.subheadline).foregroundStyle(HaloColor.mutedText)
             Button("Search music") { selectTab(.search) }

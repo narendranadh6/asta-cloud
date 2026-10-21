@@ -13,7 +13,7 @@ final class DiscoveryReminderScheduler {
         guard granted else { return false }
         let content = UNMutableNotificationContent()
         content.title = "Time to discover"
-        content.body = "Ask the AI DJ for something new this week."
+        content.body = "Ask Halo for something new this week."
         var components = DateComponents()
         components.weekday = 7  // Saturday
         components.hour = 11

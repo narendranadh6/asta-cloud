@@ -87,7 +87,7 @@ struct MoodHubView: View {
                 .pickerStyle(.segmented)
                 .onChange(of: discovery) { _, _ in saved = false }
             }
-            Text("Used as defaults for the AI DJ hero mix and Playlist Studio.")
+            Text("Used as defaults for Halo's mixes and Playlist Studio.")
                 .font(.caption).foregroundStyle(HaloColor.mutedText)
         }
         .padding(Spacing.md)
@@ -119,7 +119,7 @@ struct MoodDetailView: View {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Label(mood.label, systemImage: mood.symbol)
                         .font(HaloFont.hero).foregroundStyle(.white)
-                    Text("Your active mood influences AI DJ and Playlist Studio suggestions.")
+                    Text("Your active mood shapes Halo and Playlist Studio suggestions.")
                         .font(.subheadline).foregroundStyle(.white.opacity(0.85))
                     HStack {
                         NavigationLink(value: StudioRoute(mood: mood, description: mood.discoveryPrompt)) {

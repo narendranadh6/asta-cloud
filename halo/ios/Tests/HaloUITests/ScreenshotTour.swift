@@ -147,7 +147,7 @@ final class ScreenshotTour: XCTestCase {
             }
         }
 
-        tab("AI DJ")
+        tab("Halo, your music assistant")
         snap("06-ai-dj")
         let trip = app.buttons["Create a playlist for my trip"].firstMatch
         if trip.waitForExistence(timeout: 5) {

@@ -110,7 +110,7 @@ extension RootView {
     }
 }
 
-/// Custom tab bar with the AI DJ orb in the centre (mockup style).
+/// Custom tab bar with the Halo orb (the music assistant) in the centre.
 struct HaloTabBar: View {
     @Binding var selection: AppTab
     @Environment(AppSettings.self) private var settings
@@ -124,13 +124,13 @@ struct HaloTabBar: View {
             } label: {
                 VStack(spacing: 2) {
                     AIOrb(size: 50, isActive: selection == .dj)
-                    Text("AI DJ").font(.caption2.weight(.semibold))
+                    Text("Halo").font(.caption2.weight(.semibold))
                         .foregroundStyle(selection == .dj ? HaloColor.text : HaloColor.mutedText)
                 }
                 .offset(y: -6)
             }
             .frame(maxWidth: .infinity)
-            .accessibilityLabel("AI DJ")
+            .accessibilityLabel("Halo, your music assistant")
             .accessibilityAddTraits(selection == .dj ? [.isSelected] : [])
             item(.library, "Library", "books.vertical.fill")
             item(.settings, "Profile", "person.crop.circle")

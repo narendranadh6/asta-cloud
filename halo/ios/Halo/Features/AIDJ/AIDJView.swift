@@ -36,7 +36,7 @@ struct AIDJView: View {
             inputBar
         }
         .haloScreen()
-        .navigationTitle(model.messages.isEmpty ? "" : "AI DJ")
+        .navigationTitle(model.messages.isEmpty ? "" : "Halo")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: app.pendingDJPrompt) {
             guard let prompt = app.pendingDJPrompt else { return }
@@ -69,8 +69,8 @@ struct AIDJView: View {
         if model.messages.isEmpty {
             VStack(spacing: Spacing.md) {
                 VStack(spacing: Spacing.xxs) {
-                    Text("Halo AI DJ").font(HaloFont.title).foregroundStyle(HaloColor.text)
-                    Text("Your personal music companion")
+                    Text("Halo").font(HaloFont.title).foregroundStyle(HaloColor.text)
+                    Text("Ask for any music, the way you'd ask a friend")
                         .font(.subheadline).foregroundStyle(HaloColor.mutedText)
                 }
                 AIOrb(size: 150, isActive: true)

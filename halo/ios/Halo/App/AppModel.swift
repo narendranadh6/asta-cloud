@@ -20,7 +20,7 @@ final class AppModel {
     private(set) var catalogConfigured = true
     private(set) var musicSources: [String] = []
     private(set) var aiPlanner: String?
-    /// A prompt another screen wants the AI DJ to run (e.g. "more like this" from Now Playing).
+    /// A prompt another screen wants Halo to run (e.g. "more like this" from Now Playing).
     var pendingDJPrompt: String?
 
     init(api: MusicAPI, settings: AppSettings, context: ModelContext) {

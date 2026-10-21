@@ -42,10 +42,10 @@ are optional. A YouTube API key is no longer used. See [docs/setup.md](docs/setu
 | Screen | What it does |
 |---|---|
 | Onboarding | Languages, artists, genres, moods, explicit personalization consent. Skippable |
-| Home | Greeting, AI DJ entry, moods, recently discovered, playlists, artists and searches, all from Halo activity |
+| Home | Greeting, Halo assistant entry, moods, recently discovered, playlists, artists and searches, all from Halo activity |
 | Search | Songs and artists across every source. Suggestions, pagination, loading, empty, error and offline states, attribution |
 | Song details | Artwork, source and licence, play, play next, add to queue, save, add to playlist, related music |
-| AI DJ | Chat → intent → queries → verified results → ranking → explanations → editable queue → play or save |
+| Halo assistant | Chat → intent → queries → verified results → ranking → explanations → editable queue → play or save |
 | Playlist Studio | Description, mood, genre, language, energy, duration, familiar↔discovery. Reorder, remove, regenerate, rename, save |
 | Playlist details | Artwork, description, count, duration, play, shuffle, play next, reorder and remove |
 | Library | Saved songs, playlists, AI collections, favorite artists, recent searches, local filter |

@@ -6,7 +6,7 @@ shows every token and component on one screen.
 ## Identity
 * **Palette: Sunset Ember.** Warm coral (`primary` FF6B35) and magenta (`secondary` E83F6F),
   balanced by cool cyan (`accent` 4CC9F0) on charcoal. Gold (FFC145) is used sparingly.
-* **The halo.** The orb and the coral-to-magenta ring are Halo's signature: AI DJ, artist portraits,
+* **The halo.** The orb and the coral-to-magenta ring are Halo's signature: Halo assistant, artist portraits,
   selection and progress. Other products' shapes, icons and names are not used.
 * **Type.** Expanded SF for display text (screen titles, rail headings, eyebrows) and standard SF for
   reading. Every style is a Dynamic Type text style.

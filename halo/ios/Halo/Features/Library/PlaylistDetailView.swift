@@ -20,7 +20,7 @@ struct PlaylistDetailView: View {
             Section("Songs") {
                 if playlist.items.isEmpty {
                     ContentUnavailableView("Empty playlist", systemImage: "music.note",
-                                           description: Text("Add songs from search or the AI DJ."))
+                                           description: Text("Add songs from Search or ask Halo."))
                 }
                 ForEach(Array(playlist.orderedItems.enumerated()), id: \.element.id) { index, item in
                     NavigationLink(value: Track(item: item)) {

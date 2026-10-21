@@ -63,7 +63,7 @@ The MusicBrainz and ListenBrainz endpoints return `503 metadata_disabled` /
 | DELETE | `/api/v1/playlists/{id}/items/{item_id}` | Remove an item. Positions are renumbered |
 | PUT | `/api/v1/playlists/{id}/items/order` | `{item_ids: [...]}`. Must list every item exactly once |
 | POST | `/api/v1/ai/playlist` | Studio. Body: `description, mood?, genres[], language?, energy?, duration_minutes, discovery, exclude_track_ids[]` |
-| POST | `/api/v1/ai/chat` | AI DJ. Body: `{message, conversation_id?, history[]}` |
+| POST | `/api/v1/ai/chat` | Halo assistant. Body: `{message, conversation_id?, history[]}` |
 | GET | `/api/v1/home` | Home feed: `{sections[], personalized, generated_at}`. Each section has `id, type, title, eyebrow` (why it's shown), `layout` (`rail`, `feature_rail`, `artist_rail`, `rows`, `tiles`, `local`), `items[]`, `source` and `score`. Sections arrive in display order; `local` sections are placeholders the app fills from data on the device. Weights: `HALO_HOME_SECTION_WEIGHTS` |
 | GET | `/api/v1/discover/trending?genre=&limit=` | Full songs trending this week on Audius and Jamendo, interleaved |
 | GET | `/api/v1/recommendations/next?track_id=&limit=` | Up next: co-listening, same artist and similar artists, ranked |

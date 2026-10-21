@@ -143,7 +143,7 @@ struct LibraryView: View {
                 segment == .ai ? "No AI collections yet" : "No playlists yet",
                 systemImage: segment == .ai ? "sparkles" : "music.note.list",
                 description: Text(segment == .ai
-                                  ? "Save a queue from the AI DJ or Playlist Studio."
+                                  ? "Save a queue from Halo or Playlist Studio."
                                   : "Create one with + or from any song."))
                 .listRowBackground(Color.clear)
         }

@@ -1,7 +1,7 @@
 #if canImport(SwiftUI)
 import SwiftUI
 
-/// The glowing Halo AI orb used in the tab bar and the AI DJ header.
+/// The glowing Halo AI orb used in the tab bar and the Halo assistant header.
 /// Rotates slowly unless Reduce Motion is on.
 struct AIOrb: View {
     var size: CGFloat = 56

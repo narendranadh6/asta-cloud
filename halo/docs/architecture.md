@@ -3,7 +3,7 @@
 ```
 ┌──────────────────────── iPhone ────────────────────────┐        ┌────────────── Backend (FastAPI) ───────────────┐
 │ SwiftUI features (MVVM, @Observable view models)        │        │ api/v1/routes.py  (auth, validation, errors)    │
-│   Home · Search · Song · AI DJ · Studio · Library ·     │ HTTPS  │   ├─ rate_limit (Redis fixed window)            │
+│   Home · Search · Song · Halo assistant · Studio · Library ·     │ HTTPS  │   ├─ rate_limit (Redis fixed window)            │
 │   Mood Hub · Taste · Radio · Now Playing · Settings     │ ─────▶ │   ├─ services/catalog  (sources + cache)        │
 │ Core/Networking  APIClient (actor, retries, Keychain)   │  JSON  │   ├─ services/ai       (LLM planner + fallback) │
 │ Core/Persistence SwiftData library + playlist sync      │        │   ├─ services/recommendations (pipeline)        │
@@ -112,7 +112,7 @@ weights); `playlists` 1–n `playlist_items` n–1 `track_references` (global, u
   `#FFFFFF`, `#A6A2BB`), glass cards that turn opaque under Reduce Transparency, a static glow
   under Reduce Motion, Dynamic Type text styles, 44 pt minimum hit targets, and haptics.
 * The platform-neutral code (networking, models, the player and queue, and the UI-free view models
-  for Search, AI DJ, Studio and settings) is also a Swift package (`ios/Package.swift`), so it
+  for Search, Halo assistant, Studio and settings) is also a Swift package (`ios/Package.swift`), so it
   compiles and its tests run with `swift test` on macOS or Linux. The SwiftUI and SwiftData
   layers build only with Xcode.
 

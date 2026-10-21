@@ -58,7 +58,7 @@ struct SettingsView: View {
                     IconRow(symbol: "brain.head.profile", color: HaloColor.secondary,
                             title: "AI personalization", subtitle: "Learn from my Halo activity")
                 }
-                Toggle("Keep AI DJ conversations", isOn: Binding(
+                Toggle("Keep Halo conversations", isOn: Binding(
                     get: { prefs.storeAiConversations },
                     set: { prefs.storeAiConversations = $0; savePrefs() }))
                     .disabled(!prefs.personalizationEnabled)
@@ -70,7 +70,7 @@ struct SettingsView: View {
                 Text("AI personalization")
             } footer: {
                 Text("Off by default. When off, Halo doesn't store recommendation history or "
-                     + "feedback, and AI DJ chats are not saved.")
+                     + "feedback, and Halo chats are not saved.")
             }
 
             Section {
