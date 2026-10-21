@@ -23,7 +23,7 @@ struct MiniPlayerContent: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .offset(x: swipe)
-            .opacity(1 - min(abs(swipe) / 160, 0.6))
+            .opacity(1 - Double(min(abs(swipe), 96)) / 160)
             playButton
             if !item.isLive {
                 Button {
