@@ -16,7 +16,9 @@ import httpx
 
 from app.schemas import AlbumPage, AlbumSummary, ArtistPage, Attribution, Track
 from app.services.catalog.base import CatalogError, CatalogUnavailableError
+from app.services.catalog.features import estimate
 from app.services.catalog.ids import make_track_id
+from app.services.catalog.quality import looks_like_reupload
 
 logger = logging.getLogger("halo.audius")
 
@@ -34,7 +36,9 @@ class AudiusSource:
         api_key: str | None = None,
         http_client: httpx.AsyncClient | None = None,
         timeout: float = 8.0,
+        filter_reuploads: bool = True,
     ) -> None:
+        self._filter_reuploads = filter_reuploads
         self._base_url = base_url.rstrip("/")
         self._headers = {"User-Agent": "Halo/0.1 (+https://github.com/narendranadh6/asta-cloud)"}
         if api_key:
@@ -68,15 +72,27 @@ class AudiusSource:
         if raw.get("is_stream_gated") or raw.get("stream_conditions"):
             return None  # paid or gated tracks can't be played for free
         user = raw.get("user") or {}
+        artist = str(user.get("name") or user.get("handle") or "Unknown artist")
+        tags = str(raw.get("tags") or "")
+        if self._filter_reuploads and looks_like_reupload(str(raw["title"]), artist, tags):
+            return None
         artwork = raw.get("artwork") or {}
         permalink = raw.get("permalink")
         page = f"https://audius.co{permalink}" if permalink else None
+        bpm = raw.get("bpm")
+        features = estimate(
+            title=str(raw["title"]),
+            genre=raw.get("genre"),
+            mood=raw.get("mood"),
+            tags=tags,
+            bpm=float(bpm) if isinstance(bpm, int | float) else None,
+        )
         return Track(
             id=make_track_id("audius", str(raw["id"])),
             source="audius",
             source_id=str(raw["id"]),
             title=str(raw["title"]),
-            artist=str(user.get("name") or user.get("handle") or "Unknown artist"),
+            artist=artist,
             artist_id=str(user["id"]) if user.get("id") else None,
             artwork_url=artwork.get("480x480")
             or artwork.get("1000x1000")
@@ -87,6 +103,9 @@ class AudiusSource:
             mood=raw.get("mood") or None,
             release_date=(raw.get("release_date") or "")[:10] or None,
             play_count=raw.get("play_count"),
+            language=features.language,
+            energy=features.energy,
+            tempo=features.tempo,
             stream_url=self.stream_url(str(raw["id"])),
             external_url=page,
             attribution=Attribution(provider="audius", label="Audius", url=page),

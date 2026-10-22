@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     # Playable catalog. Audio streams from the source straight to the listener's device.
     # Audius: free full tracks, no key needed (a key only raises rate limits).
     audius_enabled: bool = True
+    # Leave out likely unauthorised re-uploads (rips of commercial songs); see catalog/quality.py.
+    filter_reuploads: bool = True
     audius_api_key: SecretStr | None = None
     audius_base_url: str = "https://api.audius.co/v1"
     # Jamendo: free full Creative Commons tracks; needs a free client id (devportal.jamendo.com).

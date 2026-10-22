@@ -51,6 +51,8 @@ from app.schemas import (
     SearchHistoryEntry,
     SearchKind,
     SearchResponse,
+    SessionCandidatesRequest,
+    SessionCandidatesResponse,
     SuggestionsResponse,
     TasteProfile,
     TokenResponse,
@@ -83,6 +85,7 @@ from app.services.music_sources.musicbrainz import (
 )
 from app.services.music_sources.radio import RadioStation, RadioUnavailableError
 from app.services.recommendations.pipeline import Candidate
+from app.services.recommendations.session import SessionRecommender
 
 router = APIRouter(prefix="/api/v1")
 
@@ -307,6 +310,22 @@ async def trending(
 async def get_track(track_id: TrackIdPath, user: CurrentUser, catalog: CatalogDep) -> Track:
     try:
         return await catalog.get_track(track_id)
+    except CatalogError as exc:
+        raise translate_catalog_error(exc) from exc
+
+
+@router.post(
+    "/session/candidates",
+    response_model=SessionCandidatesResponse,
+    tags=["recommendations"],
+    dependencies=[SEARCH_LIMIT],
+    summary="Halo Drive: ranked songs for the app's current voice session (nothing is stored)",
+)
+async def session_candidates(
+    body: SessionCandidatesRequest, user: CurrentUser, catalog: CatalogDep
+) -> SessionCandidatesResponse:
+    try:
+        return await SessionRecommender(catalog).candidates(body)
     except CatalogError as exc:
         raise translate_catalog_error(exc) from exc
 

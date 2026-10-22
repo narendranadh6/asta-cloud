@@ -50,8 +50,16 @@ def fake_track_id(seed: str) -> str:
 def _build_catalog() -> list[tuple[Track, set[str]]]:
     catalog: list[tuple[Track, set[str]]] = []
     index = 0
+    codes = {
+        "Telugu": "te",
+        "Hindi": "hi",
+        "Tamil": "ta",
+        "English": "en",
+        "Spanish": "es",
+        "Korean": "ko",
+    }
     for language in _LANGUAGES:
-        for style, mood, _energy, tags in _STYLES:
+        for style, mood, energy, tags in _STYLES:
             for artist_index, artist in enumerate(_ARTISTS[language]):
                 variant = _VARIANTS[(index + artist_index) % len(_VARIANTS)]
                 era = _ERAS[(index + artist_index) % len(_ERAS)]
@@ -83,6 +91,9 @@ def _build_catalog() -> list[tuple[Track, set[str]]]:
                             genre=tags[0].title(),
                             mood=mood.title(),
                             play_count=(index * 7919) % 5_000_000 + 1_000,
+                            language=codes[language],
+                            energy=energy / 100,
+                            release_date=f"{2026 - (index % 30)}-01-15",
                             stream_url=f"https://stream.test/{source_id}.mp3",
                             external_url=page,
                             attribution=Attribution(provider="audius", label="Audius", url=page),

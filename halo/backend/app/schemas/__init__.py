@@ -62,6 +62,10 @@ class Track(APIModel):
     play_count: int | None = None
     stream_url: str | None = None
     is_preview: bool = False  # 30-second preview (iTunes), not the full song
+    # Estimates for ranking (see services/catalog/features.py); None means unknown.
+    language: str | None = None  # ISO 639-1
+    energy: float | None = None  # 0 calm … 1 intense
+    tempo: float | None = None  # 0 slow … 1 fast
     license: TrackLicense | None = None
     external_url: str | None = None  # the track's page at the source
     attribution: Attribution
@@ -102,6 +106,63 @@ class ArtistPage(APIModel):
     attribution: Attribution
     top_tracks: list[Track] = Field(default_factory=list)
     albums: list[AlbumSummary] = Field(default_factory=list)
+
+
+class SessionVibe(APIModel):
+    """Targets 0…1 the listener asked for; None means "no preference"."""
+
+    energy: float | None = Field(default=None, ge=0, le=1)
+    valence: float | None = Field(default=None, ge=0, le=1)
+    tempo: float | None = Field(default=None, ge=0, le=1)
+    discovery: float | None = Field(default=None, ge=0, le=1)
+
+
+class SessionLanguage(APIModel):
+    primary: str = Field(min_length=2, max_length=3, pattern=r"^[a-z]{2,3}$")
+    secondary: str | None = Field(default=None, min_length=2, max_length=3, pattern=r"^[a-z]{2,3}$")
+    strategy: Literal["only", "mostly", "mixed", "alternating"] = "only"
+
+
+class SessionRecency(APIModel):
+    mode: Literal["any", "within_days", "decade", "classics"] = "any"
+    value: int | None = Field(default=None, ge=1, le=3000)
+
+
+class SessionEntity(APIModel):
+    """A name the listener asked for ("DSP", "Pushpa"); matched against the catalog."""
+
+    name: str = Field(min_length=1, max_length=80)
+    kind: Literal["artist", "soundtrack", "any"] = "any"
+
+
+class SessionCandidatesRequest(APIModel):
+    """Halo Drive's session state, sent by the app; the server keeps nothing about it."""
+
+    vibe: SessionVibe = Field(default_factory=SessionVibe)
+    language: SessionLanguage | None = None
+    recency: SessionRecency = Field(default_factory=SessionRecency)
+    seed_track_id: str | None = Field(default=None, max_length=60)
+    seed_mode: Literal["similar", "deeper", "elsewhere"] = "similar"
+    entity: SessionEntity | None = None
+    artist_weights: dict[str, float] = Field(default_factory=dict, max_length=30)
+    excluded_artists: list[str] = Field(default_factory=list, max_length=50)
+    excluded_track_ids: list[str] = Field(default_factory=list, max_length=200)
+    limit: int = Field(default=30, ge=1, le=60)
+
+
+class SessionCandidate(APIModel):
+    track: Track
+    score: float
+    # How well each part of the session fits (0…1), for on-device re-ranking and debugging.
+    fit: dict[str, float]
+    source: Literal["entity", "intent", "seed", "fresh"]
+
+
+class SessionCandidatesResponse(APIModel):
+    candidates: list[SessionCandidate]
+    ranking_version: str
+    sources: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class SearchResponse(APIModel):

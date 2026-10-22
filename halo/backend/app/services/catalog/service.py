@@ -321,7 +321,13 @@ def build_catalog(settings: object, store: KeyValueStore) -> CatalogService:
     sources: list[CatalogSource] = []
     if settings.audius_enabled:
         key = settings.audius_api_key.get_secret_value() if settings.audius_api_key else None
-        sources.append(AudiusSource(base_url=settings.audius_base_url, api_key=key or None))
+        sources.append(
+            AudiusSource(
+                base_url=settings.audius_base_url,
+                api_key=key or None,
+                filter_reuploads=settings.filter_reuploads,
+            )
+        )
     jamendo = settings.jamendo_client_id.get_secret_value() if settings.jamendo_client_id else ""
     if jamendo.strip():
         sources.append(JamendoSource(jamendo.strip()))

@@ -15,6 +15,7 @@ import httpx
 
 from app.schemas import AlbumPage, AlbumSummary, ArtistPage, Attribution, Track, TrackLicense
 from app.services.catalog.base import CatalogUnavailableError
+from app.services.catalog.features import estimate
 from app.services.catalog.ids import make_track_id
 
 logger = logging.getLogger("halo.jamendo")
@@ -74,9 +75,19 @@ class JamendoSource:
     def _track(self, raw: dict[str, Any]) -> Track | None:
         if not raw.get("id") or not raw.get("name") or not raw.get("audio"):
             return None
-        genres = ((raw.get("musicinfo") or {}).get("tags") or {}).get("genres") or []
+        musicinfo = raw.get("musicinfo") or {}
+        tags = musicinfo.get("tags") or {}
+        genres = tags.get("genres") or []
         licence_url = raw.get("license_ccurl")
         page = raw.get("shareurl")
+        features = estimate(
+            title=str(raw["name"]),
+            album=raw.get("album_name"),
+            genre=str(genres[0]) if genres else None,
+            tags=" ".join(str(t) for t in (tags.get("vartags") or []) + genres),
+            lang=musicinfo.get("lang") if isinstance(musicinfo.get("lang"), str) else None,
+            speed=musicinfo.get("speed") if isinstance(musicinfo.get("speed"), str) else None,
+        )
         return Track(
             id=make_track_id("jamendo", str(raw["id"])),
             source="jamendo",
@@ -90,6 +101,9 @@ class JamendoSource:
             duration_seconds=int(raw["duration"]) if raw.get("duration") else None,
             genre=str(genres[0]).title() if genres else None,
             release_date=raw.get("releasedate") or None,
+            language=features.language,
+            energy=features.energy,
+            tempo=features.tempo,
             stream_url=str(raw["audio"]),
             license=TrackLicense(name=_license_name(licence_url), url=licence_url),
             external_url=page,

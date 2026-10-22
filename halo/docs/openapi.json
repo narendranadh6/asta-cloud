@@ -577,6 +577,65 @@
     }
    }
   },
+  "/api/v1/session/candidates": {
+   "post": {
+    "tags": [
+     "recommendations"
+    ],
+    "summary": "Halo Drive: ranked songs for the app's current voice session (nothing is stored)",
+    "operationId": "session_candidates_api_v1_session_candidates_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SessionCandidatesRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SessionCandidatesResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/artists/{artist_id}": {
    "get": {
     "tags": [
@@ -4622,6 +4681,319 @@
     ],
     "title": "SearchResponse"
    },
+   "SessionCandidate": {
+    "properties": {
+     "track": {
+      "$ref": "#/components/schemas/Track"
+     },
+     "score": {
+      "type": "number",
+      "title": "Score"
+     },
+     "fit": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "title": "Fit"
+     },
+     "source": {
+      "type": "string",
+      "enum": [
+       "entity",
+       "intent",
+       "seed",
+       "fresh"
+      ],
+      "title": "Source"
+     }
+    },
+    "type": "object",
+    "required": [
+     "track",
+     "score",
+     "fit",
+     "source"
+    ],
+    "title": "SessionCandidate"
+   },
+   "SessionCandidatesRequest": {
+    "properties": {
+     "vibe": {
+      "$ref": "#/components/schemas/SessionVibe"
+     },
+     "language": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SessionLanguage"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "recency": {
+      "$ref": "#/components/schemas/SessionRecency"
+     },
+     "seed_track_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 60
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Seed Track Id"
+     },
+     "seed_mode": {
+      "type": "string",
+      "enum": [
+       "similar",
+       "deeper",
+       "elsewhere"
+      ],
+      "title": "Seed Mode",
+      "default": "similar"
+     },
+     "entity": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SessionEntity"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "artist_weights": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "maxProperties": 30,
+      "title": "Artist Weights"
+     },
+     "excluded_artists": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 50,
+      "title": "Excluded Artists"
+     },
+     "excluded_track_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 200,
+      "title": "Excluded Track Ids"
+     },
+     "limit": {
+      "type": "integer",
+      "maximum": 60.0,
+      "minimum": 1.0,
+      "title": "Limit",
+      "default": 30
+     }
+    },
+    "type": "object",
+    "title": "SessionCandidatesRequest",
+    "description": "Halo Drive's session state, sent by the app; the server keeps nothing about it."
+   },
+   "SessionCandidatesResponse": {
+    "properties": {
+     "candidates": {
+      "items": {
+       "$ref": "#/components/schemas/SessionCandidate"
+      },
+      "type": "array",
+      "title": "Candidates"
+     },
+     "ranking_version": {
+      "type": "string",
+      "title": "Ranking Version"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings"
+     }
+    },
+    "type": "object",
+    "required": [
+     "candidates",
+     "ranking_version"
+    ],
+    "title": "SessionCandidatesResponse"
+   },
+   "SessionEntity": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "artist",
+       "soundtrack",
+       "any"
+      ],
+      "title": "Kind",
+      "default": "any"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "SessionEntity",
+    "description": "A name the listener asked for (\"DSP\", \"Pushpa\"); matched against the catalog."
+   },
+   "SessionLanguage": {
+    "properties": {
+     "primary": {
+      "type": "string",
+      "maxLength": 3,
+      "minLength": 2,
+      "pattern": "^[a-z]{2,3}$",
+      "title": "Primary"
+     },
+     "secondary": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 3,
+        "minLength": 2,
+        "pattern": "^[a-z]{2,3}$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Secondary"
+     },
+     "strategy": {
+      "type": "string",
+      "enum": [
+       "only",
+       "mostly",
+       "mixed",
+       "alternating"
+      ],
+      "title": "Strategy",
+      "default": "only"
+     }
+    },
+    "type": "object",
+    "required": [
+     "primary"
+    ],
+    "title": "SessionLanguage"
+   },
+   "SessionRecency": {
+    "properties": {
+     "mode": {
+      "type": "string",
+      "enum": [
+       "any",
+       "within_days",
+       "decade",
+       "classics"
+      ],
+      "title": "Mode",
+      "default": "any"
+     },
+     "value": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 3000.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Value"
+     }
+    },
+    "type": "object",
+    "title": "SessionRecency"
+   },
+   "SessionVibe": {
+    "properties": {
+     "energy": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 1.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Energy"
+     },
+     "valence": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 1.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Valence"
+     },
+     "tempo": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 1.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tempo"
+     },
+     "discovery": {
+      "anyOf": [
+       {
+        "type": "number",
+        "maximum": 1.0,
+        "minimum": 0.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Discovery"
+     }
+    },
+    "type": "object",
+    "title": "SessionVibe",
+    "description": "Targets 0\u20261 the listener asked for; None means \"no preference\"."
+   },
    "SuggestionsResponse": {
     "properties": {
      "query": {
@@ -4916,6 +5288,39 @@
       "type": "boolean",
       "title": "Is Preview",
       "default": false
+     },
+     "language": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Language"
+     },
+     "energy": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Energy"
+     },
+     "tempo": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tempo"
      },
      "license": {
       "anyOf": [
