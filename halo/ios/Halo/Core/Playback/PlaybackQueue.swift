@@ -146,6 +146,29 @@ public struct PlaybackQueue: Sendable, Equatable, Codable {
         appendFlow(tracks.map { FlowSuggestion(track: $0, reason: nil) })
     }
 
+    /// Halo Drive "play …": the new picks start now and replace the upcoming context and
+    /// Flow. Songs the listener queued themselves stay, right after the first new song.
+    public mutating func startHalo(_ tracks: [Track], title: String) {
+        guard let first = tracks.first else { return }
+        let keep = Array(items[..<firstUpcomingIndex])
+        let userBand = upNext(.user)
+        let current = Item(track: first, origin: .flow, order: takeOrder(), reason: nil)
+        let rest = tracks.dropFirst().map { Item(track: $0, origin: .flow, order: takeOrder()) }
+        items = keep + [current] + userBand + rest
+        currentIndex = keep.count
+        contextTitle = title
+    }
+
+    /// Replaces upcoming Halo picks (Flow) with a re-ranked list; nothing else moves.
+    public mutating func replaceUpcomingFlow(_ tracks: [Track]) {
+        let start = firstUpcomingIndex
+        var seen = Set(items[..<start].map(\.track.id))
+        seen.formUnion(items[start...].filter { $0.origin != .flow }.map(\.track.id))
+        let fresh = tracks.filter { seen.insert($0.id).inserted }
+            .map { Item(track: $0, origin: .flow, order: takeOrder()) }
+        items = Array(items[..<start]) + upNextAfterRemoving(origin: .flow, from: start) + fresh
+    }
+
     /// Drops upcoming Flow suggestions (e.g. when Autoplay is turned off).
     public mutating func removeUpcomingFlow() {
         let start = firstUpcomingIndex

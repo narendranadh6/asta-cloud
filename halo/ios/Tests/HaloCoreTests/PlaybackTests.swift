@@ -171,7 +171,10 @@ final class PlaybackPhaseTests: XCTestCase {
 }
 
 @MainActor
-final class FakeEngine: AudioEngine {
+final class FakeEngine: DuckableAudioEngine {
+    private(set) var ducked = false
+    func setDucked(_ ducked: Bool) { self.ducked = ducked }
+
     var onProgress: ((EngineProgress) -> Void)?
     var onStatus: ((EngineStatus) -> Void)?
     var onFinished: (() -> Void)?

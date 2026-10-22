@@ -20,6 +20,8 @@ final class AppModel {
     private(set) var catalogConfigured = true
     private(set) var musicSources: [String] = []
     private(set) var aiPlanner: String?
+    /// Halo Drive, while it is on screen.
+    private(set) var drive: DriveVoice?
     /// A prompt another screen wants Halo to run (e.g. "more like this" from Now Playing).
     var pendingDJPrompt: String?
 
@@ -47,6 +49,43 @@ final class AppModel {
             return response?.tracks.map(FlowSuggestion.init) ?? []
         }
         player.restoreSession()
+    }
+
+    /// Opens Halo Drive. Halo Flow follows the spoken session until the drive ends.
+    func startDrive() {
+        guard drive == nil else { return }
+        let session = DriveSession(api: api, player: player,
+                                   speaker: SystemVoiceSpeaker(player: player))
+        session.replyLevel = settings.voiceReplies ? .short : .silent
+        session.onFeedback = { [weak self] rating, track in self?.driveFeedback(rating, track) }
+        session.start()
+        drive = DriveVoice(session: session, player: player)
+    }
+
+    func endDrive() {
+        drive?.stop()
+        drive?.session.end()
+        drive = nil
+    }
+
+    /// "I like this" saves the song; "never play this again" tells the server (when
+    /// personalization is on). Skips and "not now" stay in the session only.
+    private func driveFeedback(_ rating: Rating, _ track: Track) {
+        let feedback: FeedbackRating
+        switch rating {
+        case .like:
+            library.setSaved(true, track: track)
+            feedback = .save
+        case .neverAgain:
+            feedback = .dislike
+        case .keep, .dislike, .later:
+            return
+        }
+        guard settings.personalizationEnabled else { return }
+        Task { [api] in
+            _ = try? await api.sendFeedback(
+                FeedbackRequest(trackId: track.id, rating: feedback, artist: track.artist))
+        }
     }
 
     /// Startup work: catalog status, retention, pending sync.

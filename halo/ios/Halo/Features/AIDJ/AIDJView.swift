@@ -50,6 +50,10 @@ struct AIDJView: View {
                     Label("Playlist Studio", systemImage: "wand.and.stars")
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Halo Drive", systemImage: "car.fill") { app.startDrive() }
+                    .accessibilityIdentifier("haloDrive")
+            }
             if !model.messages.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("New chat", systemImage: "square.and.pencil") { model.reset() }

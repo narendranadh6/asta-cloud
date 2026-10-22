@@ -4,7 +4,7 @@ import AVFoundation
 /// AVPlayer-backed engine. Streams audio from the track's source; nothing is downloaded or
 /// cached beyond AVPlayer's own playback buffer.
 @MainActor
-final class StreamingAudioEngine: AudioEngine {
+final class StreamingAudioEngine: DuckableAudioEngine {
     var onProgress: ((EngineProgress) -> Void)?
     var onStatus: ((EngineStatus) -> Void)?
     var onFinished: (() -> Void)?
@@ -52,6 +52,10 @@ final class StreamingAudioEngine: AudioEngine {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.onRouteChange?(Self.currentRoute()) }
         })
+    }
+
+    func setDucked(_ ducked: Bool) {
+        player.volume = ducked ? 0.25 : 1
     }
 
     func load(_ url: URL, isLive: Bool, startAt: Double) {

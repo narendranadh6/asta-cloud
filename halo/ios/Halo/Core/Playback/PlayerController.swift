@@ -21,6 +21,12 @@ public protocol AudioEngine: AnyObject {
     func stop()
 }
 
+/// An engine that can lower its volume while Halo listens or speaks.
+@MainActor
+public protocol DuckableAudioEngine: AudioEngine {
+    func setDucked(_ ducked: Bool)
+}
+
 /// What is playing: a song from the catalog or a live radio station.
 public enum NowPlayingItem: Equatable, Sendable {
     case track(Track)
@@ -105,6 +111,7 @@ public final class PlayerController {
     @ObservationIgnored public var flowProvider: ((Track) async -> [FlowSuggestion])?
 
     @ObservationIgnored private let engine: AudioEngine
+    @ObservationIgnored private var duckReasons: Set<String> = []
     @ObservationIgnored private let sessionStore: PlaybackSessionStoring?
     /// False after a restore: the engine has nothing loaded until the listener presses play.
     @ObservationIgnored private var engineLoaded = false
@@ -290,6 +297,38 @@ public final class PlayerController {
     public func moveToNext(_ id: UUID) {
         queue.moveToNext(id: id)
         saveSession()
+    }
+
+    /// Halo Drive: start new picks now, keeping the listener's own queued songs.
+    public func startHalo(_ tracks: [Track], title: String) {
+        let playable = tracks.filter { $0.streamURL != nil }
+        guard !playable.isEmpty else { return }
+        beginNewContext()
+        queue.startHalo(playable, title: title)
+        resetFailures()
+        loadCurrent()
+    }
+
+    /// Halo Drive: re-ranked upcoming picks; the current song and the listener's songs stay.
+    public func replaceUpcomingFlow(_ tracks: [Track]) {
+        queue.replaceUpcomingFlow(tracks.filter { $0.streamURL != nil })
+        saveSession()
+    }
+
+    /// Lowers the music while `reason` (e.g. "listening", "speaking") holds.
+    public func duck(_ reason: String, _ on: Bool) {
+        let wasDucked = !duckReasons.isEmpty
+        if on { duckReasons.insert(reason) } else { duckReasons.remove(reason) }
+        if wasDucked != !duckReasons.isEmpty {
+            (engine as? DuckableAudioEngine)?.setDucked(!duckReasons.isEmpty)
+        }
+    }
+
+    public var isDucked: Bool { !duckReasons.isEmpty }
+
+    /// Songs already heard in this queue (Halo Drive avoids repeating them).
+    public var playedTrackIDs: Set<String> {
+        Set(queue.history.map(\.track.id) + (queue.current.map { [$0.track.id] } ?? []))
     }
 
     public func clearUserQueue() {

@@ -85,6 +85,9 @@ struct NowPlayingView: View {
 
     private var moreMenu: some View {
         Menu {
+            Button { app.startDrive() } label: {
+                Label("Halo Drive", systemImage: "car.fill")
+            }
             if let track = item.track {
                 if let route = artistRoute {
                     Button { open(.artist(route)) } label: {

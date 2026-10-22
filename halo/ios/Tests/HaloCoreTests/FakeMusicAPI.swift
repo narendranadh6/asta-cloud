@@ -59,6 +59,7 @@ actor FakeMusicAPI: MusicAPI {
                 durationSeconds: 150 + index * 17, genre: "Electronic",
                 playCount: 1_000 * (index + 1) * (index + 1),
                 streamUrl: "https://stream.test/\(sid).mp3",
+                language: index % 3 == 2 ? "en" : "te", energy: Double(index % 5) / 4,
                 externalUrl: "https://audius.test/\(sid)",
                 attribution: Attribution(provider: .audius, label: "Audius"))
         }
@@ -111,6 +112,29 @@ actor FakeMusicAPI: MusicAPI {
         return TrendingResponse(
             items: Array(ranked.prefix(limit)), nextPageToken: nil, prevPageToken: nil,
             sources: ["audius"], cached: false, source: "test")
+    }
+
+    public private(set) var sessionRequests: [SessionCandidatesRequest] = []
+
+    /// Every sample song that fits the language and isn't excluded; a named entity must match
+    /// an artist (nothing is invented when it doesn't).
+    public func sessionCandidates(_ request: SessionCandidatesRequest) async throws
+        -> SessionCandidatesResponse {
+        try checkFailure()
+        sessionRequests.append(request)
+        var tracks = catalog.filter { !request.excludedTrackIds.contains($0.id) }
+        if let language = request.language, language.strategy == "only" {
+            tracks = tracks.filter { $0.language == language.primary }
+        }
+        if let entity = request.entity {
+            tracks = tracks.filter { $0.artist.lowercased().contains(entity.name.lowercased()) }
+        }
+        let candidates = tracks.prefix(request.limit).enumerated().map { index, track in
+            SessionCandidate(track: track, score: 1, fit: ["rank": 1 / (1 + 0.1 * Double(index))],
+                             source: request.entity == nil ? "intent" : "entity")
+        }
+        return SessionCandidatesResponse(candidates: Array(candidates), rankingVersion: "session-v1",
+                                         sources: ["audius"], warnings: [])
     }
 
     public func upNext(trackID: String, limit: Int) async throws -> UpNextResponse {

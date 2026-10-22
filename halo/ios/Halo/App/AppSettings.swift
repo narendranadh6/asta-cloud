@@ -46,6 +46,15 @@ final class AppSettings {
     var discovery: DiscoveryPreference {
         didSet { defaults.set(discovery.rawValue, forKey: Keys.discovery) }
     }
+    /// The language Halo listens in ("en-IN" understands English and romanized Telugu;
+    /// "te-IN" understands Telugu script where the device supports it).
+    var voiceLocale: String {
+        didSet { defaults.set(voiceLocale, forKey: Keys.voiceLocale) }
+    }
+    /// How much Halo says back: short confirmations, or nothing.
+    var voiceReplies: Bool {
+        didSet { defaults.set(voiceReplies, forKey: Keys.voiceReplies) }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -62,6 +71,8 @@ final class AppSettings {
         preferredEnergy = defaults.object(forKey: Keys.energy) as? Int
         discovery = DiscoveryPreference(rawValue: defaults.string(forKey: Keys.discovery) ?? "")
             ?? .balanced
+        voiceLocale = defaults.string(forKey: Keys.voiceLocale) ?? "en-IN"
+        voiceReplies = defaults.object(forKey: Keys.voiceReplies) as? Bool ?? true
     }
 
     func reset() {
@@ -78,6 +89,8 @@ final class AppSettings {
         preferredLanguage = nil
         preferredEnergy = nil
         discovery = .balanced
+        voiceLocale = "en-IN"
+        voiceReplies = true
     }
 
     private enum Keys {
@@ -93,7 +106,9 @@ final class AppSettings {
         static let language = "halo.preferredLanguage"
         static let energy = "halo.preferredEnergy"
         static let discovery = "halo.discovery"
+        static let voiceLocale = "halo.voiceLocale"
+        static let voiceReplies = "halo.voiceReplies"
         static let all = [autoplay, onboarding, personalization, sync, glow, haptics, reminder,
-                          name, mood, language, energy, discovery]
+                          name, mood, language, energy, discovery, voiceLocale, voiceReplies]
     }
 }

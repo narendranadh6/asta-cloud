@@ -111,6 +111,18 @@ weights); `playlists` 1–n `playlist_items` n–1 `track_references` (global, u
 * `Core/DesignSystem`: colour tokens (`#080811`, `#17132D`, `#8355F7`, `#D34EDB`, `#488EFF`,
   `#FFFFFF`, `#A6A2BB`), glass cards that turn opaque under Reduce Transparency, a static glow
   under Reduce Motion, Dynamic Type text styles, 44 pt minimum hit targets, and haptics.
+* `Core/Voice` (Halo Drive): `IntentParser` turns one spoken sentence (English, Telugu script,
+  romanized Telugu or a mix) into an `IntentDelta`: small operations such as "more energy",
+  "Telugu only" or "newer", never a full new query. `SessionState.apply` folds it into the
+  drive, keeping session-only, today and profile changes separate, with undo. `DriveSession`
+  fetches candidates from `POST /session/candidates`, re-ranks them on the phone with
+  `SessionRanker` (the same `session-v1` weights as the server, so "calmer" works instantly and
+  offline), and plays through the one `PlayerController`: Halo's picks replace upcoming Flow
+  songs only, never songs the listener queued. The iOS-only adapters live in `Features/Drive`:
+  `SpeechListener` (push-to-talk `SFSpeechRecognizer`, on-device when supported, audio never
+  stored), `SystemVoiceSpeaker` (short `AVSpeechSynthesizer` replies, Telugu voice when
+  installed) and `DriveView`. The music dips while Halo listens or speaks. Names that aren't
+  in the catalog get "nothing available", never invented songs.
 * The platform-neutral code (networking, models, the player and queue, and the UI-free view models
   for Search, Halo assistant, Studio and settings) is also a Swift package (`ios/Package.swift`), so it
   compiles and its tests run with `swift test` on macOS or Linux. The SwiftUI and SwiftData

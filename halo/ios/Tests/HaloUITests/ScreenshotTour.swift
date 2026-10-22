@@ -149,6 +149,14 @@ final class ScreenshotTour: XCTestCase {
 
         tab("Halo, your music assistant")
         snap("06-ai-dj")
+        let drive = app.buttons["haloDrive"].firstMatch
+        if drive.waitForExistence(timeout: 3) {
+            drive.tap()
+            settle(2)
+            snap("06b-halo-drive")
+            let end = app.buttons["End Halo Drive"].firstMatch
+            if end.waitForExistence(timeout: 3) { end.tap(); settle(1) }
+        }
         let trip = app.buttons["Create a playlist for my trip"].firstMatch
         if trip.waitForExistence(timeout: 5) {
             trip.tap()

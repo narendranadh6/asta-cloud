@@ -73,6 +73,12 @@ struct RootView: View {
             }
         }
         .haloToast($toast, edge: .bottom, padding: tabBarHeight + PlayerGeometry.miniHeight + Spacing.lg)
+        .fullScreenCover(isPresented: Binding(get: { app.drive != nil },
+                                              set: { if !$0 { app.endDrive() } })) {
+            if let drive = app.drive {
+                DriveView(voice: drive) { app.endDrive() }
+            }
+        }
         .background(HaloColor.background.ignoresSafeArea())
         .overlay(alignment: .top) {
             if !app.network.isOnline {

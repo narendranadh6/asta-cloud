@@ -62,6 +62,12 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     public var streamUrl: String?
     /// A 30-second preview (iTunes), not the full song.
     public var isPreview: Bool
+    /// Estimates for Halo Drive's ranking; nil means unknown. Language is ISO 639-1 ("te").
+    public var language: String?
+    /// 0 calm … 1 intense.
+    public var energy: Double?
+    /// 0 slow … 1 fast.
+    public var tempo: Double?
     public var license: TrackLicense?
     public var externalUrl: String?
     public var attribution: Attribution
@@ -72,7 +78,8 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
         artworkUrl: String? = nil,
         artworkUrlLarge: String? = nil, durationSeconds: Int? = nil, genre: String? = nil, mood: String? = nil,
         releaseDate: String? = nil, playCount: Int? = nil, streamUrl: String? = nil,
-        isPreview: Bool = false, license: TrackLicense? = nil, externalUrl: String? = nil,
+        isPreview: Bool = false, language: String? = nil, energy: Double? = nil,
+        tempo: Double? = nil, license: TrackLicense? = nil, externalUrl: String? = nil,
         attribution: Attribution
     ) {
         self.id = id
@@ -92,6 +99,9 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
         self.playCount = playCount
         self.streamUrl = streamUrl
         self.isPreview = isPreview
+        self.language = language
+        self.energy = energy
+        self.tempo = tempo
         self.license = license
         self.externalUrl = externalUrl
         self.attribution = attribution

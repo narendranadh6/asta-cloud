@@ -22,6 +22,11 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Halo Drive: push-to-talk only. Audio is never stored. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Halo listens when you press Talk to Halo, so you can ask for music while you drive.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Halo turns what you say into music requests. Recordings are not saved.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<!-- Backend base URL, set per configuration in Config/*.xcconfig -->

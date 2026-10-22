@@ -35,6 +35,8 @@ public protocol MusicAPI: Sendable {
     func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse
     /// Songs to play after `trackID` (co-listening, same and similar artists).
     func upNext(trackID: String, limit: Int) async throws -> UpNextResponse
+    /// Halo Drive: ranked songs for the current voice session (the server stores nothing).
+    func sessionCandidates(_ request: SessionCandidatesRequest) async throws -> SessionCandidatesResponse
     /// Live internet radio stations (Radio Browser directory).
     func radioStations(tag: String?, language: String?, query: String?, limit: Int) async throws
         -> [RadioStation]
@@ -311,6 +313,11 @@ public actor APIClient: MusicAPI {
 
     public func sendFeedback(_ request: FeedbackRequest) async throws -> FeedbackResponse {
         try await send(.post, "api/v1/recommendations/feedback", body: try encode(request))
+    }
+
+    public func sessionCandidates(_ request: SessionCandidatesRequest) async throws
+        -> SessionCandidatesResponse {
+        try await send(.post, "api/v1/session/candidates", body: try encode(request))
     }
 
     public func upNext(trackID: String, limit: Int) async throws -> UpNextResponse {

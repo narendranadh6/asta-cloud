@@ -13,6 +13,9 @@ struct SettingsView: View {
     @State private var isDeleting = false
     @State private var errorMessage: String?
 
+    /// Telugu speech recognition exists only on some iOS versions and devices.
+    private var teluguListening: Bool { !SpeechListener.supported(["te-IN"]).isEmpty }
+
     var body: some View {
         @Bindable var settings = settings
         Form {
@@ -99,6 +102,25 @@ struct SettingsView: View {
                 Text("Playback")
             } footer: {
                 Text("Halo Flow songs are added after everything you queued and never replace it.")
+            }
+
+            Section {
+                Picker(selection: $settings.voiceLocale) {
+                    Text("English (India)").tag("en-IN")
+                    if teluguListening { Text("తెలుగు").tag("te-IN") }
+                } label: {
+                    IconRow(symbol: "waveform", color: HaloColor.primary, title: "Halo listens in",
+                            subtitle: "English understands Telugu words typed in English too")
+                }
+                Toggle(isOn: $settings.voiceReplies) {
+                    IconRow(symbol: "speaker.wave.2", color: HaloColor.secondary,
+                            title: "Spoken replies", subtitle: "Short confirmations like “Going newer.”")
+                }
+            } header: {
+                Text("Halo Drive")
+            } footer: {
+                Text("Halo only listens while you hold the conversation open with Talk to Halo. "
+                     + "Recordings are never saved; on-device recognition is used when available.")
             }
 
 
