@@ -54,6 +54,21 @@ jobs:
         working-directory: halo
         run: docker build -t halo-api:ci backend
 
+  # Halo Drive spike: how much Telugu music the free sources carry (informational only).
+  catalog-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: halo/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q -e .
+      - run: python -m app.tools.catalog_audit
+
   ios-core-linux:
     runs-on: ubuntu-latest
     container: swift:6.1-noble
@@ -92,7 +107,7 @@ jobs:
             -destination "platform=iOS Simulator,name=$DEVICE" \
             CODE_SIGNING_ALLOWED=NO > xcodebuild.log 2>&1 || status=$?
           # Every compiler/test error first (the tail alone can hide them), then the tail.
-          grep -E "error:|note:|failed|FAILED" xcodebuild.log | sort -u | head -80 || true
+          grep -E "error:|note:|failed|FAILED|HALO-SPIKE" xcodebuild.log | sort -u | head -80 || true
           tail -200 xcodebuild.log
           exit ${status:-0}
         env:
