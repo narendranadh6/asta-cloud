@@ -41,7 +41,7 @@ public enum SessionRanker {
     /// Rights and playability are hard constraints: a full, streamable song only. Previews
     /// and tracks without a stream never reach the queue, whatever their score.
     public static func isPlayable(_ track: Track) -> Bool {
-        track.streamURL != nil && !track.isPreview
+        track.streamURL != nil && !track.isPreview && track.playbackAuthorized != false
     }
 
     /// How much worse (in total score) a song may be and still be moved up to avoid the

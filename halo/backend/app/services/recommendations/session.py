@@ -26,7 +26,7 @@ from app.schemas import (
 )
 from app.services.catalog.base import CatalogError
 from app.services.catalog.ids import is_valid_track_id
-from app.services.catalog.rights import MusicRightsResolver, SourcePolicyRightsResolver
+from app.services.catalog.rights import MusicRightsResolver
 from app.services.catalog.service import CatalogService, song_key
 
 logger = logging.getLogger("halo.session")
@@ -177,7 +177,7 @@ class SessionRecommender:
         self._catalog = catalog
         self._today = today
         self._config = config
-        self._rights = rights or SourcePolicyRightsResolver()
+        self._rights = rights or catalog.rights
 
     async def candidates(self, request: SessionCandidatesRequest) -> SessionCandidatesResponse:
         seed: Track | None = None

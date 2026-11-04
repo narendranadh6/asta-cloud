@@ -1434,6 +1434,66 @@
     }
    }
   },
+  "/api/v1/intent/fallback": {
+   "post": {
+    "tags": [
+     "ai"
+    ],
+    "summary": "Halo Drive: propose operations for one unclear command (text only, with consent)",
+    "description": "Off unless the server enables it. Nothing is stored; the phone validates the result\nagain and applies it through its own session rules.",
+    "operationId": "intent_fallback_api_v1_intent_fallback_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/IntentFallbackRequest"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IntentFallbackResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/ai/chat": {
    "post": {
     "tags": [
@@ -3431,6 +3491,100 @@
     ],
     "title": "HomeSection"
    },
+   "IntentFallbackRequest": {
+    "properties": {
+     "transcript": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Transcript"
+     },
+     "speech": {
+      "type": "string",
+      "enum": [
+       "english",
+       "telugu",
+       "mixed"
+      ],
+      "title": "Speech",
+      "default": "english"
+     },
+     "language": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "te",
+         "en"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Language"
+     },
+     "consent": {
+      "type": "boolean",
+      "title": "Consent",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "transcript"
+    ],
+    "title": "IntentFallbackRequest",
+    "description": "The minimum the phone sends: one command's text, never audio or history."
+   },
+   "IntentFallbackResponse": {
+    "properties": {
+     "outcome": {
+      "type": "string",
+      "enum": [
+       "execute",
+       "clarify",
+       "unsupported",
+       "no_action"
+      ],
+      "title": "Outcome"
+     },
+     "operations": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 6,
+      "title": "Operations"
+     },
+     "provider": {
+      "type": "string",
+      "title": "Provider"
+     },
+     "latency_ms": {
+      "type": "integer",
+      "title": "Latency Ms"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     }
+    },
+    "type": "object",
+    "required": [
+     "outcome",
+     "provider",
+     "latency_ms"
+    ],
+    "title": "IntentFallbackResponse"
+   },
    "Label": {
     "properties": {
      "name": {
@@ -5349,6 +5503,22 @@
        }
       ],
       "title": "Valence"
+     },
+     "playback_authorized": {
+      "type": "boolean",
+      "title": "Playback Authorized",
+      "default": false
+     },
+     "playback_restriction": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Playback Restriction"
      },
      "license": {
       "anyOf": [

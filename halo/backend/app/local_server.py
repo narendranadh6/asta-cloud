@@ -34,6 +34,9 @@ def local_settings() -> Settings:
     overrides: dict[str, object] = {}
     if "HALO_DATABASE_URL" not in os.environ:
         overrides["database_url"] = DEFAULT_DATABASE_URL
+    # The local server is for personal and development use.
+    if not os.environ.get("HALO_DEPLOYMENT_USE"):
+        overrides["deployment_use"] = "non_commercial"
     if "HALO_REDIS_URL" not in os.environ:
         overrides["redis_url"] = None
     return Settings(**overrides)  # type: ignore[arg-type]

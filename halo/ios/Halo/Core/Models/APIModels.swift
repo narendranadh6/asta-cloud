@@ -70,6 +70,10 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     public var tempo: Double?
     /// 0 sad … 1 bright.
     public var valence: Double?
+    /// The server's rights decision. `false` means Halo may show this song but not play it
+    /// (its stream is withheld); nil comes from older servers and saved library items.
+    public var playbackAuthorized: Bool?
+    public var playbackRestriction: String?
     public var license: TrackLicense?
     public var externalUrl: String?
     public var attribution: Attribution

@@ -25,6 +25,12 @@ from app.services.catalog.base import (
     TrackUnavailableError,
 )
 from app.services.catalog.ids import is_valid_track_id, parse_track_id
+from app.services.catalog.rights import (
+    MusicRightsResolver,
+    RightsPolicy,
+    SourcePolicyRightsResolver,
+    authorize,
+)
 
 logger = logging.getLogger("halo.catalog")
 
@@ -103,8 +109,14 @@ class CatalogService:
         search_ttl_seconds: int = 6 * 3600,
         track_ttl_seconds: int = 24 * 3600,
         timeout: float = SOURCE_TIMEOUT_SECONDS,
+        rights: MusicRightsResolver | None = None,
     ) -> None:
         self.sources = {s.name: s for s in sources}
+        # Tools and tests that build a catalog directly run as non-commercial; the server's
+        # catalog (build_catalog) always uses the deployment's own policy.
+        self.rights: MusicRightsResolver = rights or SourcePolicyRightsResolver(
+            RightsPolicy(deployment_use="non_commercial")
+        )
         self._store = store
         self._search_ttl = search_ttl_seconds
         self._track_ttl = track_ttl_seconds
@@ -149,6 +161,11 @@ class CatalogService:
                 "HALO_JAMENDO_CLIENT_ID or HALO_ITUNES_PREVIEWS_ENABLED)."
             )
 
+    def _authorized(self, tracks: list[Track]) -> list[Track]:
+        """Copies stamped with this deployment's rights decision (the cache keeps raw data, so a
+        policy change applies at once)."""
+        return [authorize(t.model_copy(), self.rights) for t in tracks]
+
     async def _remember(self, tracks: list[Track]) -> None:
         for track in tracks:
             await self._store.set_json(
@@ -171,7 +188,7 @@ class CatalogService:
         if cached is not None:
             return CachedSearch(
                 page=SearchPage(
-                    items=[Track.model_validate(t) for t in cached["items"]],
+                    items=self._authorized([Track.model_validate(t) for t in cached["items"]]),
                     next_page_token=cached.get("next"),
                     prev_page_token=cached.get("prev"),
                     sources=list(cached.get("sources") or []),
@@ -205,6 +222,7 @@ class CatalogService:
             self._search_ttl,
         )
         await self._remember(items)
+        page.items = self._authorized(items)
         return CachedSearch(page=page, cached=False)
 
     async def trending(self, *, max_results: int = 20, genre: str | None = None) -> CachedSearch:
@@ -214,7 +232,7 @@ class CatalogService:
         if cached is not None:
             return CachedSearch(
                 page=SearchPage(
-                    items=[Track.model_validate(t) for t in cached["items"]],
+                    items=self._authorized([Track.model_validate(t) for t in cached["items"]]),
                     sources=list(cached.get("sources") or []),
                 ),
                 cached=True,
@@ -235,6 +253,7 @@ class CatalogService:
             3600,  # charts change; refresh hourly
         )
         await self._remember(page.items)
+        page.items = self._authorized(page.items)
         return CachedSearch(page=page, cached=False)
 
     async def get_tracks(self, track_ids: list[str]) -> dict[str, Track]:
@@ -257,7 +276,7 @@ class CatalogService:
             tracks = [t for ts in fetched.values() for t in ts]
             await self._remember(tracks)
             found.update({t.id: t for t in tracks})
-        return found
+        return {tid: authorize(t.model_copy(), self.rights) for tid, t in found.items()}
 
     async def _lookup(self, source: str, ids: list[str]) -> list[Track]:
         return list((await self.sources[source].get_tracks(ids)).values())  # type: ignore[index]
@@ -273,11 +292,14 @@ class CatalogService:
     async def get_artist(self, artist_id: str) -> ArtistPage:
         raw = await self._entity("artist", artist_id)
         page = ArtistPage.model_validate(raw)
+        page.top_tracks = self._authorized(page.top_tracks)
         return page
 
     async def get_album(self, album_id: str) -> AlbumPage:
         raw = await self._entity("album", album_id)
-        return AlbumPage.model_validate(raw)
+        page = AlbumPage.model_validate(raw)
+        page.tracks = self._authorized(page.tracks)
+        return page
 
     async def _entity(self, kind: str, entity_id: str) -> dict[str, object]:
         """An artist or album page from its source, cached like track metadata."""
@@ -335,9 +357,19 @@ def build_catalog(settings: object, store: KeyValueStore) -> CatalogService:
         sources.append(ITunesPreviewSource(country=settings.itunes_country))
     if not sources:
         logger.error("No catalog sources enabled: search will return 503")
+    policy = RightsPolicy(
+        deployment_use=settings.deployment_use,
+        audius_terms_confirmed=settings.audius_commercial_terms_confirmed,
+        jamendo_commercial_license=settings.jamendo_commercial_license,
+    )
+    if policy.deployment_use == "commercial" and not (
+        policy.audius_terms_confirmed or policy.jamendo_commercial_license
+    ):
+        logger.warning("Commercial deployment with no source rights confirmed: nothing will play")
     return CatalogService(
         sources,
         store,
+        rights=SourcePolicyRightsResolver(policy),
         search_ttl_seconds=settings.catalog_search_ttl_seconds,
         track_ttl_seconds=settings.catalog_track_ttl_seconds,
     )

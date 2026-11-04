@@ -62,6 +62,11 @@ from app.schemas import (
     UpNextResponse,
 )
 from app.services.ai.intent import MusicIntent
+from app.services.ai.intent_fallback import (
+    IntentFallback,
+    IntentFallbackRequest,
+    IntentFallbackResponse,
+)
 from app.services.ai.providers import PlanOverrides
 from app.services.catalog.base import (
     CatalogError,
@@ -638,6 +643,34 @@ async def ai_playlist(
         pipeline=pipeline,
         catalog=catalog,
     )
+
+
+@router.post(
+    "/intent/fallback",
+    response_model=IntentFallbackResponse,
+    tags=["ai"],
+    dependencies=[AI_LIMIT],
+    summary="Halo Drive: propose operations for one unclear command (text only, with consent)",
+)
+async def intent_fallback(
+    body: IntentFallbackRequest, request: Request, user: CurrentUser
+) -> IntentFallbackResponse:
+    """Off unless the server enables it. Nothing is stored; the phone validates the result
+    again and applies it through its own session rules."""
+    if not body.consent:
+        raise AppError(
+            "The listener hasn't allowed sending commands to the server",
+            code="consent_required",
+            status_code=403,
+        )
+    fallback: IntentFallback = request.app.state.intent_fallback
+    if not fallback.enabled:
+        raise AppError(
+            "The command fallback isn't enabled on this server",
+            code="fallback_disabled",
+            status_code=503,
+        )
+    return await fallback.interpret(body)
 
 
 @router.post("/ai/chat", response_model=AIChatResponse, tags=["ai"], dependencies=[AI_LIMIT])

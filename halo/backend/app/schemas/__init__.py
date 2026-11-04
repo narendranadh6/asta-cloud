@@ -67,6 +67,10 @@ class Track(APIModel):
     energy: float | None = None  # 0 calm … 1 intense
     tempo: float | None = None  # 0 slow … 1 fast
     valence: float | None = None  # 0 sad … 1 bright
+    # Set by the server's rights check (services/catalog/rights.py). False until checked:
+    # finding a track never implies Halo may play it.
+    playback_authorized: bool = False
+    playback_restriction: str | None = None
     license: TrackLicense | None = None
     external_url: str | None = None  # the track's page at the source
     attribution: Attribution

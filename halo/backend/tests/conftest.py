@@ -22,6 +22,7 @@ def make_settings(**overrides: Any) -> Settings:
     base: dict[str, Any] = {
         "environment": "test",
         "database_url": TEST_DATABASE_URL,
+        "deployment_use": "non_commercial",
         "redis_url": None,
         "llm_provider": "none",
         # Tests never call external music services; they inject fakes where needed.

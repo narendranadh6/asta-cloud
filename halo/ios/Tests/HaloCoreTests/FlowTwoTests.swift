@@ -109,6 +109,9 @@ final class FlowRankingTests: XCTestCase {
                     candidate("nostream", artist: "B", energy: 0.9, stream: false),
                     candidate("ok", artist: "C", energy: 0.1)]
         XCTAssertEqual(SessionRanker.rank(pool, for: state).map(\.sourceId), ["ok"])
+        var refused = pool[2]
+        refused.track.playbackAuthorized = false  // the server's rights check said no
+        XCTAssertTrue(SessionRanker.rank([refused], for: state).isEmpty)
     }
 
     func testTheSameArtistNeverPlaysTwiceInARowWhenAnotherCan() {
