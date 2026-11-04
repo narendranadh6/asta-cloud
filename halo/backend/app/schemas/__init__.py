@@ -150,6 +150,8 @@ class SessionCandidatesRequest(APIModel):
     excluded_track_ids: list[str] = Field(default_factory=list, max_length=200)
     # "No sad songs": songs known to have that mood are left out (unknown ones stay).
     excluded_moods: list[Literal["sad"]] = Field(default_factory=list, max_length=4)
+    # Artists of the last songs heard (normalized), ranked lower so Flow keeps moving.
+    recent_artists: list[str] = Field(default_factory=list, max_length=10)
     limit: int = Field(default=30, ge=1, le=60)
 
 

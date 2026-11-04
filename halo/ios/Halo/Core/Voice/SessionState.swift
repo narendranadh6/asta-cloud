@@ -48,9 +48,16 @@ public struct SessionState: Hashable, Sendable, Codable {
     public var seedMode: SeedMode = .similar
     /// "Keep this vibe": inferred nudges and drift are ignored.
     public var locked = false
-    /// Artist weights by normalized name; negative means "less of".
+    /// Artist weights the listener asked for, by normalized name; negative means "less of".
     public var artistWeights: [String: Double] = [:]
+    /// Weights Halo inferred from listening (skips, completions, replays). Kept apart so an
+    /// explicit request for an artist always wins over what Halo guessed.
+    public var inferredArtistWeights: [String: Double] = [:]
     public var excludedArtists: [String: Scope] = [:]
+    /// When each `today` exclusion ends: the next local midnight when it was made.
+    public var todayExpiry: [String: Date] = [:]
+    /// Artists of the last songs heard, newest last, so Halo doesn't keep returning to them.
+    public var recentArtists: [String] = []
     public var excludedTracks: [String: Scope] = [:]
     /// Moods to leave out ("no sad songs").
     public var avoidedMoods: Set<MoodTag> = []
@@ -79,7 +86,8 @@ public struct SessionState: Hashable, Sendable, Codable {
 
     /// Applies every operation in order and returns what the player should do.
     @discardableResult
-    public mutating func apply(_ delta: IntentDelta, current: NowPlayingContext?) -> [SessionEffect] {
+    public mutating func apply(_ delta: IntentDelta, current: NowPlayingContext?, now: Date = .now,
+                               timeZone: TimeZone = .current) -> [SessionEffect] {
         guard !delta.isEmpty else { return [] }
         if delta.operations == [.undo] {
             return undo() ? [.rerank] : []
@@ -142,6 +150,9 @@ public struct SessionState: Hashable, Sendable, Codable {
             case let .excludeArtist(ref, scope):
                 if let name = Self.artistKey(ref, current) {
                     excludedArtists[name] = scope
+                    if scope == .today {
+                        todayExpiry[name] = Self.nextLocalMidnight(after: now, in: timeZone)
+                    }
                     needsRerank = true
                     if ref == .currentArtist || Self.key(current?.artist ?? "") == name {
                         effects.append(.skipCurrent)
@@ -201,12 +212,95 @@ public struct SessionState: Hashable, Sendable, Codable {
 
     // MARK: Signals from listening
 
-    /// A skip is a weak, inferred signal: each one lowers that artist a little this session.
-    public mutating func recordSkip(_ context: NowPlayingContext) {
-        skips.append(context.trackID)
-        guard !locked else { return }
+    /// What the listener did with a song, without saying anything.
+    public enum ListeningSignal: Hashable, Sendable {
+        /// Skipped after `heard` seconds of a song lasting `duration` seconds (if known).
+        case skip(heard: Double, duration: Double?)
+        /// Played to the end.
+        case complete
+        /// Restarted or went back to it.
+        case replay
+    }
+
+    /// Weights for inferred signals. Small on purpose: these are guesses, they last only this
+    /// session, they never reach the long-term profile, and explicit requests override them.
+    public enum SignalWeights {
+        public static let earlySkip = -0.1
+        public static let lateSkip = -0.03
+        public static let complete = 0.05
+        public static let replay = 0.15
+        /// Inferred weights stay within ±0.4, well under one explicit "not too much X" (−0.6).
+        public static let cap = 0.4
+        /// A skip within this many seconds, or this share of the song, is "early".
+        public static let earlySkipSeconds = 30.0
+        public static let earlySkipShare = 0.25
+        public static let recentArtistCount = 4
+    }
+
+    /// Records a listening signal. An early skip also keeps that one song out of this session
+    /// (not forever: a short skip is never a dislike). Locking the vibe stops weight drift.
+    public mutating func record(_ signal: ListeningSignal, for context: NowPlayingContext) {
         let name = Self.key(context.artist)
-        artistWeights[name, default: 0] -= 0.1
+        recentArtists.removeAll { $0 == name }
+        recentArtists.append(name)
+        if recentArtists.count > SignalWeights.recentArtistCount { recentArtists.removeFirst() }
+        let change: Double
+        switch signal {
+        case let .skip(heard, duration):
+            skips.append(context.trackID)
+            let share = duration.map { $0 > 0 ? heard / $0 : 1 } ?? 1
+            let early = heard < SignalWeights.earlySkipSeconds || share < SignalWeights.earlySkipShare
+            if early { excludedTracks[context.trackID] = excludedTracks[context.trackID] ?? .session }
+            change = early ? SignalWeights.earlySkip : SignalWeights.lateSkip
+        case .complete:
+            change = SignalWeights.complete
+        case .replay:
+            keeps.append(context.trackID)
+            change = SignalWeights.replay
+        }
+        guard !locked else { return }
+        let updated = (inferredArtistWeights[name] ?? 0) + change
+        inferredArtistWeights[name] = min(max(updated, -SignalWeights.cap), SignalWeights.cap)
+    }
+
+    /// A skip with nothing else known (kept for callers that don't track position).
+    public mutating func recordSkip(_ context: NowPlayingContext) {
+        record(.skip(heard: 0, duration: nil), for: context)
+    }
+
+    /// Explicit weights, then inferred ones for artists the listener said nothing about.
+    public var effectiveArtistWeights: [String: Double] {
+        inferredArtistWeights.merging(artistWeights) { _, explicit in explicit }
+    }
+
+    /// Excluded artists still in force at `now` (a `today` exclusion ends at local midnight).
+    public func activeExcludedArtists(at now: Date = .now) -> [String] {
+        excludedArtists.compactMap { name, scope in
+            guard scope == .today, let end = todayExpiry[name] else { return name }
+            return end > now ? name : nil
+        }.sorted()
+    }
+
+    /// `today` exclusions to keep across drives until they end.
+    public func todayExclusions(at now: Date = .now) -> [String: Date] {
+        todayExpiry.filter { name, end in excludedArtists[name] == .today && end > now }
+    }
+
+    /// Brings back `today` exclusions saved by an earlier drive, dropping ended ones.
+    public mutating func restoreTodayExclusions(_ saved: [String: Date], now: Date = .now) {
+        for (name, end) in saved where end > now {
+            excludedArtists[name] = excludedArtists[name] ?? .today
+            todayExpiry[name] = end
+        }
+    }
+
+    /// The next midnight in `timeZone` after `date`. Uses the calendar, not "+24 h", so days
+    /// with a daylight-saving change still end at local midnight.
+    public static func nextLocalMidnight(after date: Date, in timeZone: TimeZone) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let startOfDay = calendar.startOfDay(for: date)
+        return calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date.addingTimeInterval(86_400)
     }
 
     // MARK: Helpers

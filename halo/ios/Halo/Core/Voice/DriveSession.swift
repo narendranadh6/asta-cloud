@@ -38,20 +38,28 @@ public final class DriveSession {
     @ObservationIgnored private var pendingConfirmation: IntentDelta?
     @ObservationIgnored private var previousFlowProvider: ((Track) async -> [FlowSuggestion])?
     @ObservationIgnored private var previousSkipHandler: ((Track, Double) -> Void)?
+    @ObservationIgnored private var previousCompletionHandler: ((Track) -> Void)?
+    @ObservationIgnored private var previousReplayHandler: ((Track) -> Void)?
     @ObservationIgnored private let resolver: EntityResolver
+    @ObservationIgnored private let todayStore: TodayExclusionStore?
+    @ObservationIgnored private let now: @Sendable () -> Date
+    @ObservationIgnored private let timeZone: @Sendable () -> TimeZone
     /// Names Halo asked about ("Ilaiyaraaja or Yuvan Shankar Raja?"), waiting for the answer.
     @ObservationIgnored private var pendingChoice: (delta: IntentDelta, said: String,
                                                     options: [EntityResolver.Entity])?
     static let title = "Halo Drive"
-    /// A skip within this many seconds counts as a (weak) "not this artist now".
-    static let earlySkipSeconds = 30.0
 
     public init(api: MusicAPI, player: PlayerController, speaker: VoiceSpeaker?,
-                resolver: EntityResolver = EntityResolver()) {
+                resolver: EntityResolver = EntityResolver(), todayStore: TodayExclusionStore? = nil,
+                now: @escaping @Sendable () -> Date = { Date() },
+                timeZone: @escaping @Sendable () -> TimeZone = { TimeZone.current }) {
         self.api = api
         self.player = player
         self.speaker = speaker
         self.resolver = resolver
+        self.todayStore = todayStore
+        self.now = now
+        self.timeZone = timeZone
     }
 
     // MARK: Lifecycle
@@ -61,20 +69,40 @@ public final class DriveSession {
         guard !isActive else { return }
         isActive = true
         state = SessionState()
+        state.restoreTodayExclusions(todayStore?.load() ?? [:], now: now())
         previousFlowProvider = player.flowProvider
         player.flowProvider = { [weak self] _ in await self?.flowSuggestions() ?? [] }
         previousSkipHandler = player.onListenerSkip
         player.onListenerSkip = { [weak self] track, heard in
             self?.previousSkipHandler?(track, heard)
-            self?.listenerSkipped(track, heard: heard)
+            self?.listened(.skip(heard: heard, duration: track.durationSeconds.map(Double.init)), track)
+        }
+        previousCompletionHandler = player.onTrackCompleted
+        player.onTrackCompleted = { [weak self] track in
+            self?.previousCompletionHandler?(track)
+            self?.listened(.complete, track)
+        }
+        previousReplayHandler = player.onListenerReplay
+        player.onListenerReplay = { [weak self] track in
+            self?.previousReplayHandler?(track)
+            self?.listened(.replay, track)
         }
     }
 
-    /// Early skips nudge that artist down a little this session; later skips say nothing.
-    /// Never a dislike, never saved to the profile, ignored while the vibe is locked.
-    private func listenerSkipped(_ track: Track, heard: Double) {
-        guard heard < Self.earlySkipSeconds else { return }
-        state.recordSkip(NowPlayingContext(trackID: track.id, artist: track.artist, album: track.album))
+    /// Skips, completions and replays are weak, session-only signals (see
+    /// `SessionState.SignalWeights`); a short skip never becomes a dislike.
+    private func listened(_ signal: SessionState.ListeningSignal, _ track: Track) {
+        state.record(signal, for: NowPlayingContext(trackID: track.id, artist: track.artist,
+                                                     album: track.album))
+    }
+
+    /// "Reset": forget this drive's steering and inferred signals, including today's
+    /// exclusions, and keep playing. Long-term personalization is reset separately in Settings.
+    public func resetSession() {
+        state = SessionState()
+        todayStore?.save([:])
+        summary = ""
+        applyRanking()
     }
 
     public func end() {
@@ -83,6 +111,8 @@ public final class DriveSession {
         speaker?.stop()
         player.flowProvider = previousFlowProvider
         player.onListenerSkip = previousSkipHandler
+        player.onTrackCompleted = previousCompletionHandler
+        player.onListenerReplay = previousReplayHandler
         pendingChoice = nil
         pool = []
         voiceState = .idle
@@ -160,7 +190,8 @@ public final class DriveSession {
         }
         voiceState = .applying
         let current = nowPlaying
-        let effects = state.apply(delta, current: current)
+        let effects = state.apply(delta, current: current, now: now(), timeZone: timeZone())
+        todayStore?.save(state.todayExclusions(at: now()))
         var spoken = VoiceReply.text(for: delta, level: replyLevel)
         for effect in effects {
             switch effect {
@@ -214,7 +245,7 @@ public final class DriveSession {
         case .vibe, .surprise: break
         }
         guard await refresh(seed: seed, entity: entity) else { return false }
-        let ranked = SessionRanker.rank(pool, for: state, excluding: player.playedTrackIDs)
+        let ranked = SessionRanker.rank(pool, for: state, excluding: player.playedTrackIDs, today: now())
         guard !ranked.isEmpty else { return false }
         player.startHalo(Array(ranked.prefix(25)), title: Self.title)
         return true
@@ -227,7 +258,7 @@ public final class DriveSession {
     }
 
     private func applyRanking() {
-        let ranked = SessionRanker.rank(pool, for: state, excluding: player.playedTrackIDs)
+        let ranked = SessionRanker.rank(pool, for: state, excluding: player.playedTrackIDs, today: now())
         if !ranked.isEmpty { player.replaceUpcomingFlow(Array(ranked.prefix(25))) }
     }
 
@@ -236,7 +267,7 @@ public final class DriveSession {
     private func refresh(seed: String?, entity: EntityRef?) async -> Bool {
         let request = SessionCandidatesRequest(
             state: state, seedTrackID: seed, entity: entity,
-            alsoExclude: Array(player.playedTrackIDs), limit: 40)
+            alsoExclude: Array(player.playedTrackIDs), limit: 40, now: now())
         guard let response = try? await api.sessionCandidates(request) else { return false }
         pool = response.candidates
         return !pool.isEmpty
@@ -245,7 +276,7 @@ public final class DriveSession {
     /// Halo Flow during a drive: more songs that fit the session.
     private func flowSuggestions() async -> [FlowSuggestion] {
         if pool.count < 10 { await refresh(seed: player.currentTrack?.id, entity: nil) }
-        return SessionRanker.rank(pool, for: state, excluding: player.playedTrackIDs)
+        return SessionRanker.rank(pool, for: state, excluding: player.playedTrackIDs, today: now())
             .prefix(10).map { FlowSuggestion(track: $0, reason: "Halo Drive") }
     }
 

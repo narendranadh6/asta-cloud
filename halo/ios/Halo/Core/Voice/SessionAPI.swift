@@ -38,10 +38,12 @@ public struct SessionCandidatesRequest: Codable, Sendable, Equatable {
     public var excludedArtists: [String]
     public var excludedTrackIds: [String]
     public var excludedMoods: [String]
+    /// Artists of the last songs heard (normalized), ranked lower for variety.
+    public var recentArtists: [String]
     public var limit: Int
 
     public init(state: SessionState, seedTrackID: String? = nil, entity: EntityRef? = nil,
-                alsoExclude trackIDs: [String] = [], limit: Int = 30) {
+                alsoExclude trackIDs: [String] = [], limit: Int = 30, now: Date = .now) {
         vibe = Vibe(energy: state.vibe[.energy]?.value, valence: state.vibe[.valence]?.value,
                     tempo: state.vibe[.tempo]?.value, discovery: state.vibe[.discovery]?.value)
         language = state.language.map {
@@ -62,9 +64,10 @@ public struct SessionCandidatesRequest: Codable, Sendable, Equatable {
             self.entity = nil
         }
         artistWeights = Dictionary(
-            state.artistWeights.filter { !$0.key.isEmpty }.prefix(30).map { ($0.key, $0.value) },
+            state.effectiveArtistWeights.filter { !$0.key.isEmpty }.prefix(30).map { ($0.key, $0.value) },
             uniquingKeysWith: { first, _ in first })
-        excludedArtists = Array(state.excludedArtists.keys.prefix(50))
+        excludedArtists = Array(state.activeExcludedArtists(at: now).prefix(50))
+        recentArtists = Array(state.recentArtists.suffix(10))
         let tracks = Array(state.excludedTracks.keys) + trackIDs
         excludedTrackIds = Array(Array(Set(tracks)).filter(TrackID.isValid).prefix(200))
         excludedMoods = state.avoidedMoods.map(\.rawValue).sorted()

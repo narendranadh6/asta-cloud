@@ -62,6 +62,7 @@ struct DriveView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var palette: ArtworkPalette = .halo
+    @State private var confirmReset = false
 
     private var session: DriveSession { voice.session }
 
@@ -106,6 +107,18 @@ struct DriveView: View {
             }
             .accessibilityElement(children: .combine)
             Spacer()
+            Button("Reset") { confirmReset = true }
+                .font(.headline)
+                .padding(.horizontal, Spacing.md)
+                .frame(minHeight: 44)
+                .accessibilityLabel("Reset this drive")
+                .confirmationDialog("Reset this drive?", isPresented: $confirmReset,
+                                    titleVisibility: .visible) {
+                    Button("Reset", role: .destructive) { session.resetSession() }
+                } message: {
+                    Text("Halo forgets this drive's requests, skips and today's exclusions. "
+                         + "Your queued songs keep playing.")
+                }
             Button("End", action: close)
                 .font(.headline)
                 .padding(.horizontal, Spacing.md)

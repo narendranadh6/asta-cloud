@@ -7,7 +7,7 @@ from datetime import date
 import httpx
 
 from app.core.cache import MemoryStore
-from app.schemas import SessionCandidatesRequest
+from app.schemas import SessionCandidatesRequest, SessionCandidatesResponse
 from app.services.catalog.service import CatalogService
 from app.services.recommendations.session import (
     RANKING_VERSION,
@@ -134,3 +134,33 @@ async def test_endpoint(client: httpx.AsyncClient, auth: dict[str, str]) -> None
         "/api/v1/session/candidates", json={"vibe": {"energy": 3}}, headers=auth
     )
     assert bad.status_code == 422
+
+
+async def test_flow_v3_varies_artists_and_keeps_v2_for_comparison() -> None:
+    from app.services.recommendations.session import SESSION_V2, SESSION_V3
+
+    catalog = CatalogService([FakeCatalogSource()], MemoryStore())
+    plain = request(language={"primary": "te"}, vibe={"energy": 0.9}, limit=12)
+    v2 = await SessionRecommender(catalog, today=date(2026, 6, 1), config=SESSION_V2).candidates(
+        plain
+    )
+    assert v2.ranking_version == "session-v2"
+    assert "variety" not in {k for c in v2.candidates for k in c.fit if k in SESSION_V2.weights}
+    first = v2.candidates[0].track.artist
+    v3 = await SessionRecommender(catalog, today=date(2026, 6, 1), config=SESSION_V3).candidates(
+        request(language={"primary": "te"}, vibe={"energy": 0.9}, recent_artists=[first], limit=12)
+    )
+    assert v3.ranking_version == "session-v3"
+    assert v3.candidates[0].track.artist != first  # just heard: not straight back to them
+    assert v3.candidates[0].fit["variety"] == 1.0  # reported, not weighted (see SESSION_V3)
+
+    def adjacent(result: SessionCandidatesResponse) -> int:
+        artists = [c.track.artist for c in result.candidates]
+        return sum(a == b for a, b in zip(artists, artists[1:], strict=False))
+
+    # Same request, both versions: spacing only moves a nearly-as-good song up, so it never
+    # adds back-to-back repeats.
+    same = await SessionRecommender(catalog, today=date(2026, 6, 1), config=SESSION_V3).candidates(
+        plain
+    )
+    assert adjacent(same) <= adjacent(v2)

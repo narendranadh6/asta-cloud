@@ -109,6 +109,10 @@ public final class PlayerController {
     @ObservationIgnored public var resolveTrack: ((Track) async throws -> Track)?
     /// The listener skipped a song (Next), with how many seconds of it they heard.
     @ObservationIgnored public var onListenerSkip: ((Track, Double) -> Void)?
+    /// A song played to its end.
+    @ObservationIgnored public var onTrackCompleted: ((Track) -> Void)?
+    /// The listener restarted the song that is playing.
+    @ObservationIgnored public var onListenerReplay: ((Track) -> Void)?
     /// Songs to follow `seed` when the queue runs low (Halo Flow).
     @ObservationIgnored public var flowProvider: ((Track) async -> [FlowSuggestion])?
 
@@ -259,6 +263,7 @@ public final class PlayerController {
     public func previous() {
         guard canSkip else { return }
         if clock.position > 3 || queue.history.isEmpty && queue.repeatMode != .all {
+            if clock.position > 3, let track = currentTrack { onListenerReplay?(track) }
             seek(to: 0)
             return
         }
@@ -468,6 +473,7 @@ public final class PlayerController {
 
     private func trackFinished() {
         guard item?.isLive == false else { return }
+        if let track = currentTrack { onTrackCompleted?(track) }
         if queue.advance(automatic: true) != nil {
             loadCurrent()
             return

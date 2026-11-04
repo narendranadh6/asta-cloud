@@ -1,10 +1,10 @@
 import Foundation
 
 /// Re-ranks the songs Halo already has against the current session, instantly and offline.
-/// Mirrors the server's `session-v2` features and weights (backend/app/services/
+/// Mirrors the server's `session-v3` features and weights (backend/app/services/
 /// recommendations/session.py), so a voice change reorders the pool before any network call.
 public enum SessionRanker {
-    public static let version = "session-v2"
+    public static let version = "session-v3"
     static let weights: [String: Double] = [
         "rank": 0.6, "energy": 1.0, "tempo": 0.4, "valence": 0.8, "language": 1.2, "recency": 0.8,
         "discovery": 0.5, "seed": 0.6, "artist": 1.0,
@@ -14,24 +14,55 @@ public enum SessionRanker {
     /// "No sad songs" leaves out songs whose valence is known to be at most this.
     static let sadValence = 0.3
 
-    /// Ranked tracks from `pool` that the session still allows.
+    /// Ranked tracks from `pool` that the session still allows. Hard constraints first
+    /// (playable in full, not played, not excluded, mood and language rules), then the score,
+    /// then the artist cap and spacing.
     public static func rank(_ pool: [SessionCandidate], for state: SessionState,
                             excluding played: Set<String> = [], today: Date = .now) -> [Track] {
+        let excludedArtists = state.activeExcludedArtists(at: today)
         let scored = pool.compactMap { candidate -> (Track, Double)? in
             let track = candidate.track
-            guard !played.contains(track.id), state.excludedTracks[track.id] == nil,
-                  !state.excludedArtists.keys.contains(where: { ArtistMatch.matches(track.artist, $0) }),
+            guard isPlayable(track), !played.contains(track.id), state.excludedTracks[track.id] == nil,
+                  !excludedArtists.contains(where: { ArtistMatch.matches(track.artist, $0) }),
                   !(state.avoidedMoods.contains(.sad) && (track.valence ?? 1) <= sadValence),
                   !violatesLanguage(track, state) else { return nil }
             return (track, score(candidate, state, today: today))
         }
         var perArtist: [String: Int] = [:]
-        return scored.sorted { $0.1 > $1.1 }.compactMap { track, _ in
+        let capped = scored.sorted { $0.1 > $1.1 }.filter { track, _ in
             let artist = SessionState.key(track.artist)
-            guard perArtist[artist, default: 0] < artistCap else { return nil }
+            guard perArtist[artist, default: 0] < artistCap else { return false }
             perArtist[artist, default: 0] += 1
-            return track
+            return true
         }
+        return spaced(capped, after: state.recentArtists.last)
+    }
+
+    /// Rights and playability are hard constraints: a full, streamable song only. Previews
+    /// and tracks without a stream never reach the queue, whatever their score.
+    public static func isPlayable(_ track: Track) -> Bool {
+        track.streamURL != nil && !track.isPreview
+    }
+
+    /// How much worse (in total score) a song may be and still be moved up to avoid the
+    /// same artist twice in a row. Variety never pulls in a song that clearly doesn't fit.
+    static let spacingMargin = 0.5
+
+    /// Keeps the score order but avoids the same artist twice in a row (or right after the song
+    /// that just played) when a nearly-as-good song by another artist can go there instead.
+    static func spaced(_ scored: [(Track, Double)], after lastArtist: String?) -> [Track] {
+        var remaining = scored
+        var result: [Track] = []
+        var previous = lastArtist
+        while let best = remaining.first {
+            let index = remaining.firstIndex {
+                SessionState.key($0.0.artist) != previous && $0.1 >= best.1 - spacingMargin
+            } ?? 0
+            let next = remaining.remove(at: index).0
+            result.append(next)
+            previous = SessionState.key(next.artist)
+        }
+        return result
     }
 
     static func score(_ candidate: SessionCandidate, _ state: SessionState, today: Date) -> Double {
@@ -46,7 +77,10 @@ public enum SessionRanker {
             let popularity = min(log10(Double(track.playCount ?? 0) + 1) / 7, 1)
             fit["discovery"] = 1 - abs(discovery - (1 - popularity))
         }
-        fit["artist"] = max(min(ArtistMatch.weight(track.artist, in: state.artistWeights), 1), -1)
+        fit["artist"] = max(min(ArtistMatch.weight(track.artist, in: state.effectiveArtistWeights), 1), -1)
+        // Reported for measurement only (no weight): a variety weight lowered relevance in the
+        // benchmark; spacing does the work instead (see the server's SESSION_V3).
+        fit["variety"] = state.recentArtists.contains { ArtistMatch.matches(track.artist, $0) } ? 0 : 1
         return weights.reduce(0) { total, entry in total + entry.value * (fit[entry.key] ?? unknown) }
     }
 

@@ -153,8 +153,12 @@ struct TasteView: View {
         .confirmationDialog("Reset taste memory?", isPresented: $confirmReset, titleVisibility: .visible) {
             Button("Reset", role: .destructive) {
                 app.library.clearRecentSearches()
+                app.resetDriveMemory()
                 Task { await model.reset(api: app.api) }
             }
+        } message: {
+            Text("Clears what Halo learned from your listening, including Halo Drive's "
+                 + "\u{201C}not today\u{201D} artists on this phone. Your library and playlists stay.")
         }
     }
 

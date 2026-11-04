@@ -203,6 +203,9 @@ final class FakeEngine: DuckableAudioEngine {
 
     /// The engine opened the stream and sound started.
     func startPlaying() { onStatus?(.playing) }
+
+    /// The song played to its end.
+    func finishTrack() { onFinished?() }
 }
 
 final class MemorySessionStore: PlaybackSessionStoring, @unchecked Sendable {

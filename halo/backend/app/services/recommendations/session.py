@@ -26,24 +26,52 @@ from app.schemas import (
 )
 from app.services.catalog.base import CatalogError
 from app.services.catalog.ids import is_valid_track_id
+from app.services.catalog.rights import MusicRightsResolver, SourcePolicyRightsResolver
 from app.services.catalog.service import CatalogService, song_key
 
 logger = logging.getLogger("halo.session")
 
-RANKING_VERSION = "session-v2"
-RANKING_WEIGHTS: dict[str, float] = {
-    "rank": 0.6,  # how well the catalog search matched the query
-    "energy": 1.0,
-    "tempo": 0.4,
-    "valence": 0.8,
-    "language": 1.2,
-    "recency": 0.8,
-    "discovery": 0.5,
-    "seed": 0.6,
-    "artist": 1.0,
-}
-# Per-artist cap in one response, so a single artist can't take over a drive.
-ARTIST_CAP = 2
+
+@dataclass(frozen=True, slots=True)
+class RankingConfig:
+    """A versioned ranking definition. The phone's SessionRanker mirrors the current one."""
+
+    version: str
+    weights: dict[str, float]
+    # Per-artist cap in one response, so a single artist can't take over a drive.
+    artist_cap: int = 2
+    # Avoid the same artist twice in a row when a song within this score margin can go there.
+    spacing_margin: float | None = None
+
+
+SESSION_V2 = RankingConfig(
+    version="session-v2",
+    weights={
+        "rank": 0.6,  # how well the catalog search matched the query
+        "energy": 1.0,
+        "tempo": 0.4,
+        "valence": 0.8,
+        "language": 1.2,
+        "recency": 0.8,
+        "discovery": 0.5,
+        "seed": 0.6,
+        "artist": 1.0,
+    },
+)
+# Flow 2.0: same weights, plus artist spacing (never the same artist twice in a row, or
+# straight after the song just heard, when a song within 0.5 of the score can go there).
+# A "variety" weight against recently heard artists was tried and left out: in the synthetic
+# benchmark it lowered relevance and raised skips (docs/testing/BENCHMARK_RESULTS.md). The
+# feature is still reported in `fit` so it can be measured again.
+SESSION_V3 = RankingConfig(
+    version="session-v3",
+    weights=SESSION_V2.weights,
+    spacing_margin=0.5,
+)
+CURRENT = SESSION_V3
+RANKING_VERSION = CURRENT.version
+RANKING_WEIGHTS = CURRENT.weights
+ARTIST_CAP = CURRENT.artist_cap
 # Unknown features score neutral rather than good or bad.
 UNKNOWN = 0.5
 # "No sad songs" leaves out songs whose valence is known to be at most this.
@@ -138,9 +166,18 @@ def queries_for(request: SessionCandidatesRequest, seed: Track | None) -> list[t
 
 
 class SessionRecommender:
-    def __init__(self, catalog: CatalogService, *, today: date | None = None) -> None:
+    def __init__(
+        self,
+        catalog: CatalogService,
+        *,
+        today: date | None = None,
+        config: RankingConfig = CURRENT,
+        rights: MusicRightsResolver | None = None,
+    ) -> None:
         self._catalog = catalog
         self._today = today
+        self._config = config
+        self._rights = rights or SourcePolicyRightsResolver()
 
     async def candidates(self, request: SessionCandidatesRequest) -> SessionCandidatesResponse:
         seed: Track | None = None
@@ -179,10 +216,14 @@ class SessionRecommender:
         excluded_ids = set(request.excluded_track_ids) | ({seed.id} if seed else set())
         excluded_artists = {_key(a) for a in request.excluded_artists if a.strip()}
         weights = {_key(k): v for k, v in request.artist_weights.items()}
+        recent = [_key(a) for a in request.recent_artists if a.strip()]
         scored: list[_Candidate] = []
         for candidate in pool.values():
             track = candidate.track
-            if track.id in excluded_ids or track.is_preview or not track.stream_url:
+            if track.id in excluded_ids:
+                continue
+            # Rights are a hard constraint: nothing Halo may not play in full is ever ranked.
+            if not self._rights.decide(track).playable:
                 continue
             if any(artist_matches(track.artist, name) for name in excluded_artists):
                 continue
@@ -192,11 +233,17 @@ class SessionRecommender:
                 continue
             if self._violates_language(request, track):
                 continue
-            candidate.fit = self._fit(request, candidate, seed, weights)
-            candidate.score = sum(RANKING_WEIGHTS[k] * v for k, v in candidate.fit.items())
+            candidate.fit = self._fit(request, candidate, seed, weights, recent)
+            candidate.score = sum(
+                self._config.weights[k] * v
+                for k, v in candidate.fit.items()
+                if k in self._config.weights
+            )
             scored.append(candidate)
         scored.sort(key=lambda c: c.score, reverse=True)
-        chosen = self._diversify(scored, request.limit)
+        chosen = self._diversify(scored, request.limit, self._config.artist_cap)
+        if self._config.spacing_margin is not None:
+            chosen = self._space_artists(chosen, recent[-1] if recent else None)
         chosen = self._arrange_languages(request, chosen)
         return SessionCandidatesResponse(
             candidates=[
@@ -208,7 +255,7 @@ class SessionRecommender:
                 )
                 for c in chosen
             ],
-            ranking_version=RANKING_VERSION,
+            ranking_version=self._config.version,
             sources=sorted(sources),
             warnings=warnings,
         )
@@ -229,6 +276,7 @@ class SessionRecommender:
         candidate: _Candidate,
         seed: Track | None,
         weights: dict[str, float],
+        recent: list[str],
     ) -> dict[str, float]:
         track, vibe = candidate.track, request.vibe
 
@@ -252,6 +300,7 @@ class SessionRecommender:
             "discovery": discovery,
             "seed": self._seed_fit(request, track, seed),
             "artist": max(min(artist, 1.0), -1.0),
+            "variety": 0.0 if any(artist_matches(track.artist, r) for r in recent) else 1.0,
         }
 
     @staticmethod
@@ -302,15 +351,37 @@ class SessionRecommender:
 
     # --- Assembly --------------------------------------------------------------------------
 
+    def _space_artists(self, chosen: list[_Candidate], last: str | None) -> list[_Candidate]:
+        """Keep the score order, but avoid the same artist twice in a row (or right after the
+        song that just played) when a nearly-as-good song by another artist can go there."""
+        margin = self._config.spacing_margin or 0.0
+        remaining = list(chosen)
+        spaced: list[_Candidate] = []
+        previous = last
+        while remaining:
+            best = remaining[0].score
+            index = next(
+                (
+                    i
+                    for i, c in enumerate(remaining)
+                    if _key(c.track.artist) != previous and c.score >= best - margin
+                ),
+                0,
+            )
+            picked = remaining.pop(index)
+            spaced.append(picked)
+            previous = _key(picked.track.artist)
+        return spaced
+
     @staticmethod
-    def _diversify(scored: list[_Candidate], limit: int) -> list[_Candidate]:
+    def _diversify(scored: list[_Candidate], limit: int, cap: int = ARTIST_CAP) -> list[_Candidate]:
         chosen: list[_Candidate] = []
         per_artist: dict[str, int] = {}
         seen_songs: set[str] = set()
         for candidate in scored:
             artist = _key(candidate.track.artist)
             song = song_key(candidate.track)
-            if per_artist.get(artist, 0) >= ARTIST_CAP or song in seen_songs:
+            if per_artist.get(artist, 0) >= cap or song in seen_songs:
                 continue
             chosen.append(candidate)
             per_artist[artist] = per_artist.get(artist, 0) + 1

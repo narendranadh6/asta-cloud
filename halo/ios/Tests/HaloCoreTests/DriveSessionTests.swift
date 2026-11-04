@@ -228,7 +228,7 @@ final class DriveContextTests: XCTestCase {
         engine.startPlaying()
         let artist = SessionState.key(player.currentTrack?.artist ?? "")
         player.next()  // the listener, a few seconds in
-        XCTAssertEqual(drive.state.artistWeights[artist] ?? 0, -0.1, accuracy: 0.001)
+        XCTAssertEqual(drive.state.inferredArtistWeights[artist] ?? 0, -0.1, accuracy: 0.001)
         XCTAssertEqual(drive.state.skips.count, 1)
         await drive.handle("I don't like this")  // Halo skips for the listener: not a skip signal
         XCTAssertEqual(drive.state.skips.count, 1)
