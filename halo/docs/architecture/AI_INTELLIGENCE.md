@@ -33,6 +33,37 @@ Limitations: the alias table is small and hand-checked; names said in a pattern 
 doesn't know ("Thaman mass beats") lose the name; Telugu speech recognition is not available
 on the tested simulator, so Telugu-script handling is exercised by text only.
 
+## Context 2.0: deciding before acting (built)
+
+`IntentInterpreter.interpret(text)` returns an `IntentDecision` and changes nothing:
+
+* **no action**: noise only, "never mind", a bare "no", negated controls ("don't skip",
+  "aapakandi"), or nothing understood.
+* **unsupported**: requests outside music (calls, messages, alarms, weather, maps, apps, news,
+  lyrics) with no music in the sentence, or only an unsupported language. These never fall back
+  to a player action; a bare play verb resumes only when every word is understood.
+* **clarify**: a name shared by two artists ("raja"); an incomplete request ("play songs by",
+  "set the language to", "don't play"), completed by the next answer; or evidence too weak for
+  the change's risk.
+* **execute**: otherwise; the delta goes through `SessionState.apply` as before.
+
+Evidence is a deterministic score (unknown-word share, unresolved names, conflicting dimensions,
+recognizer confidence). `IntentCalibration` maps it to an estimated chance of being right using a
+table fitted on development data (isotonic, Laplace-smoothed); `CalibrationTests` refits it and
+fails if the stored table drifts. Required confidence depends on risk: transport/questions 0.5,
+session changes 0.6, lasting changes (likes, "never", profile exclusions) 0.85. The table is
+optimistic on new phrasing (holdout v2: ECE 0.102) and is never shown as a probability.
+
+Entities: `EntityResolver` knows artists and a short list of film titles (only titles that
+aren't everyday words); names known by their first words keep the known part ("thaman lately");
+everyday words never become names; genres, albums and song titles are their own entity kinds.
+Context: "not too much" refers to the artist named last (`lastMentioned`), "this song" skips and
+keeps that song out of the session, "never" makes a lasting exclusion that needs confirmation.
+
+The optional AI fallback (`/api/v1/intent/fallback`, off by default) is consulted only for
+commands the phone couldn't act on and only with consent; its output must parse entirely into
+Halo's wire vocabulary and goes through the same reducer; lasting changes still ask first.
+
 ## Halo Flow 2.0 (built: `session-v3`)
 
 * **Hard constraints first**, on server and phone: rights (`SourcePolicyRightsResolver`: full

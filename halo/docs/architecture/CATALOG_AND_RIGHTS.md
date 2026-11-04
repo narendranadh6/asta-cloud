@@ -15,6 +15,23 @@ a paid product, territory restrictions, and whether every Audius upload is autho
 catalog audit shows many Telugu film songs on Audius are unauthorised re-uploads; the filter
 removes obvious ones by name patterns, which is a mitigation, not proof of rights.
 
+## Rights policy (fails closed)
+
+`RightsPolicy` (settings `HALO_DEPLOYMENT_USE`, `HALO_AUDIUS_COMMERCIAL_TERMS_CONFIRMED`,
+`HALO_JAMENDO_COMMERCIAL_LICENSE`): the default deployment use is **commercial**, and then
+nothing plays until rights are confirmed per source — Audius after its API terms are reviewed for
+that use, Jamendo only with a Jamendo commercial licence (a Creative Commons licence on a track is
+not enough for a commercial service; many are NC). Unknown or unparseable licences are refused in
+every mode. The local server runs as non-commercial (personal/development use).
+
+Search and identification are separate from playback authorization: every track returned by the
+catalog carries `playback_authorized` and a `playback_restriction` reason; a refused track can
+still be found and shown, but its stream URL is withheld. Decisions are made when tracks are
+read, so a policy change also applies to cached results.
+
+Not implemented on purpose: scraping or proxying audio from sites without rights (e.g. "Naa
+Songs" style download sites), DRM circumvention, or treating API access as permission to play.
+
 ## Rights gate (built)
 
 `app/services/catalog/rights.py`: `SourcePolicyRightsResolver.decide(track)` allows only full

@@ -1,6 +1,30 @@
 # Implementation status
 
-Updated 2026-11-04 (second milestone).
+Updated 2026-11-04 (third milestone: Context 2.0).
+
+Legend: **implemented and tested** = code plus automated tests run in this repository;
+**not device-tested** = runs in tests/simulator only; **proposed** = not built; **blocked** =
+needs permission, licence, hardware or a paid service.
+
+| Context 2.0 item | Status |
+|---|---|
+| Decision layer: execute / clarify / unsupported / no action | Implemented and tested |
+| Unrelated requests never act (false-action rate 2.3% on holdout v2) | Implemented and tested |
+| Calibrated confidence (dev-fitted table; overconfident on holdout, ECE 0.102) | Implemented and tested |
+| Telugu-script stems, relative dates, tempo, genres, songs, albums, films | Implemented and tested (gaps listed in BENCHMARK_RESULTS) |
+| Context references ("not too much" = last artist, "this song", "never") | Implemented and tested |
+| Clarification keeps the session; incomplete requests completed by the answer | Implemented and tested |
+| Session expiry after 2 h idle (today's exclusions kept) | Implemented and tested |
+| Speech capability probe and route planner | Implemented and tested (fakes); simulator in CI; **not device-tested** |
+| Consent before any audio/text leaves the iPhone (Apple server, fallback) | Implemented and tested (logic); UI **not device-tested** |
+| Typing fallback; recognition failures change nothing | Implemented and tested |
+| Speech test screen (WER + intent match, text only) | Implemented; **no recordings made** |
+| AI fallback interface + validation (off by default) | Implemented and tested; **no provider enabled** (paid; needs approval) |
+| Halo server speech recognition | Proposed (consent and routing ready; no provider) |
+| Rights gate fails closed (commercial default) | Implemented and tested; **commercial use blocked** until Audius terms / Jamendo licence are confirmed |
+| MusicBrainz alias import | Proposed: their data is CC0 but the public API has rate limits and terms to check; kept optional |
+| Siri / App Intents, CarPlay | Not started; CarPlay blocked on the entitlement |
+
 
 | Area | Completed | Tested | Partial | Blocked | Not started |
 |---|---|---|---|---|---|

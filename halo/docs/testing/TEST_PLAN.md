@@ -13,6 +13,17 @@
 | Rights and routing | `backend/tests/test_rights.py` | policy, router order, refused tracks never ranked |
 | Ranking benchmark | `backend/tests/test_ranking_benchmark.py`, `python -m app.tools.ranking_benchmark` | synthetic, reproducible, zero constraint violations |
 | Database | `backend/tests/test_database.py` | concurrent rollback can't undo a sign-up (FK regression) |
+| Context 2.0 | `ContextTwoTests.swift` | milestone examples, unrelated requests, no action, clarify, common words, Telugu script, entities, negation scopes, wire round trip, conversations, drive decisions, fallback |
+| Calibration | `CalibrationTests.swift` | refits the table on development data; fails on drift |
+| Holdout v2 | `HoldoutV2EvaluationTests.swift` + `docs/testing/holdout-v2.json` | report only; run once; retired |
+| Speech routing and consent | `SpeechCapabilityTests.swift` | on-device first, consent before server, typing fallback, revocation, disclosures, WER |
+| AI fallback | `backend/tests/test_intent_fallback.py` | grammar, whole-answer validation, minimal payload, timeouts, consent and disabled endpoint |
+| Rights policy | `backend/tests/test_rights.py` | commercial fail-closed, CC parsing, search without streams |
+| Real-device speech | `docs/testing/SPEECH_EVALUATION.md` | procedure only; no recordings yet |
+
+Datasets: development = the 133-case corpus, the retired holdout v1 and the Context 2.0 tests.
+Holdouts are frozen before evaluation, run once, and retired once their misses are read; a new
+holdout (v3) is needed before the next accuracy claim.
 | iOS app + UI tour | CI `ios-xcode` | simulator build, unit tests, screenshot tour |
 | Speech capability spike | `Tests/HaloTests/SpeechSupportDiagnostics.swift` | prints `HALO-SPIKE` lines in CI |
 
