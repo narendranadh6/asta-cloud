@@ -191,6 +191,8 @@ public enum SessionOperation: Hashable, Sendable, Codable {
     case excludeArtist(EntityRef, Scope)
     /// Prefer a different artist from the current one without excluding them.
     case diversifyArtists
+    /// "No sad songs": leave out songs known to have this mood, this session.
+    case avoid(MoodTag)
     case rate(Rating)
     case ask(Question)
     case undo
@@ -198,6 +200,11 @@ public enum SessionOperation: Hashable, Sendable, Codable {
     public enum Preserved: String, Hashable, Sendable, Codable {
         case vibe, language, artist, recency
     }
+}
+
+/// A mood the listener can rule out.
+public enum MoodTag: String, Hashable, Sendable, Codable {
+    case sad
 }
 
 /// The parsed meaning of one utterance.

@@ -9,7 +9,12 @@ import httpx
 from app.core.cache import MemoryStore
 from app.schemas import SessionCandidatesRequest
 from app.services.catalog.service import CatalogService
-from app.services.recommendations.session import RANKING_VERSION, SessionRecommender, queries_for
+from app.services.recommendations.session import (
+    RANKING_VERSION,
+    SessionRecommender,
+    artist_matches,
+    queries_for,
+)
 from tests.fakes import FakeCatalogSource
 
 
@@ -61,6 +66,34 @@ async def test_exclusions_and_downweights_are_respected() -> None:
         request(language={"primary": "te"}, artist_weights={first.artist: -1.0})
     )
     assert down.candidates[0].track.artist != first.artist
+
+
+async def test_no_sad_songs_leaves_out_known_sad_songs() -> None:
+    plain = await recommender().candidates(request(language={"primary": "te"}, limit=60))
+    assert any((c.track.valence or 1) <= 0.3 for c in plain.candidates), "fixture has sad songs"
+    happy = await recommender().candidates(
+        request(
+            language={"primary": "te"}, vibe={"valence": 0.65}, excluded_moods=["sad"], limit=60
+        )
+    )
+    assert happy.candidates
+    assert all(c.track.valence is None or c.track.valence > 0.3 for c in happy.candidates)
+    assert "valence" in happy.candidates[0].fit
+
+
+async def test_artist_names_match_whole_words_of_the_credit() -> None:
+    assert artist_matches("Anirudh Ravichander", "anirudh")
+    assert artist_matches("Anirudh Ravichander, Arijit Singh", "arijit singh")
+    assert artist_matches("S. Thaman", "thaman")
+    assert not artist_matches("Anirudha", "anirudh")
+    assert not artist_matches("Sid Sriram", "sri")
+    assert not artist_matches("A Band", "a")  # one-letter names only match exactly
+    base = await recommender().candidates(request(language={"primary": "te"}))
+    first_word = base.candidates[0].track.artist.split()[0].lower()
+    result = await recommender().candidates(
+        request(language={"primary": "te"}, excluded_artists=[first_word])
+    )
+    assert all(first_word not in c.track.artist.lower().split() for c in result.candidates)
 
 
 async def test_mostly_telugu_with_some_english_is_interleaved() -> None:

@@ -66,6 +66,7 @@ class Track(APIModel):
     language: str | None = None  # ISO 639-1
     energy: float | None = None  # 0 calm … 1 intense
     tempo: float | None = None  # 0 slow … 1 fast
+    valence: float | None = None  # 0 sad … 1 bright
     license: TrackLicense | None = None
     external_url: str | None = None  # the track's page at the source
     attribution: Attribution
@@ -147,6 +148,8 @@ class SessionCandidatesRequest(APIModel):
     artist_weights: dict[str, float] = Field(default_factory=dict, max_length=30)
     excluded_artists: list[str] = Field(default_factory=list, max_length=50)
     excluded_track_ids: list[str] = Field(default_factory=list, max_length=200)
+    # "No sad songs": songs known to have that mood are left out (unknown ones stay).
+    excluded_moods: list[Literal["sad"]] = Field(default_factory=list, max_length=4)
     limit: int = Field(default=30, ge=1, le=60)
 
 

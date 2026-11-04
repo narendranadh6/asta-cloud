@@ -37,6 +37,7 @@ public struct SessionCandidatesRequest: Codable, Sendable, Equatable {
     public var artistWeights: [String: Double]
     public var excludedArtists: [String]
     public var excludedTrackIds: [String]
+    public var excludedMoods: [String]
     public var limit: Int
 
     public init(state: SessionState, seedTrackID: String? = nil, entity: EntityRef? = nil,
@@ -66,6 +67,7 @@ public struct SessionCandidatesRequest: Codable, Sendable, Equatable {
         excludedArtists = Array(state.excludedArtists.keys.prefix(50))
         let tracks = Array(state.excludedTracks.keys) + trackIDs
         excludedTrackIds = Array(Array(Set(tracks)).filter(TrackID.isValid).prefix(200))
+        excludedMoods = state.avoidedMoods.map(\.rawValue).sorted()
         self.limit = min(max(limit, 1), 60)
     }
 }

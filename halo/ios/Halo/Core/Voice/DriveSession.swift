@@ -37,12 +37,21 @@ public final class DriveSession {
     @ObservationIgnored private var pool: [SessionCandidate] = []
     @ObservationIgnored private var pendingConfirmation: IntentDelta?
     @ObservationIgnored private var previousFlowProvider: ((Track) async -> [FlowSuggestion])?
+    @ObservationIgnored private var previousSkipHandler: ((Track, Double) -> Void)?
+    @ObservationIgnored private let resolver: EntityResolver
+    /// Names Halo asked about ("Ilaiyaraaja or Yuvan Shankar Raja?"), waiting for the answer.
+    @ObservationIgnored private var pendingChoice: (delta: IntentDelta, said: String,
+                                                    options: [EntityResolver.Entity])?
     static let title = "Halo Drive"
+    /// A skip within this many seconds counts as a (weak) "not this artist now".
+    static let earlySkipSeconds = 30.0
 
-    public init(api: MusicAPI, player: PlayerController, speaker: VoiceSpeaker?) {
+    public init(api: MusicAPI, player: PlayerController, speaker: VoiceSpeaker?,
+                resolver: EntityResolver = EntityResolver()) {
         self.api = api
         self.player = player
         self.speaker = speaker
+        self.resolver = resolver
     }
 
     // MARK: Lifecycle
@@ -54,6 +63,18 @@ public final class DriveSession {
         state = SessionState()
         previousFlowProvider = player.flowProvider
         player.flowProvider = { [weak self] _ in await self?.flowSuggestions() ?? [] }
+        previousSkipHandler = player.onListenerSkip
+        player.onListenerSkip = { [weak self] track, heard in
+            self?.previousSkipHandler?(track, heard)
+            self?.listenerSkipped(track, heard: heard)
+        }
+    }
+
+    /// Early skips nudge that artist down a little this session; later skips say nothing.
+    /// Never a dislike, never saved to the profile, ignored while the vibe is locked.
+    private func listenerSkipped(_ track: Track, heard: Double) {
+        guard heard < Self.earlySkipSeconds else { return }
+        state.recordSkip(NowPlayingContext(trackID: track.id, artist: track.artist, album: track.album))
     }
 
     public func end() {
@@ -61,6 +82,8 @@ public final class DriveSession {
         isActive = false
         speaker?.stop()
         player.flowProvider = previousFlowProvider
+        player.onListenerSkip = previousSkipHandler
+        pendingChoice = nil
         pool = []
         voiceState = .idle
         lastReply = nil
@@ -100,8 +123,26 @@ public final class DriveSession {
                 return
             }
         }
+        if let choice = pendingChoice {
+            pendingChoice = nil
+            if let picked = Self.pick(choice.options, from: transcript) {
+                await apply(Self.replacing(choice.said, with: picked.name, in: choice.delta))
+                return
+            }
+        }
         var delta = IntentParser.parse(transcript)
         delta.confidence *= confidence
+        let resolved = resolver.resolve(delta)
+        delta = resolved.delta
+        if let (said, options) = resolved.ambiguous.first {
+            pendingChoice = (delta, said, options)
+            let names = options.map(\.name)
+            let list = names.dropLast().joined(separator: ", ") + " or " + (names.last ?? "")
+            reply(Self.pick(delta.speech, en: "\(list)?", mixed: "\(list)?", te: "\(list)?"),
+                  style: delta.speech)
+            voiceState = .done
+            return
+        }
         if delta.needsConfirmation {
             pendingConfirmation = delta
             reply(VoiceReply.text(for: delta, level: replyLevel), style: delta.speech)
@@ -129,11 +170,20 @@ public final class DriveSession {
                                        mixed: "Play చేయడానికి ఏమీ లేదు.", te: "ఏమీ దొరకలేదు.")
                 }
             case .rerank:
-                await rerank()
+                // Nothing of Halo's playing yet ("konchem energy pettu" as the first words):
+                // start music for the session instead of re-ranking an empty queue.
+                if player.currentTrack == nil {
+                    if await !startPlaying(.vibe, delta: delta) {
+                        spoken = Self.pick(delta.speech, en: "Nothing available to play.",
+                                           mixed: "Play చేయడానికి ఏమీ లేదు.", te: "ఏమీ దొరకలేదు.")
+                    }
+                } else {
+                    await rerank()
+                }
             case let .transport(action):
                 transport(action)
             case .skipCurrent:
-                player.next()
+                player.skipForListener()
             case let .feedback(rating, trackID):
                 if let track = player.currentTrack, track.id == trackID { onFeedback?(rating, track) }
             case let .answer(question):
@@ -263,6 +313,36 @@ public final class DriveSession {
         case .mixed: mixed
         case .telugu: te
         }
+    }
+
+    /// Which of the offered artists the answer names ("the first one", "Yuvan").
+    static func pick(_ options: [EntityResolver.Entity], from answer: String) -> EntityResolver.Entity? {
+        let said = words(answer)
+        if said.contains("first") || said.contains("modatidi") { return options.first }
+        if said.contains("second") || said.contains("rendodi") { return options.dropFirst().first }
+        return options.first { option in
+            let name = Set(option.name.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted))
+            let aliases = Set(option.aliases.map { $0.lowercased() })
+            return !said.isDisjoint(with: name.subtracting(["", "s", "a", "r", "m", "j", "p", "k"]))
+                || aliases.contains(answer.lowercased().trimmingCharacters(in: .whitespaces))
+        }
+    }
+
+    static func replacing(_ said: String, with name: String, in delta: IntentDelta) -> IntentDelta {
+        func swap(_ ref: EntityRef) -> EntityRef {
+            if case let .mention(mention, _) = ref, mention == said { return .mention(name, kind: .artist) }
+            return ref
+        }
+        var copy = delta
+        copy.operations = delta.operations.map { operation in
+            switch operation {
+            case let .play(.entity(ref)): .play(.entity(swap(ref)))
+            case let .weightArtist(ref, weight): .weightArtist(swap(ref), weight)
+            case let .excludeArtist(ref, scope): .excludeArtist(swap(ref), scope)
+            default: operation
+            }
+        }
+        return copy
     }
 
     static func isYes(_ text: String) -> Bool {

@@ -1,16 +1,18 @@
 import Foundation
 
 /// Re-ranks the songs Halo already has against the current session, instantly and offline.
-/// Mirrors the server's `session-v1` features and weights (backend/app/services/
+/// Mirrors the server's `session-v2` features and weights (backend/app/services/
 /// recommendations/session.py), so a voice change reorders the pool before any network call.
 public enum SessionRanker {
-    public static let version = "session-v1"
+    public static let version = "session-v2"
     static let weights: [String: Double] = [
-        "rank": 0.6, "energy": 1.0, "tempo": 0.4, "language": 1.2, "recency": 0.8,
+        "rank": 0.6, "energy": 1.0, "tempo": 0.4, "valence": 0.8, "language": 1.2, "recency": 0.8,
         "discovery": 0.5, "seed": 0.6, "artist": 1.0,
     ]
     static let unknown = 0.5
     static let artistCap = 2
+    /// "No sad songs" leaves out songs whose valence is known to be at most this.
+    static let sadValence = 0.3
 
     /// Ranked tracks from `pool` that the session still allows.
     public static func rank(_ pool: [SessionCandidate], for state: SessionState,
@@ -18,7 +20,8 @@ public enum SessionRanker {
         let scored = pool.compactMap { candidate -> (Track, Double)? in
             let track = candidate.track
             guard !played.contains(track.id), state.excludedTracks[track.id] == nil,
-                  state.excludedArtists[SessionState.key(track.artist)] == nil,
+                  !state.excludedArtists.keys.contains(where: { ArtistMatch.matches(track.artist, $0) }),
+                  !(state.avoidedMoods.contains(.sad) && (track.valence ?? 1) <= sadValence),
                   !violatesLanguage(track, state) else { return nil }
             return (track, score(candidate, state, today: today))
         }
@@ -36,13 +39,14 @@ public enum SessionRanker {
         var fit = candidate.fit  // server values for what the phone can't recompute (rank, seed)
         fit["energy"] = closeness(state.vibe[.energy]?.value, track.energy)
         fit["tempo"] = closeness(state.vibe[.tempo]?.value, track.tempo)
+        fit["valence"] = closeness(state.vibe[.valence]?.value, track.valence)
         fit["language"] = languageFit(track, state)
         fit["recency"] = recencyFit(track, state, today: today)
         if let discovery = state.vibe[.discovery]?.value {
             let popularity = min(log10(Double(track.playCount ?? 0) + 1) / 7, 1)
             fit["discovery"] = 1 - abs(discovery - (1 - popularity))
         }
-        fit["artist"] = max(min(state.artistWeights[SessionState.key(track.artist)] ?? 0, 1), -1)
+        fit["artist"] = max(min(ArtistMatch.weight(track.artist, in: state.artistWeights), 1), -1)
         return weights.reduce(0) { total, entry in total + entry.value * (fit[entry.key] ?? unknown) }
     }
 

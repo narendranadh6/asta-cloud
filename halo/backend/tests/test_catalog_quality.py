@@ -58,3 +58,13 @@ def test_energy_and_tempo_estimates() -> None:
     assert estimate(title="x", speed="veryhigh").tempo == 0.9
     unknown = estimate(title="x")
     assert (unknown.language, unknown.energy, unknown.tempo) == (None, None, None)
+
+
+def test_valence_comes_from_mood_or_tags_and_unknown_stays_unknown() -> None:
+    from app.services.catalog.features import estimate, valence_hint
+
+    assert valence_hint("Melancholy", None) == 0.15
+    assert valence_hint(None, "sad, piano") == 0.15
+    assert valence_hint(None, "happy summer") == 0.85
+    assert valence_hint("Cool", "electronic") is None  # nothing says sad or bright
+    assert estimate(title="Song", mood="Upbeat").valence == 0.8

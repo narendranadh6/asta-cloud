@@ -189,3 +189,81 @@ final class DriveSessionTests: XCTestCase {
         XCTAssertNil(player.flowProvider)
     }
 }
+
+@MainActor
+final class DriveContextTests: XCTestCase {
+    private func makeDrive() -> (DriveSession, PlayerController, FakeEngine, RecordingSpeaker) {
+        let engine = FakeEngine()
+        let player = PlayerController(engine: engine)
+        let speaker = RecordingSpeaker()
+        let drive = DriveSession(api: FakeMusicAPI(), player: player, speaker: speaker)
+        drive.start()
+        return (drive, player, engine, speaker)
+    }
+
+    func testAFirstNudgeStartsMusicInsteadOfDoingNothing() async {
+        let (drive, player, _, _) = makeDrive()
+        await drive.handle("konchem energy pettu")
+        XCTAssertNotNil(player.currentTrack)
+    }
+
+    func testAliasesBecomeCanonicalNamesInTheSession() async {
+        let (drive, _, _, _) = makeDrive()
+        await drive.handle("Not too much DSP")
+        XCTAssertEqual(drive.state.artistWeights["devi sri prasad"], -0.6)
+    }
+
+    func testAmbiguousNamesAskAndTheAnswerDecides() async {
+        let (drive, _, _, speaker) = makeDrive()
+        await drive.handle("Raja songs vaddu")
+        XCTAssertEqual(speaker.said.last, "Ilaiyaraaja or Yuvan Shankar Raja?")
+        XCTAssertTrue(drive.state.excludedArtists.isEmpty)  // nothing guessed
+        await drive.handle("Yuvan")
+        XCTAssertEqual(drive.state.excludedArtists["yuvan shankar raja"], .session)
+    }
+
+    func testEarlySkipsAreWeakSignalsAndHalosOwnSkipsDontCount() async {
+        let (drive, player, engine, _) = makeDrive()
+        await drive.handle("Play energetic Telugu songs")
+        engine.startPlaying()
+        let artist = SessionState.key(player.currentTrack?.artist ?? "")
+        player.next()  // the listener, a few seconds in
+        XCTAssertEqual(drive.state.artistWeights[artist] ?? 0, -0.1, accuracy: 0.001)
+        XCTAssertEqual(drive.state.skips.count, 1)
+        await drive.handle("I don't like this")  // Halo skips for the listener: not a skip signal
+        XCTAssertEqual(drive.state.skips.count, 1)
+    }
+
+    func testNoSadSongsAndArtistNamesMatchTheCredit() {
+        func track(_ id: String, artist: String, valence: Double?) -> SessionCandidate {
+            SessionCandidate(
+                track: Track(id: "audius:\(id)", source: .audius, sourceId: id, title: id, artist: artist,
+                             streamUrl: "https://s.test/\(id)", valence: valence,
+                             attribution: Attribution(provider: .audius, label: "Audius")),
+                score: 0, fit: ["rank": 0.5], source: "intent")
+        }
+        let pool = [track("sad", artist: "A", valence: 0.1), track("bright", artist: "B", valence: 0.8),
+                    track("unknown", artist: "C", valence: nil),
+                    track("ani", artist: "Anirudh Ravichander, Arijit Singh", valence: 0.7)]
+        var state = SessionState()
+        state.apply(IntentParser.parse("No sad songs"), current: nil)
+        state.apply(EntityResolver().resolve(IntentParser.parse("Anirudh vaddu")).delta, current: nil)
+        let ids = SessionRanker.rank(pool, for: state).map(\.sourceId)
+        XCTAssertEqual(Set(ids), ["bright", "unknown"])  // unknown mood stays
+        XCTAssertTrue(ArtistMatch.matches("S. Thaman", "thaman"))
+        XCTAssertFalse(ArtistMatch.matches("Anirudha", "anirudh"))
+        XCTAssertEqual(SessionCandidatesRequest(state: state).excludedMoods, ["sad"])
+    }
+
+    func testResolverKnowsSpellingsAndScriptsButNeverGuesses() {
+        let resolver = EntityResolver()
+        for said in ["DSP", "devisri", "దేవిశ్రీ"] {
+            XCTAssertEqual(resolver.canonicalName(said), "Devi Sri Prasad", said)
+        }
+        XCTAssertEqual(resolver.canonicalName("ilayaraja"), "Ilaiyaraaja")
+        XCTAssertEqual(resolver.canonicalName("Ilaiyaraja"), "Ilaiyaraaja")
+        XCTAssertEqual(resolver.canonicalName("chithra"), "K. S. Chithra")
+        guard case .ambiguous = resolver.resolve("raja") else { return XCTFail("raja is ambiguous") }
+        guard case .unknown = resolver.resolve("Some Band") else { return XCTFail("unknown stays") }
+    }
+}

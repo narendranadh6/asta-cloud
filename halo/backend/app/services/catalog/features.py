@@ -1,4 +1,4 @@
-"""Musical features Halo Drive ranks on: language, energy and tempo, each optional.
+"""Musical features Halo Drive ranks on: language, energy, tempo and valence, each optional.
 
 Estimated from what the sources already send (Jamendo ``musicinfo``, Audius genre, mood and
 tags) plus the script and words of the title. Every estimate is a hint with a source, never a
@@ -56,6 +56,41 @@ _MOOD_ENERGY = {
     "aggressive": 0.9,
 }
 
+# Audius moods → valence (0 sad … 1 bright). Moods that say nothing about it are left out.
+_MOOD_VALENCE = {
+    "melancholy": 0.15,
+    "yearning": 0.3,
+    "sentimental": 0.35,
+    "brooding": 0.25,
+    "serious": 0.4,
+    "tender": 0.55,
+    "romantic": 0.65,
+    "peaceful": 0.6,
+    "easygoing": 0.7,
+    "upbeat": 0.8,
+    "excited": 0.85,
+    "energizing": 0.75,
+    "empowering": 0.75,
+}
+
+# Words in tags (Jamendo vartags, Audius tags) that say how bright or sad a song is.
+_TAG_VALENCE = {
+    "sad": 0.15,
+    "melancholic": 0.15,
+    "melancholy": 0.15,
+    "heartbreak": 0.15,
+    "dark": 0.25,
+    "emotional": 0.3,
+    "happy": 0.85,
+    "joyful": 0.85,
+    "cheerful": 0.85,
+    "uplifting": 0.8,
+    "positive": 0.8,
+    "fun": 0.8,
+    "romantic": 0.65,
+    "love": 0.65,
+}
+
 # Genre priors when nothing better is known.
 _GENRE_ENERGY = {
     "ambient": 0.15,
@@ -95,6 +130,17 @@ class Features:
     language: str | None = None
     energy: float | None = None
     tempo: float | None = None
+    valence: float | None = None
+
+
+def valence_hint(mood: str | None, tags: str | None) -> float | None:
+    """Valence from the source's mood, else from tag words; None when nothing says."""
+    found = _MOOD_VALENCE.get((mood or "").strip().lower())
+    if found is not None:
+        return found
+    words = re.findall(r"[a-z]+", (tags or "").lower())
+    values = [_TAG_VALENCE[w] for w in words if w in _TAG_VALENCE]
+    return round(sum(values) / len(values), 2) if values else None
 
 
 def language_hint(*texts: str | None) -> str | None:
@@ -134,4 +180,9 @@ def estimate(
         energy = round(0.7 * energy + 0.3 * tempo, 2)
     elif energy is None and tempo is not None:
         energy = tempo
-    return Features(language=language or None, energy=energy, tempo=tempo)
+    return Features(
+        language=language or None,
+        energy=energy,
+        tempo=tempo,
+        valence=valence_hint(mood, tags),
+    )

@@ -107,6 +107,8 @@ public final class PlayerController {
     @ObservationIgnored public var onTrackStarted: ((Track) -> Void)?
     /// Fetches a fresh copy of a track (new stream link) before retrying it.
     @ObservationIgnored public var resolveTrack: ((Track) async throws -> Track)?
+    /// The listener skipped a song (Next), with how many seconds of it they heard.
+    @ObservationIgnored public var onListenerSkip: ((Track, Double) -> Void)?
     /// Songs to follow `seed` when the queue runs low (Halo Flow).
     @ObservationIgnored public var flowProvider: ((Track) async -> [FlowSuggestion])?
 
@@ -236,7 +238,19 @@ public final class PlayerController {
     }
 
     public func next() {
+        skip(reportingSkip: true)
+    }
+
+    /// Moves on without counting it as the listener's skip (Halo skipping for them).
+    public func skipForListener() {
+        skip(reportingSkip: false)
+    }
+
+    private func skip(reportingSkip: Bool) {
+        let skipped = currentTrack
+        let heard = clock.position
         guard canSkip, queue.advance(automatic: false) != nil else { return }
+        if reportingSkip, let skipped { onListenerSkip?(skipped, heard) }
         resetFailures()
         loadCurrent()
     }

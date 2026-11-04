@@ -68,6 +68,8 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
     public var energy: Double?
     /// 0 slow … 1 fast.
     public var tempo: Double?
+    /// 0 sad … 1 bright.
+    public var valence: Double?
     public var license: TrackLicense?
     public var externalUrl: String?
     public var attribution: Attribution
@@ -79,7 +81,8 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
         artworkUrlLarge: String? = nil, durationSeconds: Int? = nil, genre: String? = nil, mood: String? = nil,
         releaseDate: String? = nil, playCount: Int? = nil, streamUrl: String? = nil,
         isPreview: Bool = false, language: String? = nil, energy: Double? = nil,
-        tempo: Double? = nil, license: TrackLicense? = nil, externalUrl: String? = nil,
+        tempo: Double? = nil, valence: Double? = nil, license: TrackLicense? = nil,
+        externalUrl: String? = nil,
         attribution: Attribution
     ) {
         self.id = id
@@ -102,6 +105,7 @@ public struct Track: Codable, Sendable, Hashable, Identifiable {
         self.language = language
         self.energy = energy
         self.tempo = tempo
+        self.valence = valence
         self.license = license
         self.externalUrl = externalUrl
         self.attribution = attribution

@@ -4791,6 +4791,15 @@
       "maxItems": 200,
       "title": "Excluded Track Ids"
      },
+     "excluded_moods": {
+      "items": {
+       "type": "string",
+       "const": "sad"
+      },
+      "type": "array",
+      "maxItems": 4,
+      "title": "Excluded Moods"
+     },
      "limit": {
       "type": "integer",
       "maximum": 60.0,
@@ -5321,6 +5330,17 @@
        }
       ],
       "title": "Tempo"
+     },
+     "valence": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Valence"
      },
      "license": {
       "anyOf": [

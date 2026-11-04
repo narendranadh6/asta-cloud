@@ -20,6 +20,7 @@ enum VoiceLexicon {
         "pettu", "pettandi", "cheyyi", "chey", "cheyandi", "vinipinchu", "kavali", "kaavali",
         "emaina", "edaina", "konchem", "oka", "lo", "ki", "ni", "manchi", "try", "chedham",
         "paatalu", "patalu", "paata", "pata", "ok", "okay", "so", "too", "much", "really", "very",
+        "uh", "um", "umm", "uhh", "hmm", "er",
         "పెట్టు", "పెట్టండి", "చెయ్యి", "చేయి", "వినిపించు", "కావాలి", "ఏమైనా", "ఏదైనా", "కొంచెం",
         "ఒక", "లో", "కి", "మంచి", "పాటలు", "పాట", "చేద్దాం",
     ]
@@ -57,8 +58,9 @@ enum VoiceLexicon {
 
     // MARK: Time
 
-    static let newerWords = ["newer", "latest", "kothavi", "kottavi", "కొత్తవి", "లేటెస్ట్", "fresh"]
-    static let newWords = ["new", "recent", "recently", "kotha", "kottha", "కొత్త", "this week",
+    static let newerWords = ["newer", "kothavi", "kottavi", "కొత్తవి"]
+    static let newWords = ["new", "latest", "fresh", "లేటెస్ట్", "recent", "recently", "kotha",
+                           "kottha", "కొత్త", "this week",
                            "this month", "this year", "yesterday", "last few months", "just released"]
     static let olderWords = ["older", "paathavi", "pathavi", "పాతవి"]
     static let oldWords = ["old", "classic", "classics", "old hits", "evergreen", "retro",
@@ -70,7 +72,9 @@ enum VoiceLexicon {
                             "discover", "discovery", "explore", "something i dont know"]
     static let familiar = ["familiar", "songs i know", "my favorites", "my favourites", "known songs",
                            "తెలిసిన"]
-    static let surprise = ["surprise me", "surprise", "anything", "random", "ఏదైనా"]
+    static let surprise = ["surprise me", "surprise"]
+    /// "Anything" means "surprise me" only when nothing else was asked for.
+    static let anything = ["anything", "random", "ఏదైనా", "edaina", "emaina", "ఏమైనా"]
     static let similar = ["more like this", "like this", "similar", "same kind", "ilaanti",
                           "ilanti", "ఇలాంటి", "ఇలాంటివి"]
     static let lockVibe = ["keep this vibe", "keep the vibe", "keep it like this", "keep this mood",
@@ -143,7 +147,7 @@ enum VoiceLexicon {
         let lists: [[String]] = [
             wake, next, previous, restart, pause, resume, removeNext, energyUp, energyDown, happy,
             sad, romantic, more, less, slightly, newerWords, newWords, olderWords, oldWords,
-            discovery, familiar, surprise, similar, lockVibe, same, elsewhere, deeper, neverAgain,
+            discovery, familiar, surprise, anything, similar, lockVibe, same, elsewhere, deeper, neverAgain,
             later, like, dislike, keep, whoIsSinging, whatMovie, whatAlbum, whenReleased, upNext,
             undo, thisArtist, differentArtist, refuse, today, onlyWords, mixWords, alternateWords,
             mostlyWords, someWords, languages.flatMap(\.1),

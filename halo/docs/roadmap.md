@@ -1,5 +1,9 @@
 # Halo roadmap (v3: personalized discovery)
 
+> Intelligence phases (Context → Flow 2.0 → Recall → hybrid catalog → Drive → hardening) are
+> tracked in `IMPLEMENTATION_STATUS.md`, with designs in `architecture/` and measurements in
+> `testing/BENCHMARK_RESULTS.md`.
+
 Status: proposed, awaiting approval to start Phase 2. Last updated 2026-10-20.
 
 ## Decisions

@@ -12,6 +12,7 @@ import re
 from typing import Literal
 
 from app.schemas import AlbumPage, AlbumSummary, ArtistPage, Attribution, Track
+from app.services.catalog.features import valence_hint
 
 FAKE_PREFIX = "tst"
 
@@ -25,6 +26,7 @@ _STYLES = [
     ("workout mix track", "workout", 95, ["workout", "hip hop", "gym"]),
     ("lullaby", "sleep", 15, ["sleep", "ambient", "piano"]),
     ("feel good pop", "happy", 80, ["pop", "happy", "upbeat"]),
+    ("heartbreak ballad", "sad", 35, ["sad", "ballad", "emotional"]),
 ]
 _ARTISTS = {
     "Telugu": ["Aarav Strings", "Keerthi Waves", "Godavari Collective"],
@@ -93,6 +95,7 @@ def _build_catalog() -> list[tuple[Track, set[str]]]:
                             play_count=(index * 7919) % 5_000_000 + 1_000,
                             language=codes[language],
                             energy=energy / 100,
+                            valence=valence_hint(None, " ".join(tags)),
                             release_date=f"{2026 - (index % 30)}-01-15",
                             stream_url=f"https://stream.test/{source_id}.mp3",
                             external_url=page,

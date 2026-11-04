@@ -54,6 +54,7 @@ public enum IntentParser {
         }
 
         // 4. Vibe.
+        let asksToPlay = u.has(playVerbs) || u.has(["songs", "music", "playlist", "పాటలు", "paatalu", "patalu"])
         let relative = u.has(VoiceLexicon.more) || u.has(VoiceLexicon.less) || u.has(VoiceLexicon.slightly)
         let step = u.has(VoiceLexicon.slightly) ? 0.12 : 0.2
         let sameEnergy = u.has(["same energy"])
@@ -67,7 +68,7 @@ public enum IntentParser {
         }
         let negated = u.has(VoiceLexicon.refuse) || u.has(["dont", "no", "not", "without"])
         if u.has(VoiceLexicon.sad) {
-            ops.append(.setVibe(.valence, negated ? 0.65 : 0.25))
+            ops.append(negated ? .avoid(.sad) : .setVibe(.valence, 0.25))
         } else if u.has(VoiceLexicon.happy) {
             ops.append(u.has(["happier"]) || relative ? .adjustVibe(.valence, step) : .setVibe(.valence, 0.8))
         }
@@ -91,7 +92,8 @@ public enum IntentParser {
         }
 
         // 6. Discovery and direction.
-        if u.has(VoiceLexicon.surprise) {
+        let onlyAnything = u.has(VoiceLexicon.anything) && ops.isEmpty
+        if u.has(VoiceLexicon.surprise) || onlyAnything {
             ops.append(.play(.surprise))
             ops.append(.adjustVibe(.discovery, 0.3))
         } else if wantsDiscovery {
@@ -123,21 +125,20 @@ public enum IntentParser {
 
         // 8. "Keep this vibe" versus "same vibe but …".
         let changes = ops.contains { $0.changesDirection }
-        if u.has(VoiceLexicon.lockVibe) && !changes {
+        if (u.has(VoiceLexicon.lockVibe) || u.has(VoiceLexicon.same)) && !changes {
             ops.append(.lock)
         } else if u.has(VoiceLexicon.same) && changes {
             ops.insert(.preserve([.vibe]), at: 0)
         }
 
         // 9. A request ("play …", "… songs పెట్టు") starts new music; a bare change re-ranks.
-        let asksToPlay = u.has(playVerbs) || u.has(["songs", "music", "playlist", "పాటలు", "paatalu"])
         let starts = ops.contains { $0.startsMusic }
         if asksToPlay && starts && !ops.contains(where: \.isPlay) {
             ops.insert(.play(.vibe), at: 0)
         }
 
         // 10. Nothing else: transport words.
-        if ops.isEmpty {
+        if ops.isEmpty && unsupported.isEmpty {
             if let transport = transport(u) { ops = [.transport(transport)] }
         }
 
@@ -205,6 +206,7 @@ public enum IntentParser {
         "play ([^,]+?) songs",
         "(?:^| )([^ ]+(?: [^ ]+)?) songs (?:pettu|పెట్టు|play|vinipinchu|వినిపించు)",
         "(?:^| )([^ ]+(?: [^ ]+)?) పాటలు (?:పెట్టు|వినిపించు)",
+        "(?:^| )([^ ]+(?: [^ ]+)?) (?:paatalu|patalu) (?:pettu|vinipinchu)",
         "^play ([^,]+)$",
     ]
 }
@@ -337,6 +339,11 @@ struct Utterance {
         return Double(unknown.count) / Double(words.count)
     }
 
+    /// "90s", "2010s", "2014": times, never names.
+    static func isNumberOrDecade(_ word: String) -> Bool {
+        word.range(of: #"^[0-9]+s?$"#, options: .regularExpression) != nil
+    }
+
     /// The first pattern's capture, with known words removed; nil when nothing is left.
     func capture(_ patterns: [String]) -> String? {
         captureWithPattern(patterns)?.name
@@ -350,7 +357,7 @@ struct Utterance {
                   let captured = Range(match.range(at: 1), in: text) else { continue }
             let name = text[captured].split(separator: " ")
                 .map(String.init)
-                .filter { !VoiceLexicon.knownWords.contains($0) }
+                .filter { !VoiceLexicon.knownWords.contains($0) && !Self.isNumberOrDecade($0) }
                 .joined(separator: " ")
             if !name.isEmpty { return (name, pattern) }
         }

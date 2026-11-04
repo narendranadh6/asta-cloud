@@ -103,6 +103,7 @@ class JamendoSource:
             release_date=raw.get("releasedate") or None,
             language=features.language,
             energy=features.energy,
+            valence=features.valence,
             tempo=features.tempo,
             stream_url=str(raw["audio"]),
             license=TrackLicense(name=_license_name(licence_url), url=licence_url),

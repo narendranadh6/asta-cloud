@@ -52,6 +52,8 @@ public struct SessionState: Hashable, Sendable, Codable {
     public var artistWeights: [String: Double] = [:]
     public var excludedArtists: [String: Scope] = [:]
     public var excludedTracks: [String: Scope] = [:]
+    /// Moods to leave out ("no sad songs").
+    public var avoidedMoods: Set<MoodTag> = []
     public var keeps: [String] = []
     public var likes: [String] = []
     public var skips: [String] = []
@@ -145,6 +147,9 @@ public struct SessionState: Hashable, Sendable, Codable {
                         effects.append(.skipCurrent)
                     }
                 }
+            case let .avoid(mood):
+                avoidedMoods.insert(mood)
+                needsRerank = true
             case .diversifyArtists:
                 if let current {
                     artistWeights[Self.key(current.artist), default: 0] -= 0.5

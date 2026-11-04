@@ -37,7 +37,7 @@ final class IntentParserTests: XCTestCase {
         assertHas("Play something relaxing.", .play(.vibe), .setVibe(.energy, 0.2))
         assertHas("Make it more energetic.", .adjustVibe(.energy, 0.2))
         assertHas("Something happier.", .adjustVibe(.valence, 0.2))
-        assertHas("Don't play sad songs right now.", .setVibe(.valence, 0.65))
+        assertHas("Don't play sad songs right now.", .avoid(.sad))
         assertHas("I'm stressed, play something relaxing", .setVibe(.energy, 0.2))
         assertHas("Okay, wake me up. Give me something energetic.", .play(.vibe))
         assertHas("Happy English songs.", .setVibe(.valence, 0.8), .setLanguage(.only(.english)))

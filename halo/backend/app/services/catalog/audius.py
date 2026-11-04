@@ -105,6 +105,7 @@ class AudiusSource:
             play_count=raw.get("play_count"),
             language=features.language,
             energy=features.energy,
+            valence=features.valence,
             tempo=features.tempo,
             stream_url=self.stream_url(str(raw["id"])),
             external_url=page,

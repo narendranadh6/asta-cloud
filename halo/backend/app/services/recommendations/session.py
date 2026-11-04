@@ -30,11 +30,12 @@ from app.services.catalog.service import CatalogService, song_key
 
 logger = logging.getLogger("halo.session")
 
-RANKING_VERSION = "session-v1"
+RANKING_VERSION = "session-v2"
 RANKING_WEIGHTS: dict[str, float] = {
     "rank": 0.6,  # how well the catalog search matched the query
     "energy": 1.0,
     "tempo": 0.4,
+    "valence": 0.8,
     "language": 1.2,
     "recency": 0.8,
     "discovery": 0.5,
@@ -45,6 +46,8 @@ RANKING_WEIGHTS: dict[str, float] = {
 ARTIST_CAP = 2
 # Unknown features score neutral rather than good or bad.
 UNKNOWN = 0.5
+# "No sad songs" leaves out songs whose valence is known to be at most this.
+SAD_VALENCE = 0.3
 
 _LANGUAGE_QUERY = {"te": "telugu", "hi": "hindi", "ta": "tamil", "kn": "kannada", "ml": "malayalam"}
 
@@ -60,6 +63,27 @@ class _Candidate:
 
 def _key(name: str) -> str:
     return " ".join("".join(c if c.isalnum() else " " for c in name.lower()).split())
+
+
+def artist_matches(track_artist: str, name_key: str) -> bool:
+    """Whether a normalized artist name appears as whole words in a track's artist credit.
+
+    "anirudh" matches "Anirudh Ravichander" and "Anirudh Ravichander, Arijit Singh"; "ani"
+    doesn't. Very short names (one or two letters) only match exactly.
+    """
+    words = _key(track_artist).split()
+    wanted = name_key.split()
+    if not wanted:
+        return False
+    if len(name_key) < 3:
+        return words == wanted
+    return any(words[i : i + len(wanted)] == wanted for i in range(len(words) - len(wanted) + 1))
+
+
+def _artist_weight(track_artist: str, weights: dict[str, float]) -> float:
+    """The strongest weight among the names that match this artist credit."""
+    found = [w for name, w in weights.items() if artist_matches(track_artist, name)]
+    return max(found, key=abs) if found else 0.0
 
 
 def queries_for(request: SessionCandidatesRequest, seed: Track | None) -> list[tuple[str, str]]:
@@ -160,7 +184,11 @@ class SessionRecommender:
             track = candidate.track
             if track.id in excluded_ids or track.is_preview or not track.stream_url:
                 continue
-            if _key(track.artist) in excluded_artists:
+            if any(artist_matches(track.artist, name) for name in excluded_artists):
+                continue
+            if "sad" in request.excluded_moods and (
+                track.valence is not None and track.valence <= SAD_VALENCE
+            ):
                 continue
             if self._violates_language(request, track):
                 continue
@@ -213,11 +241,12 @@ class SessionRecommender:
         discovery = (
             UNKNOWN if vibe.discovery is None else 1 - abs(vibe.discovery - (1 - popularity))
         )
-        artist = weights.get(_key(track.artist), 0.0)
+        artist = _artist_weight(track.artist, weights)
         return {
             "rank": candidate.rank,
             "energy": closeness(vibe.energy, track.energy),
             "tempo": closeness(vibe.tempo, track.tempo),
+            "valence": closeness(vibe.valence, track.valence),
             "language": self._language_fit(request, track),
             "recency": self._recency_fit(request, track),
             "discovery": discovery,

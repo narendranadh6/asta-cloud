@@ -75,6 +75,9 @@ public enum VoiceReply {
             return pick(style, en: "Saved for later.", mixed: "Later కి save చేశా.", te: "తర్వాత కోసం.")
         case .rate(.neverAgain):
             return pick(style, en: "Won't play it again.", mixed: "ఇక పెట్టను.", te: "ఇక పెట్టను.")
+        case .avoid(.sad):
+            return pick(style, en: "No sad songs.", mixed: "Sad songs వద్దు, okay.",
+                        te: "బాధ పాటలు వద్దు.")
         case .undo:
             return pick(style, en: "Undone.", mixed: "Undo చేశా.", te: "వెనక్కి.")
         case .play, .setVibe, .adjustVibe, .weightArtist, .excludeArtist, .diversifyArtists,
