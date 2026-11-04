@@ -2,6 +2,7 @@
 import AVFoundation
 import Speech
 import XCTest
+@testable import Halo
 
 /// Halo Drive spike: records which speech recognizers and voices this iOS build offers for
 /// Telugu and Indian English. Prints lines prefixed "HALO-SPIKE:" (CI shows them) and never
