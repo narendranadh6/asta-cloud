@@ -7,13 +7,23 @@ final class DriveVoice {
     let session: DriveSession
     /// What Halo heard so far, shown while listening.
     private(set) var caption = ""
+    /// A disclosure to show before audio could leave the iPhone (nil when none is pending).
+    var consentRequest: ProcessingDisclosure?
+    /// Why Halo suggests typing instead of talking right now (nil when talking works).
+    private(set) var typingReason: TextInputReason?
     @ObservationIgnored private let listener = SpeechListener()
     @ObservationIgnored private let player: PlayerController
+    @ObservationIgnored private let consent: VoiceConsent
+    @ObservationIgnored private let platform: SpeechPlatform
     @ObservationIgnored private var turn: Task<Void, Never>?
+    @ObservationIgnored private var lastLocale = Locale(identifier: "en-IN")
 
-    init(session: DriveSession, player: PlayerController) {
+    init(session: DriveSession, player: PlayerController, consent: VoiceConsent,
+         platform: SpeechPlatform = SystemSpeechPlatform()) {
         self.session = session
         self.player = player
+        self.consent = consent
+        self.platform = platform
         listener.onPartial = { [weak self] text in self?.caption = text }
     }
 
@@ -25,19 +35,60 @@ final class DriveVoice {
             listener.stop()
             return
         }
+        lastLocale = locale
+        let report = SpeechCapabilityProbe(platform: platform).run(locales: [locale.identifier])
+        let route = SpeechRoutePlanner.route(
+            locale: locale.identifier, report: report,
+            appleConsent: (consent.isGranted(.appleSpeech), consent.needsAnswer(.appleSpeech)))
+        switch route {
+        case .onDevice:
+            typingReason = nil
+            listen(locale: locale, requireOnDevice: true)
+        case .appleServer:
+            typingReason = nil
+            listen(locale: locale, requireOnDevice: false)
+        case .haloServer:
+            typingReason = .unavailable  // no Halo speech server in this build
+        case let .textInput(reason):
+            typingReason = reason
+            if case let .consentNeeded(processor) = reason {
+                consentRequest = ProcessingDisclosure.of(processor)
+            }
+        }
+    }
+
+    /// The listener answered the disclosure. Agreeing starts listening right away.
+    func answerConsent(_ granted: Bool) {
+        guard let request = consentRequest else { return }
+        consentRequest = nil
+        consent.record(granted ? .granted : .declined, for: request.processor)
+        if granted { talk(locale: lastLocale) } else { typingReason = .consentDeclined }
+    }
+
+    func submitTyped(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        caption = trimmed
+        Task { await session.handleTyped(String(trimmed.prefix(200))) }
+    }
+
+    private func listen(locale: Locale, requireOnDevice: Bool) {
         turn?.cancel()
         caption = ""
         session.beginListening()
         player.duck("listening", true)
         turn = Task {
             do {
-                let heard = try await listener.listen(locale: locale)
+                let heard = try await listener.listen(locale: locale, requireOnDevice: requireOnDevice)
                 player.duck("listening", false)
                 caption = heard.text
                 await session.handle(heard.text, confidence: heard.confidence)
             } catch is CancellationError {
                 player.duck("listening", false)
                 session.cancelListening()
+            } catch SpeechListener.ListenError.nothingHeard {
+                player.duck("listening", false)
+                await session.recognitionFailed()
             } catch {
                 player.duck("listening", false)
                 session.failListening(error.localizedDescription)
@@ -63,6 +114,8 @@ struct DriveView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var palette: ArtworkPalette = .halo
     @State private var confirmReset = false
+    @State private var typing = false
+    @State private var typed = ""
 
     private var session: DriveSession { voice.session }
 
@@ -78,6 +131,7 @@ struct DriveView: View {
                 Spacer(minLength: 0)
                 replyLine
                 talkButton
+                typeButton
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.md)
@@ -94,6 +148,21 @@ struct DriveView: View {
             voice.stop()
         }
         .accessibilityIdentifier("drive")
+        .sheet(item: Binding(get: { voice.consentRequest.map(ConsentItem.init) },
+                             set: { if $0 == nil, voice.consentRequest != nil { voice.answerConsent(false) } })) { item in
+            VoiceConsentView(disclosure: item.disclosure) { voice.answerConsent($0) }
+        }
+        .alert("Type to Halo", isPresented: $typing) {
+            TextField("e.g. Telugu songs pettu", text: $typed)
+                .accessibilityIdentifier("typeToHaloField")
+            Button("Send") {
+                voice.submitTyped(typed)
+                typed = ""
+            }
+            Button("Cancel", role: .cancel) { typed = "" }
+        } message: {
+            Text("Only when parked or as a passenger.")
+        }
     }
 
     private var header: some View {
@@ -202,6 +271,24 @@ struct DriveView: View {
             .accessibilityAddTraits(.updatesFrequently)
     }
 
+    private var typeButton: some View {
+        Button { typing = true } label: {
+            Label(typingHint, systemImage: "keyboard")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .accessibilityIdentifier("typeToHalo")
+    }
+
+    private var typingHint: String {
+        switch voice.typingReason {
+        case .permissionDenied: "Microphone off — type instead"
+        case .unavailable: "Speech isn't available — type instead"
+        case .consentDeclined: "Type instead"
+        case .consentNeeded, .none: "Type instead"
+        }
+    }
+
     private var talkButton: some View {
         Button {
             Haptics.tap(enabled: settings.hapticsEnabled)
@@ -240,4 +327,9 @@ struct DriveView: View {
         guard !Task.isCancelled else { return }
         palette = found ?? fallback
     }
+}
+
+private struct ConsentItem: Identifiable {
+    var disclosure: ProcessingDisclosure
+    var id: String { disclosure.processor.rawValue }
 }

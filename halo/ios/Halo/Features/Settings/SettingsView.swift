@@ -116,11 +116,16 @@ struct SettingsView: View {
                     IconRow(symbol: "speaker.wave.2", color: HaloColor.secondary,
                             title: "Spoken replies", subtitle: "Short confirmations like “Going newer.”")
                 }
+                NavigationLink { VoiceSettingsView() } label: {
+                    IconRow(symbol: "lock.shield", color: HaloColor.accent, title: "Voice & privacy",
+                            subtitle: "What may leave this iPhone, and what it can recognize")
+                }
+                .accessibilityIdentifier("voicePrivacy")
             } header: {
                 Text("Halo Drive")
             } footer: {
-                Text("Halo only listens while you hold the conversation open with Talk to Halo. "
-                     + "Recordings are never saved; on-device recognition is used when available.")
+                Text("Halo listens only while you hold Talk to Halo. Recognition stays on this iPhone when "
+                     + "it can; anything else needs your permission first. Audio and transcripts are never saved.")
             }
 
 

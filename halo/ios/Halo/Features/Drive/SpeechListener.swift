@@ -52,12 +52,15 @@ final class SpeechListener {
         return await AVAudioApplication.requestRecordPermission()
     }
 
-    func listen(locale: Locale) async throws -> Heard {
+    /// `requireOnDevice`: audio must not leave the iPhone. When false, Apple's server may be used;
+    /// callers only pass false after the listener agreed (`SpeechRoutePlanner`).
+    func listen(locale: Locale, requireOnDevice: Bool) async throws -> Heard {
         cancel()
         guard await Self.authorize() else { throw ListenError.notAllowed }
         guard let recognizer = SFSpeechRecognizer(locale: locale), recognizer.isAvailable else {
             throw ListenError.unavailable
         }
+        if requireOnDevice && !recognizer.supportsOnDeviceRecognition { throw ListenError.unavailable }
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default,
                                 options: [.defaultToSpeaker, .allowBluetoothA2DP, .allowBluetooth])
@@ -67,7 +70,7 @@ final class SpeechListener {
         request.shouldReportPartialResults = true
         request.taskHint = .search
         request.addsPunctuation = false
-        if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
+        request.requiresOnDeviceRecognition = requireOnDevice
         request.contextualStrings = ["Halo", "Telugu", "English", "pettu", "vaddu", "inka"]
         self.request = request
         best = nil

@@ -24,6 +24,8 @@ final class AppModel {
     private(set) var drive: DriveVoice?
     /// "Not today" exclusions, kept on this device until local midnight.
     let todayExclusions: TodayExclusionStore
+    /// What the listener allowed to leave the device (nothing by default).
+    let voiceConsent: VoiceConsent
     /// A prompt another screen wants Halo to run (e.g. "more like this" from Now Playing).
     var pendingDJPrompt: String?
 
@@ -34,8 +36,9 @@ final class AppModel {
         sync = PlaylistSyncService(api: api, store: library)
         network = NetworkMonitor()
         notifications = DiscoveryReminderScheduler()
-        todayExclusions = ProcessInfo.processInfo.arguments.contains("-HaloInMemoryStore")
-            ? MemoryTodayExclusionStore() : DefaultsTodayExclusionStore()
+        let inMemory = ProcessInfo.processInfo.arguments.contains("-HaloInMemoryStore")
+        todayExclusions = inMemory ? MemoryTodayExclusionStore() : DefaultsTodayExclusionStore()
+        voiceConsent = VoiceConsent(store: inMemory ? MemoryVoiceConsentStore() : DefaultsVoiceConsentStore())
         // UI tests start from a clean player every run.
         let restores = !ProcessInfo.processInfo.arguments.contains("-HaloInMemoryStore")
         player = PlayerController(
@@ -64,7 +67,7 @@ final class AppModel {
         session.replyLevel = settings.voiceReplies ? .short : .silent
         session.onFeedback = { [weak self] rating, track in self?.driveFeedback(rating, track) }
         session.start()
-        drive = DriveVoice(session: session, player: player)
+        drive = DriveVoice(session: session, player: player, consent: voiceConsent)
     }
 
     /// Forgets what Halo Drive learned on this device (today's exclusions and the current

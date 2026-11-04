@@ -30,5 +30,14 @@ final class SpeechSupportDiagnostics: XCTestCase {
         let indianEnglish = voices.filter { $0.language == "en-IN" }.map(\.name)
         print("HALO-SPIKE: voices telugu=\(telugu) en-IN=\(indianEnglish)")
     }
+
+    /// The same probe the app uses on a real iPhone (Settings › Voice & privacy).
+    @MainActor
+    func testCapabilityProbeReport() async {
+        let report = SpeechCapabilityProbe(platform: SystemSpeechPlatform()).run()
+        for line in report.summary.split(separator: "\n") { print("HALO-SPIKE: probe \(line)") }
+        let route = SpeechRoutePlanner.route(locale: "en-IN", report: report, appleConsent: (false, true))
+        print("HALO-SPIKE: probe route en-IN without consent = \(route)")
+    }
 }
 #endif
