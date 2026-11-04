@@ -240,12 +240,16 @@ class IntentPlanner:
 
 
 def build_planner(settings: object) -> IntentPlanner:
+    return IntentPlanner(build_llm_client(settings))
+
+
+def build_llm_client(settings: object) -> LLMClient | None:
     from app.core.config import Settings
 
     assert isinstance(settings, Settings)
     key = settings.llm_api_key.get_secret_value() if settings.llm_api_key else ""
     if settings.llm_provider == "none" or not key:
-        return IntentPlanner(None)
+        return None
     client: LLMClient
     if settings.llm_provider == "anthropic":
         client = AnthropicClient(
@@ -261,4 +265,4 @@ def build_planner(settings: object) -> IntentPlanner:
             base_url=settings.llm_base_url,
             timeout=settings.llm_timeout_seconds,
         )
-    return IntentPlanner(client)
+    return client

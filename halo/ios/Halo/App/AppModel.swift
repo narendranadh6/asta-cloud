@@ -65,6 +65,7 @@ final class AppModel {
                                    speaker: SystemVoiceSpeaker(player: player),
                                    todayStore: todayExclusions)
         session.replyLevel = settings.voiceReplies ? .short : .silent
+        session.fallbackAllowed = { [voiceConsent] in voiceConsent.isGranted(.intentFallback) }
         session.onFeedback = { [weak self] rating, track in self?.driveFeedback(rating, track) }
         session.start()
         drive = DriveVoice(session: session, player: player, consent: voiceConsent)

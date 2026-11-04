@@ -37,6 +37,8 @@ public protocol MusicAPI: Sendable {
     func upNext(trackID: String, limit: Int) async throws -> UpNextResponse
     /// Halo Drive: ranked songs for the current voice session (the server stores nothing).
     func sessionCandidates(_ request: SessionCandidatesRequest) async throws -> SessionCandidatesResponse
+    /// Halo Drive's optional server fallback for one unclear command (text only, with consent).
+    func intentFallback(_ request: IntentFallbackRequest) async throws -> IntentFallbackResponse
     /// Live internet radio stations (Radio Browser directory).
     func radioStations(tag: String?, language: String?, query: String?, limit: Int) async throws
         -> [RadioStation]
@@ -318,6 +320,10 @@ public actor APIClient: MusicAPI {
     public func sessionCandidates(_ request: SessionCandidatesRequest) async throws
         -> SessionCandidatesResponse {
         try await send(.post, "api/v1/session/candidates", body: try encode(request))
+    }
+
+    public func intentFallback(_ request: IntentFallbackRequest) async throws -> IntentFallbackResponse {
+        try await send(.post, "api/v1/intent/fallback", body: try encode(request))
     }
 
     public func upNext(trackID: String, limit: Int) async throws -> UpNextResponse {

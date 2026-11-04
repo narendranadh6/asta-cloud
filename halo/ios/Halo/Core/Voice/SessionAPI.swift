@@ -89,3 +89,41 @@ public struct SessionCandidatesResponse: Codable, Sendable {
     public var sources: [String]
     public var warnings: [String]
 }
+
+/// POST /api/v1/intent/fallback: one command's text, never audio or history.
+public struct IntentFallbackRequest: Codable, Sendable, Equatable {
+    public var transcript: String
+    public var speech: String
+    public var language: String?
+    public var consent: Bool
+
+    public init(transcript: String, speech: SpeechStyle, language: MusicLanguage?, consent: Bool) {
+        self.transcript = String(transcript.prefix(200))
+        self.speech = speech.rawValue
+        self.language = language.flatMap { MusicLanguage.supported.contains($0) ? $0.rawValue : nil }
+        self.consent = consent
+    }
+}
+
+public struct IntentFallbackResponse: Codable, Sendable, Equatable {
+    public var outcome: String
+    public var operations: [String]
+    public var provider: String
+    public var latencyMs: Int
+    public var note: String?
+
+    public init(outcome: String, operations: [String], provider: String, latencyMs: Int, note: String? = nil) {
+        self.outcome = outcome
+        self.operations = operations
+        self.provider = provider
+        self.latencyMs = latencyMs
+        self.note = note
+    }
+
+    /// The operations, only if every one is inside Halo's vocabulary; otherwise none at all.
+    public var validatedOperations: [SessionOperation]? {
+        guard outcome == "execute", !operations.isEmpty, operations.count <= 6 else { return nil }
+        let parsed = operations.compactMap(SessionOperation.init(wire:))
+        return parsed.count == operations.count ? parsed : nil
+    }
+}

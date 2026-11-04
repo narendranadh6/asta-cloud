@@ -115,6 +115,17 @@ actor FakeMusicAPI: MusicAPI {
     }
 
     public private(set) var sessionRequests: [SessionCandidatesRequest] = []
+    public private(set) var fallbackRequests: [IntentFallbackRequest] = []
+    public var fallbackReply: IntentFallbackResponse?
+
+    public func setFallbackReply(_ reply: IntentFallbackResponse?) { fallbackReply = reply }
+
+    public func intentFallback(_ request: IntentFallbackRequest) async throws -> IntentFallbackResponse {
+        try checkFailure()
+        fallbackRequests.append(request)
+        guard let reply = fallbackReply else { throw APIError.server(status: 503, code: "fallback_disabled", message: "off", retryAfter: nil) }
+        return reply
+    }
 
     /// Every sample song that fits the language and isn't excluded; a named entity must match
     /// an artist (nothing is invented when it doesn't).

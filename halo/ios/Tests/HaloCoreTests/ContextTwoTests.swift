@@ -242,3 +242,63 @@ final class DriveDecisionTests: XCTestCase {
         XCTAssertEqual(drive.state.excludedArtists["s thaman"], .today)
     }
 }
+
+@MainActor
+final class DriveFallbackTests: XCTestCase {
+    private func makeDrive(api: FakeMusicAPI, allowed: Bool) -> (DriveSession, RecordingSpeaker) {
+        let speaker = RecordingSpeaker()
+        let drive = DriveSession(api: api, player: PlayerController(engine: FakeEngine()), speaker: speaker)
+        drive.fallbackAllowed = { allowed }
+        drive.start()
+        return (drive, speaker)
+    }
+
+    func testWithoutConsentNothingIsSent() async {
+        let api = FakeMusicAPI()
+        await api.setFallbackReply(IntentFallbackResponse(outcome: "execute", operations: ["avoid:sad"],
+                                                          provider: "fake", latencyMs: 10))
+        let (drive, _) = makeDrive(api: api, allowed: false)
+        await drive.handle("qwerty zxcv")
+        let sent = await api.fallbackRequests.count
+        XCTAssertEqual(sent, 0)
+        XCTAssertEqual(drive.lastDecision?.outcome, .noAction)
+    }
+
+    func testValidatedSessionChangesApplyThroughTheReducer() async {
+        let api = FakeMusicAPI()
+        await api.setFallbackReply(IntentFallbackResponse(outcome: "execute", operations: ["avoid:sad"],
+                                                          provider: "fake", latencyMs: 10))
+        let (drive, _) = makeDrive(api: api, allowed: true)
+        await drive.handle("dukhapu paatalu oddhu")
+        XCTAssertEqual(drive.state.avoidedMoods, [.sad])
+        let sent = await api.fallbackRequests
+        XCTAssertEqual(sent.first?.transcript, "dukhapu paatalu oddhu")
+        XCTAssertEqual(sent.first?.consent, true)
+        var state = drive.state
+        XCTAssertTrue(state.undo())  // undo works for fallback changes too
+    }
+
+    func testInvalidOrLastingFallbackResultsDoNotActOnTheirOwn() async {
+        let api = FakeMusicAPI()
+        await api.setFallbackReply(IntentFallbackResponse(outcome: "execute", operations: ["avoid:sad", "format:disk"],
+                                                          provider: "fake", latencyMs: 10))
+        let (drive, _) = makeDrive(api: api, allowed: true)
+        let before = drive.state
+        await drive.handle("qwerty zxcv")
+        XCTAssertEqual(drive.state, before)  // one invalid string: the whole answer is ignored
+        await api.setFallbackReply(IntentFallbackResponse(outcome: "execute", operations: ["exclude:current:profile"],
+                                                          provider: "fake", latencyMs: 10))
+        await drive.handle("qwerty zxcv")
+        XCTAssertEqual(drive.lastDecision?.outcome, .clarify)  // lasting: asks first
+        XCTAssertEqual(drive.state, before)
+    }
+
+    func testAnUnreachableServerLeavesTheSessionAlone() async {
+        let api = FakeMusicAPI()
+        await api.setFailure(.offline)
+        let (drive, speaker) = makeDrive(api: api, allowed: true)
+        await drive.handle("qwerty zxcv")
+        XCTAssertEqual(drive.lastDecision?.reason, .notUnderstood)
+        XCTAssertEqual(speaker.said.last, "Didn't catch that.")
+    }
+}

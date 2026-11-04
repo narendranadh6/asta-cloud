@@ -18,7 +18,8 @@ from app.core.config import Settings, get_settings
 from app.core.errors import install_error_handlers
 from app.core.security import bearer_token, decode_access_token
 from app.db.session import create_engine, create_session_factory
-from app.services.ai.providers import IntentPlanner, build_planner
+from app.services.ai.intent_fallback import IntentFallback, build_intent_fallback
+from app.services.ai.providers import IntentPlanner, build_llm_client, build_planner
 from app.services.catalog.service import CatalogService, build_catalog
 from app.services.feed.builder import HomeFeedBuilder
 from app.services.music_sources.discovery import ListenBrainzDiscovery
@@ -36,6 +37,7 @@ def create_app(
     *,
     catalog: CatalogService | None = None,
     planner: IntentPlanner | None = None,
+    intent_fallback: IntentFallback | None = None,
     store: KeyValueStore | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
@@ -56,6 +58,9 @@ def create_app(
         app.state.store = kv
         app.state.catalog = music
         app.state.planner = planner or build_planner(settings)
+        app.state.intent_fallback = intent_fallback or build_intent_fallback(
+            settings, build_llm_client(settings) if settings.intent_fallback_enabled else None
+        )
         app.state.musicbrainz = (
             MusicBrainzClient(kv, contact=settings.musicbrainz_contact)
             if settings.musicbrainz_enabled

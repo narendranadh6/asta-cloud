@@ -51,6 +51,11 @@ public final class DriveSession {
     public var sessionIdleLimit: TimeInterval = 2 * 3600
     /// How Halo read the last utterance (for the screen and for tests).
     public private(set) var lastDecision: IntentDecision?
+    /// Whether the listener allowed unclear commands to go to Halo's server (text only).
+    /// Checked on every use, so revoking consent takes effect at once.
+    @ObservationIgnored public var fallbackAllowed: () -> Bool = { false }
+    /// The server fallback gets at most this long before Halo gives up.
+    public var fallbackTimeout: Duration = .seconds(4)
     /// Names Halo asked about ("Ilaiyaraaja or Yuvan Shankar Raja?"), waiting for the answer.
     @ObservationIgnored private var pendingChoice: (delta: IntentDelta, said: String,
                                                     options: [EntityResolver.Entity])?
@@ -178,9 +183,48 @@ public final class DriveSession {
         }
         expireIfIdle()
         lastActivity = now()
-        let decision = IntentInterpreter.interpret(text, resolver: resolver, recognizerConfidence: confidence)
+        var decision = IntentInterpreter.interpret(text, resolver: resolver, recognizerConfidence: confidence)
+        if let proposed = await serverFallback(for: decision) { decision = proposed }
         lastDecision = decision
         await act(on: decision)
+    }
+
+    /// Only for commands the phone couldn't act on, only with consent, only the text. The
+    /// server's answer is validated again here and still goes through the same confirmation
+    /// rules: a lasting change always asks first.
+    private func serverFallback(for decision: IntentDecision) async -> IntentDecision? {
+        let unclear = decision.reason == .notUnderstood || decision.reason == .lowConfidence
+        guard unclear, fallbackAllowed() else { return nil }
+        let request = IntentFallbackRequest(transcript: decision.utterance, speech: decision.delta.speech,
+                                            language: state.language?.primary, consent: true)
+        let api = self.api
+        let timeout = fallbackTimeout
+        let response: IntentFallbackResponse? = await withTaskGroup(of: IntentFallbackResponse?.self) { group in
+            group.addTask { try? await api.intentFallback(request) }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        guard let response else { return nil }
+        if response.outcome == "unsupported" {
+            return IntentDecision(outcome: .unsupported, reason: .outsideMusic, delta: IntentDelta(operations: [],
+                                  speech: decision.delta.speech), utterance: decision.utterance, evidence: 0,
+                                  calibratedConfidence: nil)
+        }
+        guard let operations = response.validatedOperations else { return nil }
+        let resolved = IntentInterpreter.resolve(
+            IntentDelta(operations: operations, speech: decision.delta.speech, confidence: 0.6), resolver: resolver)
+        guard resolved.ambiguous.isEmpty else { return nil }
+        let delta = resolved.delta
+        // Fallback results are never trusted with lasting changes without a "yes".
+        let outcome: IntentDecision.Outcome = delta.changesProfile ? .clarify : .execute
+        return IntentDecision(outcome: outcome, reason: outcome == .clarify ? .lowConfidence : .understood,
+                              delta: delta, utterance: decision.utterance, evidence: decision.evidence,
+                              calibratedConfidence: nil)
     }
 
     /// Typed instead of spoken (when speech recognition is unavailable or declined).

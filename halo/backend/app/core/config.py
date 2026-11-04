@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     # Rate limits (requests per minute per user, or per IP when unauthenticated)
     rate_limit_search_per_minute: int = 30
     rate_limit_ai_per_minute: int = 6
+    # Halo Drive's optional AI fallback for unclear commands (text only, with consent). Off by
+    # default; it also needs llm_provider / llm_api_key.
+    intent_fallback_enabled: bool = False
+    # Playback rights (services/catalog/rights.py). Fail closed: a commercial deployment plays
+    # nothing until each source's rights are confirmed for that use. The local server runs as
+    # non-commercial (personal / development use).
+    deployment_use: Literal["commercial", "non_commercial"] = "commercial"
+    audius_commercial_terms_confirmed: bool = False
+    jamendo_commercial_license: bool = False
+    intent_fallback_timeout_seconds: float = 3.0
     rate_limit_default_per_minute: int = 120
     rate_limit_auth_per_minute: int = 10
 
