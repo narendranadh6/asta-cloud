@@ -193,6 +193,11 @@ public enum IntentParser {
     private static func standalone(_ u: Utterance) -> [SessionOperation]? {
         if u.has(VoiceLexicon.undo) { return [.undo] }
         if u.has(VoiceLexicon.upNext) { return [.ask(.upNext)] }
+        // "What's playing next?", "tarvata emi vastundi": asking, not skipping.
+        if u.has(VoiceLexicon.nextWords), VoiceLexicon.questionWords.contains(where: u.word),
+           !u.has(playVerbs) || u.has(["playing next", "plays after", "plays next"]) {
+            return [.ask(.upNext)]
+        }
         if u.has(VoiceLexicon.whoIsSinging) { return [.ask(.whoIsSinging)] }
         if u.has(VoiceLexicon.whatMovie) { return [.ask(.whatMovie)] }
         if u.has(VoiceLexicon.whatAlbum) { return [.ask(.whatAlbum)] }
@@ -277,9 +282,9 @@ public enum IntentParser {
         "songs by ([^,]+)$",
         "(?:^| )([^ ]+(?: [^ ]+)?) (?:movie|cinema|సినిమా|film) (?:songs|పాటలు|paatalu)",
         "play ([^,]+?) songs",
-        "(?:^| )([^ ]+(?: [^ ]+)?) songs (?:pettu|పెట్టు|play|vinipinchu|వినిపించు)",
-        "(?:^| )([^ ]+(?: [^ ]+)?) పాటలు (?:పెట్టు|వినిపించు)",
-        "(?:^| )([^ ]+(?: [^ ]+)?) (?:paatalu|patalu) (?:pettu|vinipinchu)",
+        "(?:^| )([^ ]+(?: [^ ]+){0,2}) songs (?:pettu|pettandi|petu|పెట్టు|play|vinipinchu|vinipinchandi|వినిపించు)",
+        "(?:^| )([^ ]+(?: [^ ]+){0,2}) పాటలు (?:పెట్టు|పెట్టండి|వినిపించు|వినిపించండి)",
+        "(?:^| )([^ ]+(?: [^ ]+){0,2}) (?:paatalu|patalu) (?:pettu|pettandi|petu|vinipinchu|vinipinchandi)",
         weakPlayPattern,
         // A name followed by a style word: "Thaman mass beats", "Keeravani melodies".
         "^([^ ]+(?: [^ ]+)?) (?:mass|melody|melodies|dance|party|romantic|love|happy|energetic|calm|beats|hits|numbers)(?: |$)",
@@ -357,7 +362,7 @@ struct Utterance {
     /// True when any phrase appears (Latin: at a word start; Telugu: anywhere).
     func has(_ phrases: [String]) -> Bool {
         phrases.contains { phrase in
-            Self.isTelugu(phrase) ? text.contains(phrase) : Self.containsWord(padded, phrase)
+            Self.isTelugu(phrase) ? VoiceLexicon.teluguContains(text, phrase) : Self.containsWord(padded, phrase)
         }
     }
 
@@ -409,8 +414,21 @@ struct Utterance {
     /// An exact whole word.
     func word(_ word: String) -> Bool { padded.contains(" " + word + " ") }
 
+    /// Earlier words of the phrase match whole words; the last may carry a suffix ("telugulo",
+    /// "newer"), unless the word is a different word that merely starts the same ("news").
     private static func containsWord(_ padded: String, _ phrase: String) -> Bool {
-        padded.contains(" " + phrase)
+        guard padded.contains(" " + phrase) else { return false }
+        let tokens = padded.split(separator: " ").map(String.init)
+        let parts = phrase.split(separator: " ").map(String.init)
+        guard let lastPart = parts.last, tokens.count >= parts.count else { return false }
+        for start in 0...(tokens.count - parts.count) {
+            guard Array(tokens[start..<(start + parts.count - 1)]) == Array(parts.dropLast()) else { continue }
+            let last = tokens[start + parts.count - 1]
+            if last == lastPart || (last.hasPrefix(lastPart) && !VoiceLexicon.falsePrefixes.contains(last)) {
+                return true
+            }
+        }
+        return false
     }
 
     private static func isTelugu(_ string: String) -> Bool {
@@ -454,9 +472,12 @@ struct Utterance {
     }
 
     /// Share of words Halo doesn't know at all (a hint the recognizer misheard).
-    var unknownShare: Double {
-        let words = text.split(separator: " ").map(String.init)
-        guard !words.isEmpty else { return 1 }
+    var unknownShare: Double { unknownShare(knownNames: []) }
+
+    /// Share of unknown words, counting the words of recognized names as known.
+    func unknownShare(knownNames: Set<String>) -> Double {
+        let words = text.split(separator: " ").map(String.init).filter { !knownNames.contains($0) }
+        guard !words.isEmpty else { return 0 }
         let unknown = words.filter { !VoiceLexicon.isKnown($0) && Int($0) == nil }
         return Double(unknown.count) / Double(words.count)
     }

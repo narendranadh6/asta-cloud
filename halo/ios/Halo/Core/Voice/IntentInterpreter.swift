@@ -117,6 +117,15 @@ public enum IntentInterpreter {
         if delta.isEmpty, u.has(VoiceLexicon.neverMind) {
             return decide(.noAction, .neverMind)
         }
+        // Known names anywhere in the sentence ("I feel like some Keeravani", "Raja music"),
+        // when nothing else named one.
+        if !delta.operations.contains(where: \.namesSomething), let name = knownName(in: u, resolver: resolver),
+           u.isNegated || u.has(IntentParser.playVerbs) || u.has(VoiceLexicon.requestCues) || u.text == name {
+            let ref = EntityRef.mention(name, kind: .any)
+            let scope: Scope = u.has(VoiceLexicon.today) ? .today : .session
+            delta.operations.insert(u.isNegated ? .excludeArtist(ref, scope) : .play(.entity(ref)), at: 0)
+            delta.operations.removeAll { $0 == .play(.vibe) || $0 == .transport(.resume) }
+        }
         let musicOps = delta.operations.filter {
             if case .transport = $0 { false } else { true }
         }
@@ -145,7 +154,8 @@ public enum IntentInterpreter {
         }
 
         let evidence = IntentEvidence.score(u, delta: delta, unresolvedNames: resolved.unresolved,
-                                            recognizerConfidence: recognizerConfidence)
+                                            recognizerConfidence: recognizerConfidence,
+                                            knownNameWords: resolved.knownWords)
         let calibrated = IntentCalibration.confidence(forEvidence: evidence)
         delta.confidence = calibrated
         let risk = ActionRisk.of(delta)
@@ -156,6 +166,24 @@ public enum IntentInterpreter {
             decision.reason = .lowConfidence
         }
         return decision
+    }
+
+    /// The longest run of one to three words that names a known or shared artist or film.
+    static func knownName(in u: Utterance, resolver: EntityResolver) -> String? {
+        let words = u.text.split(separator: " ").map(String.init)
+        guard !words.isEmpty else { return nil }
+        for length in stride(from: min(3, words.count), through: 1, by: -1) {
+            for start in 0...(words.count - length) {
+                let candidate = words[start..<(start + length)].joined(separator: " ")
+                guard !VoiceLexicon.commonWords.contains(candidate), !VoiceLexicon.knownWords.contains(candidate)
+                else { continue }
+                switch resolver.resolve(candidate) {
+                case .known, .ambiguous: return candidate
+                case .unknown: continue
+                }
+            }
+        }
+        return nil
     }
 
     /// "play songs by", "set the language to", "don't play": a request with its object missing.
@@ -176,9 +204,10 @@ public enum IntentInterpreter {
     /// Resolves artist and film names; a name known only by its first words ("thaman lately")
     /// keeps the known part. Returns ambiguous names to ask about and names left unresolved.
     static func resolve(_ delta: IntentDelta, resolver: EntityResolver)
-        -> (delta: IntentDelta, ambiguous: [(String, [String])], unresolved: Int) {
+        -> (delta: IntentDelta, ambiguous: [(String, [String])], unresolved: Int, knownWords: Set<String>) {
         var ambiguous: [(String, [String])] = []
         var unresolved = 0
+        var knownWords = Set<String>()
         func canonical(_ ref: EntityRef) -> EntityRef {
             guard case let .mention(name, kind) = ref, [.artist, .any, .soundtrack].contains(kind) else { return ref }
             let words = name.split(separator: " ").map(String.init)
@@ -186,6 +215,7 @@ public enum IntentInterpreter {
                 let candidate = words.prefix(length).joined(separator: " ")
                 switch resolver.resolve(candidate) {
                 case let .known(entity):
+                    knownWords.formUnion(words.prefix(length))
                     return .mention(entity.name, kind: entity.kind == .film ? .soundtrack : .artist)
                 case let .ambiguous(options) where length == words.count:
                     ambiguous.append((name, options.map(\.name)))
@@ -206,7 +236,7 @@ public enum IntentInterpreter {
             default: operation
             }
         }
-        return (resolved, ambiguous, unresolved)
+        return (resolved, ambiguous, unresolved, knownWords)
     }
 }
 
@@ -214,9 +244,9 @@ public enum IntentInterpreter {
 /// doubt. It is a score, not a probability: `IntentCalibration` maps it to one.
 public enum IntentEvidence {
     static func score(_ u: Utterance, delta: IntentDelta, unresolvedNames: Int,
-                      recognizerConfidence: Double) -> Double {
+                      recognizerConfidence: Double, knownNameWords: Set<String> = []) -> Double {
         var score = 1.0
-        score -= 0.6 * u.unknownShare
+        score -= 0.6 * u.unknownShare(knownNames: knownNameWords)
         score -= 0.12 * Double(unresolvedNames)
         let dimensions = delta.operations.compactMap(\.dimension)
         if Set(dimensions).count < dimensions.count { score -= 0.2 }  // e.g. energy up and down
@@ -233,6 +263,14 @@ extension SessionOperation {
         case .excludeArtist, .excludeTrack, .avoid, .rate(.dislike), .rate(.neverAgain), .diversifyArtists: true
         case let .weightArtist(_, weight): weight < 0
         case .setLanguage: true  // a refused language becomes "only the other one"
+        default: false
+        }
+    }
+
+    /// Refers to a named artist, film, album, song or genre.
+    var namesSomething: Bool {
+        switch self {
+        case .play(.entity(.mention)), .weightArtist(.mention, _), .excludeArtist(.mention, _): true
         default: false
         }
     }
