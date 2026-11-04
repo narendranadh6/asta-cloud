@@ -20,7 +20,7 @@ enum VoiceLexicon {
         "pettu", "pettandi", "cheyyi", "chey", "cheyandi", "vinipinchu", "kavali", "kaavali",
         "emaina", "edaina", "konchem", "oka", "lo", "ki", "ni", "manchi", "try", "chedham",
         "paatalu", "patalu", "paata", "pata", "ok", "okay", "so", "too", "much", "really", "very",
-        "uh", "um", "umm", "uhh", "hmm", "er",
+        "uh", "um", "umm", "uhh", "hmm", "er", "beats", "numbers",
         "పెట్టు", "పెట్టండి", "చెయ్యి", "చేయి", "వినిపించు", "కావాలి", "ఏమైనా", "ఏదైనా", "కొంచెం",
         "ఒక", "లో", "కి", "మంచి", "పాటలు", "పాట", "చేద్దాం",
     ]

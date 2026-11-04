@@ -250,10 +250,11 @@ final class SessionStateTests: XCTestCase {
     func testSkipsAreWeakSignalsAndLockStopsDrift() {
         var state = SessionState()
         state.recordSkip(song)
-        XCTAssertEqual(state.artistWeights["sid sriram"] ?? 0, -0.1, accuracy: 0.001)
+        XCTAssertEqual(state.inferredArtistWeights["sid sriram"] ?? 0, -0.1, accuracy: 0.001)
+        XCTAssertNil(state.artistWeights["sid sriram"])  // inferred, never explicit
         state.locked = true
         state.recordSkip(song)
-        XCTAssertEqual(state.artistWeights["sid sriram"] ?? 0, -0.1, accuracy: 0.001)
+        XCTAssertEqual(state.inferredArtistWeights["sid sriram"] ?? 0, -0.1, accuracy: 0.001)
         XCTAssertEqual(SessionState.key("S. Thaman"), "s thaman")
     }
 }
@@ -282,5 +283,26 @@ final class VoiceReplyTests: XCTestCase {
         var harmless = IntentParser.parse("More energy.")
         harmless.confidence = 0.45
         XCTAssertFalse(harmless.needsConfirmation)  // harmless: just do it
+    }
+}
+
+/// Development tests for "<name> <style word>" requests (kept apart from the holdout set).
+final class NameBeforeStyleTests: XCTestCase {
+    private func run(_ text: String) -> [String] {
+        EntityResolver().resolve(IntentParser.parse(text)).delta.operations.map(describe).sorted()
+    }
+
+    func testANameBeforeAStyleWordIsAnArtistRequest() {
+        XCTAssertEqual(run("Thaman mass beats"), ["play:artist:S. Thaman", "set:energy:0.85"])
+        XCTAssertEqual(run("Anirudh party songs"), ["play:artist:Anirudh Ravichander", "set:energy:0.85"])
+        XCTAssertEqual(run("Keeravani melodies"), ["play:artist:M. M. Keeravani", "set:energy:0.20"])
+        XCTAssertEqual(run("DSP dance numbers"), ["play:artist:Devi Sri Prasad", "set:energy:0.85"])
+    }
+
+    func testStyleWordsAloneNeverBecomeNames() {
+        XCTAssertEqual(run("mass beats"), ["set:energy:0.85"])
+        XCTAssertEqual(run("Telugu melodies"), ["lang:only:te", "set:energy:0.20"])
+        XCTAssertEqual(run("old Telugu melodies"), ["lang:only:te", "recency:classics", "set:energy:0.20"])
+        XCTAssertEqual(run("uh energetic songs"), ["play", "set:energy:0.85"])
     }
 }

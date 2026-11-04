@@ -208,6 +208,8 @@ public enum IntentParser {
         "(?:^| )([^ ]+(?: [^ ]+)?) పాటలు (?:పెట్టు|వినిపించు)",
         "(?:^| )([^ ]+(?: [^ ]+)?) (?:paatalu|patalu) (?:pettu|vinipinchu)",
         "^play ([^,]+)$",
+        // A name followed by a style word: "Thaman mass beats", "Keeravani melodies".
+        "^([^ ]+(?: [^ ]+)?) (?:mass|melody|melodies|dance|party|romantic|love|happy|energetic|calm|beats|hits|numbers)(?: |$)",
     ]
 }
 
