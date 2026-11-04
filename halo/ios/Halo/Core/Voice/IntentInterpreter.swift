@@ -98,9 +98,7 @@ public enum IntentInterpreter {
             return decide(.noAction, .noise)
         }
         let meaningful = words.filter { !VoiceLexicon.noise.contains($0) && !["please", "bro", "plz"].contains($0) }
-        if u.has(VoiceLexicon.neverMind), meaningful.count <= 3, !u.has(IntentParser.playVerbs) {
-            return decide(.noAction, .neverMind)
-        }
+
         if Set(meaningful).isSubset(of: ["no", "vaddu", "వద్దు", "nope", "cancel"]) {
             return decide(.noAction, .neverMind)
         }
@@ -112,8 +110,12 @@ public enum IntentInterpreter {
         let controlOnly = !delta.isEmpty && delta.operations.allSatisfy {
             if case .transport = $0 { true } else { false }
         }
-        if (controlOnly || delta.isEmpty), u.has(VoiceLexicon.controlNegation), u.has(VoiceLexicon.controlWords) {
+        if (controlOnly || delta.isEmpty), u.has(VoiceLexicon.controlNegation) || u.isNegated,
+           u.has(VoiceLexicon.controlWords) {
             return decide(.noAction, .negatedControl)
+        }
+        if delta.isEmpty, u.has(VoiceLexicon.neverMind) {
+            return decide(.noAction, .neverMind)
         }
         let musicOps = delta.operations.filter {
             if case .transport = $0 { false } else { true }
@@ -132,6 +134,14 @@ public enum IntentInterpreter {
         delta = resolved.delta
         if let (said, options) = resolved.ambiguous.first {
             return decide(.clarify, .ambiguousEntity(said: said, options: options), delta)
+        }
+
+        // A negated sentence that came out purely positive (more of an artist, play it, resume,
+        // like, sad songs) is the opposite of what was asked: ask instead of acting.
+        if u.isNegated, !delta.operations.contains(where: \.isNegative),
+           delta.operations.contains(where: \.isPositiveTarget) {
+            return IntentDecision(outcome: .clarify, reason: .lowConfidence, delta: delta, utterance: text,
+                                  evidence: 0, calibratedConfidence: nil)
         }
 
         let evidence = IntentEvidence.score(u, delta: delta, unresolvedNames: resolved.unresolved,
@@ -213,5 +223,26 @@ public enum IntentEvidence {
         if delta.operations.count > 4 { score -= 0.1 }
         score -= 0.5 * (1 - min(max(recognizerConfidence, 0), 1))
         return min(max(score, 0), 1)
+    }
+}
+
+extension SessionOperation {
+    /// Rules something out or reduces it.
+    var isNegative: Bool {
+        switch self {
+        case .excludeArtist, .excludeTrack, .avoid, .rate(.dislike), .rate(.neverAgain), .diversifyArtists: true
+        case let .weightArtist(_, weight): weight < 0
+        case .setLanguage: true  // a refused language becomes "only the other one"
+        default: false
+        }
+    }
+
+    /// Plays or favours something specific: the opposite of refusing it.
+    var isPositiveTarget: Bool {
+        switch self {
+        case .play(.entity), .transport(.resume), .rate(.like), .setVibe(.valence, 0.25): true
+        case let .weightArtist(_, weight): weight > 0
+        default: false
+        }
     }
 }

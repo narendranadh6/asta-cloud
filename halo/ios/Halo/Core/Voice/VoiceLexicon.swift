@@ -152,7 +152,8 @@ enum VoiceLexicon {
                              "ee artist", "ee gayakudu", "ee gayani", "ఈ singer", "ఈ artist", "ఈ సింగర్",
                              "ఈ గాయకుడు", "ఈ గాయకుడి", "ఈ గాయని", "ఈ ఆర్టిస్ట్", "ee music director"]
     /// The song that is playing ("ee song vaddu", "not this song").
-    static let thisSong = ["this song", "this one", "ee song", "ee paata", "ee pata", "ఈ పాట", "ఈ song"]
+    static let thisSong = ["this song", "this one", "this track", "that song", "ee song", "ee paata", "ee pata",
+                           "ee track", "ఈ పాట", "ఈ song"]
     /// "Never" for artists and songs: a lasting (profile) change, confirmed when unsure.
     static let never = ["never", "ever again", "inkeppudu", "ఇంకెప్పుడూ", "forever"]
     /// "Not too much" with no name: the artist named last.
@@ -161,7 +162,23 @@ enum VoiceLexicon {
     static let differentArtist = ["different singer", "different artist", "another singer",
                                   "another artist", "someone else", "vere singer", "వేరే singer",
                                   "వేరే artist"]
-    static let refuse = ["vaddu", "వద్దు", "వద్దులే", "pettaku", "pettakandi", "పెట్టకు", "పెట్టకండి"]
+    static let refuse = ["vaddu", "వద్దు", "వద్దులే", "pettaku", "pettakandi", "పెట్టకు", "పెట్టకండి",
+                         "vaddandi", "vaddhu", "oddu", "వద్దండి"]
+
+    // MARK: Negation (see `Utterance.isNegated`)
+
+    /// Whole words that negate a request.
+    static let negationWords: Set<String> = ["dont", "never", "not", "no", "without", "avoid", "away", "nothing",
+                                             "neither", "nor", "vaddu", "vaddandi", "vaddhu", "oddu", "asalu"]
+    /// Phrases that negate a request.
+    static let negationPhrases = ["do not", "no more", "enough of", "stop playing", "dont want", "dont you dare",
+                                  "i dont want", "keep away", "వద్దు", "వద్దండి", "పెట్టకు", "పెట్టకండి",
+                                  "వినిపించకు", "వినిపించకండి", "చేయకు", "చెయ్యకు", "ఆపకు", "మార్చకు", "వేయకు"]
+    /// Look negative, aren't: "I don't mind sad songs", "no problem", "sad songs parledu".
+    static let notNegations = ["dont mind", "do not mind", "dont care", "no problem", "no worries", "not bad",
+                               "never mind", "parledu", "పర్లేదు", "no issue"]
+    /// Romanized words ending like a negative imperative that aren't one ("naaku" = to me).
+    static let notNegativeImperatives: Set<String> = ["naaku", "maaku", "meeku", "vaaku", "thaaku", "baaku"]
     static let today = ["today", "ivala", "ఈరోజు", "ఇవాళ"]
 
     // MARK: Outside music, nothing to do

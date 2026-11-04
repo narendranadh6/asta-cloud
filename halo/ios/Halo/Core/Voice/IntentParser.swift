@@ -16,12 +16,13 @@ public enum IntentParser {
         }
 
         // 2. The current artist and album.
-        let refusing = u.has(VoiceLexicon.refuse) || u.word("not") || u.word("no")
-            || u.has(["dont play", "no more", "stop playing", "skip this"]) || u.has(VoiceLexicon.never)
-        let lastingScope: Scope = u.has(VoiceLexicon.never) ? .profile
-            : u.has(VoiceLexicon.today) ? .today : .session
+        let refusing = u.isNegated
+        // "Today" is the most specific; "never" / "don't ever … again" make it lasting.
+        let lasting = u.has(VoiceLexicon.never) || (u.word("ever") && refusing)
+        let lastingScope: Scope = u.has(VoiceLexicon.today) ? .today : lasting ? .profile : .session
         if u.has(VoiceLexicon.thisSong) && refusing && !u.has(VoiceLexicon.thisArtist) {
-            ops.append(.excludeTrack(.currentTrack, lastingScope == .profile ? .profile : .session))
+            // "Never this song" is the song-level "never again"; otherwise just this session.
+            ops.append(lastingScope == .profile ? .rate(.neverAgain) : .excludeTrack(.currentTrack, .session))
         }
         if u.has(VoiceLexicon.thisArtist) {
             if u.has(["explore"]) {
@@ -42,7 +43,19 @@ public enum IntentParser {
         // 3. Languages.
         let mentioned = u.languages
         unsupported = mentioned.filter { !MusicLanguage.supported.contains($0) }
-        let playable = mentioned.filter { MusicLanguage.supported.contains($0) }
+        var playable = mentioned.filter { MusicLanguage.supported.contains($0) }
+        // "Telugu songs, not English" / "English vaddu": a negated language is ruled out, and with
+        // two supported languages that leaves the other one.
+        let refused = playable.filter { u.isNegatedNear(language: $0) }
+        var languageOnlyFromRefusal = false
+        if !refused.isEmpty {
+            playable.removeAll { refused.contains($0) }
+            if playable.isEmpty, refused.count == 1,
+               let other = MusicLanguage.supported.subtracting(refused).sorted(by: { $0.rawValue > $1.rawValue }).first {
+                ops.append(.setLanguage(.only(other)))
+                languageOnlyFromRefusal = true
+            }
+        }
         if playable.count >= 2 {
             let strategy: LanguagePreference.Strategy =
                 u.has(VoiceLexicon.alternateWords) ? .alternating
@@ -77,7 +90,7 @@ public enum IntentParser {
         } else if u.has(VoiceLexicon.tempoSlow) {
             ops.append(.setVibe(.tempo, 0.3))
         }
-        let negated = u.has(VoiceLexicon.refuse) || u.has(["dont", "no", "not", "without"])
+        let negated = u.isNegated
         if u.has(VoiceLexicon.sad) {
             ops.append(negated ? .avoid(.sad) : .setVibe(.valence, 0.25))
         } else if u.has(VoiceLexicon.happy) {
@@ -158,7 +171,10 @@ public enum IntentParser {
 
         // 9. A request ("play …", "… songs పెట్టు") starts new music; a bare change re-ranks.
         let starts = ops.contains { $0.startsMusic }
-        if asksToPlay && starts && !ops.contains(where: \.isPlay) {
+        // "No English songs" sets a rule; it isn't a request to start something.
+        let onlyARule = languageOnlyFromRefusal && !u.has(playVerbs)
+            && ops.filter(\.startsMusic).count == 1
+        if asksToPlay && starts && !onlyARule && !ops.contains(where: \.isPlay) {
             ops.insert(.play(.vibe), at: 0)
         }
 
@@ -182,6 +198,10 @@ public enum IntentParser {
         if u.has(VoiceLexicon.whatAlbum) { return [.ask(.whatAlbum)] }
         if u.has(VoiceLexicon.whenReleased) { return [.ask(.whenReleased)] }
         if u.has(VoiceLexicon.neverAgain) && !u.has(VoiceLexicon.thisArtist) { return [.rate(.neverAgain)] }
+        if u.has(VoiceLexicon.never), u.has(VoiceLexicon.thisSong) || u.word("this"), !u.has(VoiceLexicon.thisArtist),
+           !u.has(VoiceLexicon.sad), u.languages.isEmpty {
+            return [.rate(.neverAgain)]
+        }
         if u.has(VoiceLexicon.later) { return [.rate(.later)] }
         if u.has(VoiceLexicon.removeNext) { return [.transport(.removeNext)] }
         if u.has(VoiceLexicon.dislike) { return [.rate(.dislike)] }
@@ -195,6 +215,8 @@ public enum IntentParser {
     }
 
     private static func transport(_ u: Utterance) -> Transport? {
+        // "Don't …" never falls back to a control: the interpreter reports it as no action.
+        if u.isNegated { return nil }
         if u.has(VoiceLexicon.pause) { return .pause }
         if u.has(VoiceLexicon.restart) { return .restart }
         if u.has(VoiceLexicon.next) { return .next }
@@ -212,6 +234,8 @@ public enum IntentParser {
 
     /// "too much Anirudh", "less of DSP", "Anirudh songs ekkuva vaddu", "Anirudh takkuva cheyyi".
     static let downweightPatterns = [
+        "(?:^| )([^ ]+(?: [^ ]+)?) (?:ni |vi |songs |paatalu |patalu |పాటలు )?(?:ekkuva|too much|ఎక్కువ) "
+            + "(?:[a-z]+(?:aku|akandi)|vaddu|vaddandi|oddu|వద్దు|పెట్టకు|పెట్టకండి|వినిపించకు)",
         "(?:^| )([^ ]+(?: [^ ]+)?) (?:songs |paatalu |patalu |పాటలు )?(?:ekkuva|ఎక్కువ) (?:vaddu|వద్దు)",
         "(?:^| )([^ ]+(?: [^ ]+)?) (?:songs |paatalu |patalu |పాటలు )?(?:takkuva|తక్కువ) (?:cheyyi|pettu|చెయ్యి|పెట్టు)",
         "too many ([^,]+?)(?: songs| music|$)",
@@ -335,6 +359,51 @@ struct Utterance {
         phrases.contains { phrase in
             Self.isTelugu(phrase) ? text.contains(phrase) : Self.containsWord(padded, phrase)
         }
+    }
+
+    /// The request is negated ("don't …", "never …", "… vaddu", "vinipinchaku"), ignoring phrases
+    /// that only look negative ("I don't mind", "parledu") and a leading "no," before a request.
+    var isNegated: Bool {
+        var words = negationScopeText.split(separator: " ").map(String.init)
+        if words.first == "no", words.count > 1,
+           IntentParser.playVerbs.contains(words[1]) || ["actually", "wait", "i", "lets"].contains(words[1]) {
+            words.removeFirst()
+        }
+        let joined = " " + words.joined(separator: " ") + " "
+        if words.contains(where: { VoiceLexicon.negationWords.contains($0) || Self.isNegativeImperative($0) }) {
+            return true
+        }
+        return VoiceLexicon.negationPhrases.contains { phrase in
+            Self.isTelugu(phrase) ? joined.contains(phrase) : joined.contains(" " + phrase + " ")
+        }
+    }
+
+    /// Whether a language is the thing being refused: a negation right before it
+    /// ("not English") or right after it ("English vaddu").
+    func isNegatedNear(language: MusicLanguage) -> Bool {
+        let words = negationScopeText.split(separator: " ").map(String.init)
+        guard let names = VoiceLexicon.languages.first(where: { $0.0 == language })?.1 else { return false }
+        for (index, word) in words.enumerated() where names.contains(where: { word.hasPrefix($0) || word.contains($0) && Self.isTelugu($0) }) {
+            let before = words[max(0, index - 2)..<index]
+            let after = words[(index + 1)..<min(words.count, index + 3)].filter { !["songs", "paatalu", "patalu", "పాటలు", "music"].contains($0) }
+            if before.contains(where: { ["not", "no", "without", "dont"].contains($0) }) { return true }
+            if let next = after.first, VoiceLexicon.refuse.contains(next) || Self.isNegativeImperative(next) { return true }
+        }
+        return false
+    }
+
+    /// The text with phrases that only look negative removed.
+    private var negationScopeText: String {
+        var scoped = " " + text + " "
+        for phrase in VoiceLexicon.notNegations { scoped = scoped.replacingOccurrences(of: " " + phrase + " ", with: " ") }
+        return scoped.split(separator: " ").joined(separator: " ")
+    }
+
+    /// Romanized negative imperatives: "pettaku", "vinipinchaku", "cheyyakandi".
+    static func isNegativeImperative(_ word: String) -> Bool {
+        guard word.count >= 6, !VoiceLexicon.notNegativeImperatives.contains(word),
+              word.unicodeScalars.allSatisfy({ ("a"..."z").contains(Character($0)) }) else { return false }
+        return word.hasSuffix("aku") || word.hasSuffix("akandi") || word.hasSuffix("akunda")
     }
 
     /// An exact whole word.

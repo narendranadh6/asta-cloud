@@ -10,7 +10,7 @@ public enum IntentCalibration {
     /// P(correct) per bin, fitted 2026-11-04 on 299 development decisions (bin sizes
     /// 1, 7, 48, 40, 203): Laplace-smoothed, isotonic. The two lowest bins have almost no data,
     /// so their 0.5 is mostly the prior: treat it as "unknown", which is why Halo asks there.
-    public static let table: [Double] = [0.5, 0.5, 0.82, 0.86, 0.97]
+    public static let table: [Double] = [0.5, 0.5, 0.82, 0.88, 0.97]
     public static let provenance = "dev corpus + retired holdout v1, 2026-11-04"
 
     public static func confidence(forEvidence evidence: Double) -> Double {
