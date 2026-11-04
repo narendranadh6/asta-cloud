@@ -44,6 +44,13 @@ public final class DriveSession {
     @ObservationIgnored private let todayStore: TodayExclusionStore?
     @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private let timeZone: @Sendable () -> TimeZone
+    /// "Play songs by …" waiting for the missing part.
+    @ObservationIgnored private var pendingIncomplete: String?
+    @ObservationIgnored private var lastActivity: Date?
+    /// After this long without a command, the next one starts a fresh session.
+    public var sessionIdleLimit: TimeInterval = 2 * 3600
+    /// How Halo read the last utterance (for the screen and for tests).
+    public private(set) var lastDecision: IntentDecision?
     /// Names Halo asked about ("Ilaiyaraaja or Yuvan Shankar Raja?"), waiting for the answer.
     @ObservationIgnored private var pendingChoice: (delta: IntentDelta, said: String,
                                                     options: [EntityResolver.Entity])?
@@ -100,6 +107,9 @@ public final class DriveSession {
     /// exclusions, and keep playing. Long-term personalization is reset separately in Settings.
     public func resetSession() {
         state = SessionState()
+        pendingChoice = nil
+        pendingConfirmation = nil
+        pendingIncomplete = nil
         todayStore?.save([:])
         summary = ""
         applyRanking()
@@ -160,26 +170,79 @@ public final class DriveSession {
                 return
             }
         }
-        var delta = IntentParser.parse(transcript)
-        delta.confidence *= confidence
-        let resolved = resolver.resolve(delta)
-        delta = resolved.delta
-        if let (said, options) = resolved.ambiguous.first {
-            pendingChoice = (delta, said, options)
-            let names = options.map(\.name)
-            let list = names.dropLast().joined(separator: ", ") + " or " + (names.last ?? "")
-            reply(Self.pick(delta.speech, en: "\(list)?", mixed: "\(list)?", te: "\(list)?"),
-                  style: delta.speech)
-            voiceState = .done
-            return
+        var text = transcript
+        if let incomplete = pendingIncomplete {
+            // "Play songs by" … "Thaman": the answer completes the earlier request.
+            pendingIncomplete = nil
+            text = incomplete + " " + transcript
         }
-        if delta.needsConfirmation {
-            pendingConfirmation = delta
-            reply(VoiceReply.text(for: delta, level: replyLevel), style: delta.speech)
-            voiceState = .done
+        expireIfIdle()
+        lastActivity = now()
+        let decision = IntentInterpreter.interpret(text, resolver: resolver, recognizerConfidence: confidence)
+        lastDecision = decision
+        await act(on: decision)
+    }
+
+    /// Typed instead of spoken (when speech recognition is unavailable or declined).
+    public func handleTyped(_ text: String) async {
+        await handle(text, confidence: 1)
+    }
+
+    /// The recognizer heard nothing usable: nothing changes, Halo says so once.
+    public func recognitionFailed() async {
+        let decision = IntentDecision.recognitionFailed()
+        lastDecision = decision
+        await act(on: decision)
+    }
+
+    private func act(on decision: IntentDecision) async {
+        let style = decision.delta.speech
+        switch decision.outcome {
+        case .execute:
+            await apply(decision.delta)
             return
+        case .clarify:
+            switch decision.reason {
+            case let .ambiguousEntity(said, options):
+                let entities = options.compactMap(resolver.entity(named:))
+                pendingChoice = (decision.delta, said, entities)
+                let list = options.dropLast().joined(separator: ", ") + " or " + (options.last ?? "")
+                reply("\(list)?", style: style)
+            case let .incomplete(slot):
+                pendingIncomplete = Utterance(decision.utterance).text
+                reply(VoiceReply.question(for: slot, style: style), style: style)
+            default:
+                pendingConfirmation = decision.delta
+                reply(VoiceReply.confirmation(for: decision.delta), style: style)
+            }
+        case .unsupported:
+            if case .unsupportedLanguage = decision.reason {
+                reply(VoiceReply.text(for: decision.delta, level: replyLevel), style: style)
+            } else {
+                reply(Self.pick(style, en: "I can only help with music.", mixed: "Music మాత్రమే చేయగలను.",
+                                te: "పాటలు మాత్రమే చేయగలను."), style: style)
+            }
+        case .noAction:
+            switch decision.reason {
+            case .neverMind:
+                reply(Self.pick(style, en: "Okay.", mixed: "సరే.", te: "సరే."), style: style)
+            case .notUnderstood, .recognitionFailed:
+                reply(Self.pick(style, en: "Didn't catch that.", mixed: "అర్థం కాలేదు.", te: "అర్థం కాలేదు."),
+                      style: style)
+            default:
+                break  // noise or "don't skip": nothing to say, nothing to do
+            }
         }
-        await apply(delta)
+        voiceState = .done
+    }
+
+    /// A drive left alone for a long time starts fresh (today's exclusions still apply).
+    private func expireIfIdle() {
+        guard let last = lastActivity, now().timeIntervalSince(last) > sessionIdleLimit else { return }
+        let saved = state.todayExclusions(at: now())
+        state = SessionState(startedAt: now())
+        state.restoreTodayExclusions(saved, now: now())
+        summary = ""
     }
 
     private func apply(_ delta: IntentDelta) async {

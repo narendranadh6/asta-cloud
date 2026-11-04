@@ -128,7 +128,7 @@ final class IntentParserTests: XCTestCase {
         assertHas("English లో similar songs play చెయ్యి.", .setLanguage(.only(.english)), .play(.similarToCurrent))
         assertHas("ఈ movie songs పెట్టు.", .play(.entity(.currentAlbum)))
         assertHas("Yesterday release అయిన Telugu songs ఏమైనా ఉన్నాయా?",
-                  .setLanguage(.only(.telugu)), .setRecency(.withinDays(7)))
+                  .setLanguage(.only(.telugu)), .setRecency(.withinDays(1)))  // "yesterday" = released yesterday (local date)
         assertHas("Gym కి మంచి Telugu playlist పెట్టు.", .play(.vibe), .setVibe(.energy, 0.85),
                   .setLanguage(.only(.telugu)))
         XCTAssertEqual(ops("ఈ singer వద్దు."), [.excludeArtist(.currentArtist, .session)])

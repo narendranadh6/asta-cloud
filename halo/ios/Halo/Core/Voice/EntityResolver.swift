@@ -6,7 +6,7 @@ import Foundation
 /// artist is reported as ambiguous so Halo can ask, and an unknown name passes through as said.
 public struct EntityResolver: Sendable {
     public struct Entity: Hashable, Sendable {
-        public enum Kind: String, Hashable, Sendable { case composer, singer, artist }
+        public enum Kind: String, Hashable, Sendable { case composer, singer, artist, film }
         public var name: String
         public var kind: Kind
         public var aliases: [String]
@@ -21,7 +21,7 @@ public struct EntityResolver: Sendable {
 
     private let byKey: [String: [Entity]]
 
-    public init(entities: [Entity] = EntityResolver.musicians) {
+    public init(entities: [Entity] = EntityResolver.musicians + EntityResolver.films) {
         var table: [String: [Entity]] = [:]
         for entity in entities {
             for alias in Set(entity.aliases + [entity.name]).map(Self.matchKey) where !alias.isEmpty {
@@ -35,6 +35,12 @@ public struct EntityResolver: Sendable {
         let key = Self.matchKey(said)
         guard let found = byKey[key], !found.isEmpty else { return .unknown(said) }
         return found.count == 1 ? .known(found[0]) : .ambiguous(found)
+    }
+
+    /// The entity with this canonical name.
+    public func entity(named name: String) -> Entity? {
+        if case let .known(entity) = resolve(name), entity.name == name { return entity }
+        return byKey[Self.matchKey(name)]?.first { $0.name == name }
     }
 
     /// The name to use for searching and matching: canonical when known, else as said.
@@ -131,6 +137,24 @@ extension EntityResolver {
         Entity(name: "Arijit Singh", kind: .singer, aliases: ["arijit"]),
         Entity(name: "Taylor Swift", kind: .artist, aliases: ["taylor swift"]),
         Entity(name: "The Weeknd", kind: .artist, aliases: ["weeknd", "the weekend"]),
+    ]
+}
+
+extension EntityResolver {
+    /// Telugu films often asked for by name; "songs from <film>" is their soundtrack. Only
+    /// titles that aren't also everyday words, so "jersey" or "hi" never turn into a film.
+    public static let films: [Entity] = [
+        Entity(name: "Pushpa", kind: .film, aliases: ["pushpa", "పుష్ప"]),
+        Entity(name: "RRR", kind: .film, aliases: ["rrr", "ఆర్ఆర్ఆర్"]),
+        Entity(name: "Baahubali", kind: .film, aliases: ["bahubali", "baahubali", "బాహుబలి"]),
+        Entity(name: "Ala Vaikunthapurramuloo", kind: .film, aliases: ["ala vaikunthapurramuloo", "ala vaikuntapuramlo"]),
+        Entity(name: "Arjun Reddy", kind: .film, aliases: ["arjun reddy"]),
+        Entity(name: "Geetha Govindam", kind: .film, aliases: ["geetha govindam", "gita govindam"]),
+        Entity(name: "Magadheera", kind: .film, aliases: ["magadheera", "మగధీర"]),
+        Entity(name: "Rangasthalam", kind: .film, aliases: ["rangasthalam", "రంగస్థలం"]),
+        Entity(name: "Sita Ramam", kind: .film, aliases: ["sita ramam", "seetha ramam"]),
+        Entity(name: "Salaar", kind: .film, aliases: ["salaar", "salar"]),
+        Entity(name: "Devara", kind: .film, aliases: ["devara"]),
     ]
 }
 

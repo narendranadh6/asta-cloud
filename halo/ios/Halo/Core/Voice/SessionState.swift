@@ -58,6 +58,8 @@ public struct SessionState: Hashable, Sendable, Codable {
     public var todayExpiry: [String: Date] = [:]
     /// Artists of the last songs heard, newest last, so Halo doesn't keep returning to them.
     public var recentArtists: [String] = []
+    /// The artist the listener named last ("play Thaman" … "not too much" means Thaman).
+    public var lastMentionedArtist: String?
     public var excludedTracks: [String: Scope] = [:]
     /// Moods to leave out ("no sad songs").
     public var avoidedMoods: Set<MoodTag> = []
@@ -102,6 +104,7 @@ public struct SessionState: Hashable, Sendable, Codable {
             case let .play(source):
                 locked = false
                 seedMode = .similar
+                if case let .entity(.mention(name, .artist)) = source { lastMentionedArtist = Self.key(name) }
                 effects.append(.startPlaying(source))
             case let .transport(action):
                 effects.append(.transport(action))
@@ -143,12 +146,14 @@ public struct SessionState: Hashable, Sendable, Codable {
                 if mode == .elsewhere { locked = false }
                 needsRerank = true
             case let .weightArtist(ref, weight):
-                if let name = Self.artistKey(ref, current) {
+                if let name = artistKey(ref, current) {
+                    if case .mention = ref { lastMentionedArtist = name }
                     artistWeights[name, default: 0] += weight
                     needsRerank = true
                 }
             case let .excludeArtist(ref, scope):
-                if let name = Self.artistKey(ref, current) {
+                if let name = artistKey(ref, current) {
+                    if case .mention = ref { lastMentionedArtist = name }
                     excludedArtists[name] = scope
                     if scope == .today {
                         todayExpiry[name] = Self.nextLocalMidnight(after: now, in: timeZone)
@@ -157,6 +162,11 @@ public struct SessionState: Hashable, Sendable, Codable {
                     if ref == .currentArtist || Self.key(current?.artist ?? "") == name {
                         effects.append(.skipCurrent)
                     }
+                }
+            case let .excludeTrack(_, scope):
+                if let current {
+                    excludedTracks[current.trackID] = scope
+                    effects.append(.skipCurrent)
                 }
             case let .avoid(mood):
                 avoidedMoods.insert(mood)
@@ -311,10 +321,11 @@ public struct SessionState: Hashable, Sendable, Codable {
         return copy
     }
 
-    private static func artistKey(_ ref: EntityRef, _ current: NowPlayingContext?) -> String? {
+    private func artistKey(_ ref: EntityRef, _ current: NowPlayingContext?) -> String? {
         switch ref {
-        case .currentArtist, .currentTrack, .currentAlbum: current.map { key($0.artist) }
-        case let .mention(name, _): key(name)
+        case .currentArtist, .currentTrack, .currentAlbum: current.map { Self.key($0.artist) }
+        case .lastMentioned: lastMentionedArtist ?? current.map { Self.key($0.artist) }
+        case let .mention(name, _): Self.key(name)
         }
     }
 }

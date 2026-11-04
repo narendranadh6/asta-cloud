@@ -112,11 +112,14 @@ public enum EntityRef: Hashable, Sendable, Codable {
     case currentTrack
     /// "this movie", "this album".
     case currentAlbum
+    /// "Not too much" with no name: the artist named last in this session, else the one playing.
+    case lastMentioned
     /// A name to resolve against the catalog ("DSP", "Pushpa"). Never guessed by a model.
     case mention(String, kind: Kind)
 
     public enum Kind: String, Hashable, Sendable, Codable {
-        case artist, soundtrack, any
+        /// `soundtrack` is a film's songs.
+        case artist, soundtrack, album, song, genre, any
     }
 }
 
@@ -193,6 +196,8 @@ public enum SessionOperation: Hashable, Sendable, Codable {
     case diversifyArtists
     /// "No sad songs": leave out songs known to have this mood, this session.
     case avoid(MoodTag)
+    /// "Not this song" / "ee song vaddu": skip it and keep it out for `scope`.
+    case excludeTrack(EntityRef, Scope)
     case rate(Rating)
     case ask(Question)
     case undo
@@ -231,7 +236,7 @@ public struct IntentDelta: Hashable, Sendable, Codable {
     public var changesProfile: Bool {
         operations.contains {
             switch $0 {
-            case .rate(.neverAgain), .rate(.like), .excludeArtist(_, .profile): true
+            case .rate(.neverAgain), .rate(.like), .excludeArtist(_, .profile), .excludeTrack(_, .profile): true
             default: false
             }
         }

@@ -17,14 +17,19 @@ public enum IntentParser {
 
         // 2. The current artist and album.
         let refusing = u.has(VoiceLexicon.refuse) || u.word("not") || u.word("no")
-            || u.has(["dont play", "no more", "stop playing", "skip this"])
+            || u.has(["dont play", "no more", "stop playing", "skip this"]) || u.has(VoiceLexicon.never)
+        let lastingScope: Scope = u.has(VoiceLexicon.never) ? .profile
+            : u.has(VoiceLexicon.today) ? .today : .session
+        if u.has(VoiceLexicon.thisSong) && refusing && !u.has(VoiceLexicon.thisArtist) {
+            ops.append(.excludeTrack(.currentTrack, lastingScope == .profile ? .profile : .session))
+        }
         if u.has(VoiceLexicon.thisArtist) {
             if u.has(["explore"]) {
                 ops.append(.play(.entity(.currentArtist)))
             } else if u.has(VoiceLexicon.less) {
                 ops.append(.weightArtist(.currentArtist, -0.6))
             } else if refusing {
-                ops.append(.excludeArtist(.currentArtist, u.has(VoiceLexicon.today) ? .today : .session))
+                ops.append(.excludeArtist(.currentArtist, lastingScope))
             } else {
                 ops.append(.weightArtist(.currentArtist, 0.6))
             }
@@ -66,6 +71,12 @@ public enum IntentParser {
             let comparative = u.has(["faster", "louder"])
             ops.append(relative || comparative ? .adjustVibe(.energy, step) : .setVibe(.energy, 0.85))
         }
+        if u.has(VoiceLexicon.tempoFast) {
+            ops.append(.setVibe(.tempo, 0.8))
+            if !ops.contains(where: { $0.dimension == .energy }) { ops.append(.setVibe(.energy, 0.85)) }
+        } else if u.has(VoiceLexicon.tempoSlow) {
+            ops.append(.setVibe(.tempo, 0.3))
+        }
         let negated = u.has(VoiceLexicon.refuse) || u.has(["dont", "no", "not", "without"])
         if u.has(VoiceLexicon.sad) {
             ops.append(negated ? .avoid(.sad) : .setVibe(.valence, 0.25))
@@ -103,6 +114,9 @@ public enum IntentParser {
         }
         if u.has(VoiceLexicon.deeper) {
             ops.append(.seedMode(.deeper))
+        } else if u.has(VoiceLexicon.otherSongs) {
+            ops.append(.preserve([.vibe]))
+            ops.append(.play(.vibe))
         } else if u.has(VoiceLexicon.elsewhere) && !u.has(VoiceLexicon.differentArtist) {
             ops.append(.seedMode(.elsewhere))
             ops.append(.adjustVibe(.discovery, 0.3))
@@ -111,23 +125,34 @@ public enum IntentParser {
             ops.append(.play(.similarToCurrent))
         }
 
-        // 7. Named artists and soundtracks (resolved later against the catalog).
+        // 7. Named artists, films, albums, songs and genres (resolved later; never guessed).
+        let hasDimension = ops.contains { $0.dimension != nil }
         if let name = u.capture(downweightPatterns) {
             ops.append(.weightArtist(.mention(name, kind: .artist), -0.6))
         } else if let name = u.capture(excludePatterns) {
-            ops.append(.excludeArtist(.mention(name, kind: .artist),
-                                      u.has(VoiceLexicon.today) ? .today : .session))
-        } else if !ops.contains(where: \.isPlay), let match = u.captureWithPattern(playPatterns) {
-            let soundtrack = u.has(["movie", "film", "cinema", "సినిమా", "soundtrack"])
-                || match.pattern.contains("from")
-            ops.append(.play(.entity(.mention(match.name, kind: soundtrack ? .soundtrack : .any))))
+            ops.append(.excludeArtist(.mention(name, kind: .artist), lastingScope))
+        } else if u.has(VoiceLexicon.lessOfThem) && !u.has(VoiceLexicon.thisArtist) && !hasDimension {
+            ops.append(.weightArtist(.lastMentioned, -0.6))
+        } else if !ops.contains(where: \.isPlay) {
+            if let title = u.captureRaw(songPatterns) {
+                ops.append(.play(.entity(.mention(title, kind: .song))))
+            } else if let album = u.captureRaw(albumPatterns) {
+                ops.append(.play(.entity(.mention(album, kind: .album))))
+            } else if let genre = u.genre, !u.has(VoiceLexicon.thisArtist) {
+                ops.append(.play(.entity(.mention(genre, kind: .genre))))
+            } else if let match = u.captureWithPattern(playPatterns),
+                      !(match.pattern == Self.weakPlayPattern && !ops.isEmpty) {
+                let soundtrack = u.has(["movie", "film", "cinema", "సినిమా", "soundtrack"])
+                    || match.pattern.contains("from")
+                ops.append(.play(.entity(.mention(match.name, kind: soundtrack ? .soundtrack : .any))))
+            }
         }
 
         // 8. "Keep this vibe" versus "same vibe but …".
         let changes = ops.contains { $0.changesDirection }
         if (u.has(VoiceLexicon.lockVibe) || u.has(VoiceLexicon.same)) && !changes {
             ops.append(.lock)
-        } else if u.has(VoiceLexicon.same) && changes {
+        } else if u.has(VoiceLexicon.same) && changes && !ops.contains(.preserve([.vibe])) {
             ops.insert(.preserve([.vibe]), at: 0)
         }
 
@@ -156,7 +181,7 @@ public enum IntentParser {
         if u.has(VoiceLexicon.whatMovie) { return [.ask(.whatMovie)] }
         if u.has(VoiceLexicon.whatAlbum) { return [.ask(.whatAlbum)] }
         if u.has(VoiceLexicon.whenReleased) { return [.ask(.whenReleased)] }
-        if u.has(VoiceLexicon.neverAgain) { return [.rate(.neverAgain)] }
+        if u.has(VoiceLexicon.neverAgain) && !u.has(VoiceLexicon.thisArtist) { return [.rate(.neverAgain)] }
         if u.has(VoiceLexicon.later) { return [.rate(.later)] }
         if u.has(VoiceLexicon.removeNext) { return [.transport(.removeNext)] }
         if u.has(VoiceLexicon.dislike) { return [.rate(.dislike)] }
@@ -174,7 +199,9 @@ public enum IntentParser {
         if u.has(VoiceLexicon.restart) { return .restart }
         if u.has(VoiceLexicon.next) { return .next }
         if u.has(VoiceLexicon.previous) { return .previous }
-        if u.has(VoiceLexicon.resume) || u.has(playVerbs) { return .resume }
+        // A bare "play"/"pettu" resumes, but only when every word is understood: "Amma ki call
+        // cheyyi" must not resume music.
+        if u.has(VoiceLexicon.resume) || (u.has(playVerbs) && u.unknownShare == 0) { return .resume }
         return nil
     }
 
@@ -183,8 +210,11 @@ public enum IntentParser {
     static let playVerbs = ["play", "put on", "give me", "start", "pettu", "పెట్టు", "cheyyi",
                             "చెయ్యి", "vinipinchu", "వినిపించు", "kavali", "కావాలి"]
 
-    /// "too much Anirudh", "less of DSP", "konchem takkuva Thaman".
+    /// "too much Anirudh", "less of DSP", "Anirudh songs ekkuva vaddu", "Anirudh takkuva cheyyi".
     static let downweightPatterns = [
+        "(?:^| )([^ ]+(?: [^ ]+)?) (?:songs |paatalu |patalu |పాటలు )?(?:ekkuva|ఎక్కువ) (?:vaddu|వద్దు)",
+        "(?:^| )([^ ]+(?: [^ ]+)?) (?:songs |paatalu |patalu |పాటలు )?(?:takkuva|తక్కువ) (?:cheyyi|pettu|చెయ్యి|పెట్టు)",
+        "too many ([^,]+?)(?: songs| music|$)",
         "too much ([^,]+?)(?: songs| music| please|$)",
         "less of ([^,]+?)(?: songs| music|$)",
         "less ([^,]+?)(?: songs| music|$)",
@@ -195,19 +225,38 @@ public enum IntentParser {
         "dont play ([^,]+?)(?: songs| music| today| now|$)",
         "no more ([^,]+?)(?: songs| music| today|$)",
         "without ([^,]+?)(?: songs| music|$)",
+        "(?:^|actually |but )no ([^ ,]+(?: [^ ,]+)?)(?: songs| music)?(?: today| now| please)?$",
+        "dont play anything by ([^,]+?)(?: today| now|$)",
+        "nothing by ([^,]+?)(?: today| now|$)",
         "(?:^| )([^ ]+(?: [^ ]+)?) (?:songs |పాటలు |paatalu |patalu )?(?:vaddu|వద్దు)",
+    ]
+
+    /// "play X" with nothing else understood: used only when the sentence has no other request.
+    static let weakPlayPattern = "^play ([^,]+)$"
+
+    /// "play the song X", "X song pettu" (one song, by title).
+    static let songPatterns = [
+        "^play the song ([^,]+)$",
+        "^(?:play )?([^,]+?) (?:song|paata|పాట) (?:pettu|play|vinipinchu|పెట్టు|వినిపించు)$",
+    ]
+
+    /// "play the album X", "X album songs".
+    static let albumPatterns = [
+        "^play (?:the )?album ([^,]+)$",
+        "(?:^| )([^ ]+(?: [^ ]+)?) album (?:songs|paatalu|patalu|పాటలు|pettu|play)",
     ]
 
     /// "play DSP songs", "DSP songs పెట్టు", "songs from Pushpa", "Pushpa movie songs".
     static let playPatterns = [
         "songs from ([^,]+)$",
         "songs of ([^,]+)$",
+        "songs by ([^,]+)$",
         "(?:^| )([^ ]+(?: [^ ]+)?) (?:movie|cinema|సినిమా|film) (?:songs|పాటలు|paatalu)",
         "play ([^,]+?) songs",
         "(?:^| )([^ ]+(?: [^ ]+)?) songs (?:pettu|పెట్టు|play|vinipinchu|వినిపించు)",
         "(?:^| )([^ ]+(?: [^ ]+)?) పాటలు (?:పెట్టు|వినిపించు)",
         "(?:^| )([^ ]+(?: [^ ]+)?) (?:paatalu|patalu) (?:pettu|vinipinchu)",
-        "^play ([^,]+)$",
+        weakPlayPattern,
         // A name followed by a style word: "Thaman mass beats", "Keeravani melodies".
         "^([^ ]+(?: [^ ]+)?) (?:mass|melody|melodies|dance|party|romantic|love|happy|energetic|calm|beats|hits|numbers)(?: |$)",
     ]
@@ -316,6 +365,7 @@ struct Utterance {
 
     /// "90s" → 1990, "2000s" → 2000, "80s" → 1980.
     var decade: Int? {
+        for (year, words) in VoiceLexicon.decadeWords where has(words) { return year }
         guard let match = text.range(of: #"(?:^| )((?:19|20)?[0-9]0)s(?: |$)"#, options: .regularExpression)
         else { return nil }
         let digits = text[match].filter(\.isNumber)
@@ -326,10 +376,11 @@ struct Utterance {
 
     /// How recent "new" means, from the words used.
     var recencyDays: Int {
-        if has(["this week", "yesterday", "ఈ వారం", "నిన్న"]) { return 7 }
-        if has(["this month", "ఈ నెల"]) { return 30 }
+        if has(["yesterday", "ninna", "నిన్న"]) { return 1 }
+        if has(["this week", "ee week", "ఈ వారం"]) { return 7 }
+        if has(["this month", "ee month", "ఈ నెల"]) { return 30 }
         if has(["last few months", "few months"]) { return 120 }
-        if has(["this year", "ఈ సంవత్సరం"]) { return 365 }
+        if has(["this year", "ee year", "ee samvatsaram", "ఈ సంవత్సరం"]) { return 365 }
         return 90
     }
 
@@ -337,8 +388,29 @@ struct Utterance {
     var unknownShare: Double {
         let words = text.split(separator: " ").map(String.init)
         guard !words.isEmpty else { return 1 }
-        let unknown = words.filter { !VoiceLexicon.knownWords.contains($0) && Int($0) == nil }
+        let unknown = words.filter { !VoiceLexicon.isKnown($0) && Int($0) == nil }
         return Double(unknown.count) / Double(words.count)
+    }
+
+    /// The genre named in the sentence, if any.
+    var genre: String? {
+        VoiceLexicon.genres.first { has($0.1) }?.0
+    }
+
+    /// A title as said (songs, albums): only a leading article is dropped, because titles can
+    /// contain any words. Nil when nothing but known command words is left.
+    func captureRaw(_ patterns: [String]) -> String? {
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range = NSRange(text.startIndex..., in: text)
+            guard let match = regex.firstMatch(in: text, range: range), match.numberOfRanges > 1,
+                  let captured = Range(match.range(at: 1), in: text) else { continue }
+            var words = text[captured].split(separator: " ").map(String.init)
+            if words.first == "the" || words.first == "a" { words.removeFirst() }
+            let meaningful = words.filter { !VoiceLexicon.isKnown($0) && !VoiceLexicon.commonWords.contains($0) }
+            if !meaningful.isEmpty { return words.joined(separator: " ") }
+        }
+        return nil
     }
 
     /// "90s", "2010s", "2014": times, never names.
@@ -359,7 +431,8 @@ struct Utterance {
                   let captured = Range(match.range(at: 1), in: text) else { continue }
             let name = text[captured].split(separator: " ")
                 .map(String.init)
-                .filter { !VoiceLexicon.knownWords.contains($0) && !Self.isNumberOrDecade($0) }
+                .filter { !VoiceLexicon.isKnown($0) && !VoiceLexicon.commonWords.contains($0)
+                    && !Self.isNumberOrDecade($0) }
                 .joined(separator: " ")
             if !name.isEmpty { return (name, pattern) }
         }

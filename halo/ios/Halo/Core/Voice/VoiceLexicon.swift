@@ -35,20 +35,30 @@ enum VoiceLexicon {
                           "malli start", "మొదటి నుంచి"]
     static let pause = ["pause", "stop", "aapu", "aapey", "ఆపు", "ఆపేయ్", "ఆపండి"]
     static let resume = ["resume", "continue", "keep playing", "కొనసాగించు"]
-    static let removeNext = ["remove the next", "remove next", "skip the next", "dont play the next"]
+    static let removeNext = ["remove the next", "remove next", "skip the next", "dont play the next",
+                             "take the next", "remove the upcoming", "next song remove",
+                             "next vachche song remove", "next పాట తీసేయ్"]
 
     // MARK: Vibe
 
     static let energyUp = ["energetic", "energy", "upbeat", "pump", "pumped", "party", "dance",
                            "workout", "gym", "fast", "faster", "wake me up", "hype", "high energy",
-                           "josh", "జోష్", "mass", "మాస్", "beat", "loud", "ఎనర్జీ", "జిమ్", "డాన్స్"]
+                           "josh", "జోష్", "mass", "మాస్", "beat", "loud", "ఎనర్జీ", "జిమ్", "డాన్స్",
+                           "husharu", "hushaaru", "హుషారు", "ఉత్సాహ", "utsaham", "జోరు", "lively"]
     static let energyDown = ["calm", "calmer", "relax", "relaxing", "peaceful", "slow", "slower",
                              "chill", "soft", "softer", "soothing", "sleep", "sleepy", "quiet",
-                             "mellow", "melody", "melodies", "prashanthamga", "nemmadiga",
-                             "ప్రశాంతం", "నెమ్మది", "మెలోడీ", "స్లో"]
-    static let happy = ["happy", "happier", "cheerful", "feel good", "feelgood", "bright",
-                        "santhosham", "సంతోషం", "హ్యాపీ"]
-    static let sad = ["sad", "emotional", "heartbreak", "melancholic", "badha", "బాధ"]
+                             "mellow", "melody", "melodies", "prashanthamga", "nemmadiga", "prashantham",
+                             "prashanthamaina", "nemmadi", "melodious", "gentle",
+                             "ప్రశాంత", "నెమ్మది", "మెలోడీ", "స్లో", "మెల్లగా", "శాంత"]
+    static let happy = ["happy", "happier", "cheerful", "feel good", "feelgood", "bright", "joyful",
+                        "santhosham", "santhoshamga", "anandam", "సంతోష", "ఆనంద", "హ్యాపీ"]
+    static let sad = ["sad", "emotional", "heartbreak", "melancholic", "melancholy", "depressing",
+                      "gloomy", "sorrowful", "crying", "badha", "baadha", "vishadam", "vishada",
+                      "బాధ", "విషాద", "దుఃఖ"]
+    /// "Fast beat unna songs": a quick tempo (and energy).
+    static let tempoFast = ["fast beat", "fast beats", "fast tempo", "beat unna", "beats unna", "rhythmic",
+                            "uptempo", "up tempo", "high tempo", "ఫాస్ట్ బీట్", "బీట్ ఉన్న"]
+    static let tempoSlow = ["slow tempo", "slow beat", "low tempo"]
     static let romantic = ["romantic", "love songs", "prema", "ప్రేమ", "రొమాంటిక్"]
     /// "more X", "-er", "ఎక్కువ", "పెంచు": change relative to now instead of setting a value.
     static let more = ["more", "ekkuva", "ఎక్కువ", "penchu", "పెంచు", "increase", "make it"]
@@ -60,31 +70,46 @@ enum VoiceLexicon {
 
     static let newerWords = ["newer", "kothavi", "kottavi", "కొత్తవి"]
     static let newWords = ["new", "latest", "fresh", "లేటెస్ట్", "recent", "recently", "kotha",
-                           "kottha", "కొత్త", "this week",
+                           "kottha", "కొత్త", "this week", "yesterday", "ninna", "నిన్న",
+                           "release aina", "released", "విడుదల", "ee week", "ee month", "ee year",
+                           "ఈ వారం", "ఈ నెల", "ఈ సంవత్సరం",
                            "this month", "this year", "yesterday", "last few months", "just released"]
     static let olderWords = ["older", "paathavi", "pathavi", "పాతవి"]
+    /// Decades said as words ("nineties", "తొంభైల").
+    static let decadeWords: [(Int, [String])] = [
+        (1970, ["seventies", "debbhai", "డెబ్బై"]),
+        (1980, ["eighties", "enabhai", "ఎనభై"]),
+        (1990, ["nineties", "tombhai", "thombhai", "తొంభై"]),
+        (2000, ["two thousands", "2000s"]),
+    ]
     static let oldWords = ["old", "classic", "classics", "old hits", "evergreen", "retro",
                            "vintage", "paatha", "patha", "పాత"]
 
     // MARK: Discovery and direction
 
     static let discovery = ["something new", "new to me", "never heard", "havent heard",
-                            "discover", "discovery", "explore", "something i dont know"]
+                            "discover", "discovery", "explore", "something i dont know",
+                            "teliyani", "teliyanivi", "vinani", "తెలియని", "వినని", "never listened"]
     static let familiar = ["familiar", "songs i know", "my favorites", "my favourites", "known songs",
-                           "తెలిసిన"]
+                           "already know", "telisina", "telisinavi", "తెలిసిన"]
     static let surprise = ["surprise me", "surprise"]
     /// "Anything" means "surprise me" only when nothing else was asked for.
     static let anything = ["anything", "random", "ఏదైనా", "edaina", "emaina", "ఏమైనా"]
     static let similar = ["more like this", "like this", "similar", "same kind", "ilaanti",
                           "ilanti", "ఇలాంటి", "ఇలాంటివి"]
     static let lockVibe = ["keep this vibe", "keep the vibe", "keep it like this", "keep this mood",
-                           "maintain", "perfect", "ide vibe", "ఇదే vibe", "ఇదే"]
+                           "maintain", "perfect", "ide vibe", "ఇదే vibe", "ఇదే", "ilage unchu",
+                           "alage unchu", "ilaage unchu", "ఇలాగే", "ఇలానే", "lock cheyyi", "lock this",
+                           "vibe lock", "mood lock", "ee mood ne", "ee vibe ne"]
     static let same = ["same vibe", "same mood", "same feel", "same energy", "అదే vibe", "ade vibe",
-                       "same"]
+                       "ade mood", "అదే మూడ్", "అదే", "same"]
+    /// "Vere songs": other songs, not another vibe.
+    static let otherSongs = ["vere songs", "vere paatalu", "vere patalu", "other songs", "different songs",
+                             "వేరే పాటలు", "వేరే songs", "new set"]
     static let elsewhere = ["somewhere different", "something different", "change the vibe",
                             "change vibe", "different vibe", "mood change", "take me somewhere",
                             "vere vibe", "వేరే vibe", "వేరే"]
-    static let deeper = ["go deeper", "deeper", "deep cuts"]
+    static let deeper = ["go deeper", "deeper", "deep cuts", "lotuga", "lotu ga", "లోతుగా"]
 
     // MARK: Ratings
 
@@ -95,7 +120,7 @@ enum VoiceLexicon {
     static let like = ["i like this", "i love this", "love this", "add to favorites",
                        "add to favourites", "add this to my favorites", "add this to my favourites",
                        "favorite", "favourite", "save this", "nachindi", "నచ్చింది",
-                       "remember that i like"]
+                       "remember that i like", "save cheyyi", "save chey", "సేవ్ చెయ్యి", "save చెయ్యి"]
     static let dislike = ["i dont like this", "dont like this", "dont like", "nachaledu", "నచ్చలేదు",
                           "less like this", "bad song"]
     static let keep = ["keep this one", "this is good", "this one is good", "good one", "nice",
@@ -104,26 +129,105 @@ enum VoiceLexicon {
     // MARK: Questions
 
     static let whoIsSinging = ["who is singing", "whos singing", "who sings", "who sang",
-                               "who is this", "singer evaru", "evaru padaru", "ఎవరు పాడారు",
-                               "ఎవరు పాడింది", "singer ఎవరు"]
+                               "who is this", "singer evaru", "evaru padaru", "evaru paadaru",
+                               "paadindi evaru", "who is the singer", "whos the singer",
+                               "ఎవరు పాడారు", "ఎవరు పాడింది", "singer ఎవరు", "పాడింది ఎవరు"]
     static let whatMovie = ["what movie", "which movie", "what film", "which film", "ఏ movie",
                             "ye movie", "ఏ సినిమా", "e cinema"]
-    static let whatAlbum = ["what album", "which album"]
+    static let whatAlbum = ["what album", "which album", "e album", "ఏ ఆల్బమ్", "ఏ album", "album lodi",
+                            "ఆల్బమ్ లోది"]
     static let whenReleased = ["when was this released", "when released", "release date",
-                               "eppudu release", "ఎప్పుడు release"]
+                               "eppudu release", "ఎప్పుడు release", "when did this", "when did it come out",
+                               "come out", "came out", "eppudu vachindi", "విడుదలైంది", "ఎప్పుడు విడుదల",
+                               "release ayindi"]
     static let upNext = ["whats next", "what is next", "whats coming next", "what is coming next",
-                         "next enti", "next ఏంటి"]
+                         "next enti", "next ఏంటి", "coming up", "which song is next", "what plays next",
+                         "next e song", "next ఏ పాట", "tarvata e paata", "tarvata ఏ పాట",
+                         "తర్వాత ఏ పాట"]
     static let undo = ["undo", "cancel that", "undo that", "wait no", "go back to before"]
 
     // MARK: Artists
 
-    static let thisArtist = ["this singer", "this artist", "ee singer", "ee artist", "ఈ singer",
-                             "ఈ artist", "ఈ సింగర్"]
+    static let thisArtist = ["this singer", "this artist", "that singer", "that artist", "ee singer",
+                             "ee artist", "ee gayakudu", "ee gayani", "ఈ singer", "ఈ artist", "ఈ సింగర్",
+                             "ఈ గాయకుడు", "ఈ గాయకుడి", "ఈ గాయని", "ఈ ఆర్టిస్ట్", "ee music director"]
+    /// The song that is playing ("ee song vaddu", "not this song").
+    static let thisSong = ["this song", "this one", "ee song", "ee paata", "ee pata", "ఈ పాట", "ఈ song"]
+    /// "Never" for artists and songs: a lasting (profile) change, confirmed when unsure.
+    static let never = ["never", "ever again", "inkeppudu", "ఇంకెప్పుడూ", "forever"]
+    /// "Not too much" with no name: the artist named last.
+    static let lessOfThem = ["not too much", "too much", "less of them", "not so much", "takkuva cheyyi",
+                             "తక్కువ చెయ్యి", "konchem takkuva"]
     static let differentArtist = ["different singer", "different artist", "another singer",
                                   "another artist", "someone else", "vere singer", "వేరే singer",
                                   "వేరే artist"]
-    static let refuse = ["vaddu", "వద్దు", "వద్దులే"]
+    static let refuse = ["vaddu", "వద్దు", "వద్దులే", "pettaku", "pettakandi", "పెట్టకు", "పెట్టకండి"]
     static let today = ["today", "ivala", "ఈరోజు", "ఇవాళ"]
+
+    // MARK: Outside music, nothing to do
+
+    /// Requests Halo doesn't handle. With no music in the sentence they are "unsupported", and
+    /// never fall back to a player action.
+    static let offDomain = [
+        "call", "phone", "dial", "message", "whatsapp", "sms", "text him", "text her", "email", "mail",
+        "alarm", "timer", "remind", "reminder", "weather", "temperature", "forecast", "navigate",
+        "navigation", "directions", "route", "map", "maps", "traffic", "open", "launch", "news",
+        "lyrics", "buy", "order", "pay", "payment", "recharge", "uber", "camera", "selfie", "flashlight",
+        "కాల్", "ఫోన్", "అలారం", "వాతావరణం", "దారి", "మ్యాప్", "మెసేజ్", "లిరిక్స్", "వార్తలు", "vatavaranam",
+    ]
+    /// Filler and hesitation only.
+    static let noise: Set<String> = ["uh", "um", "umm", "uhh", "hmm", "hm", "ah", "aa", "aah", "er", "eh",
+                                     "ok", "okay", "హా", "ఆ", "అ", "ఏం", "అయ్యో", "ayyo", "adi", "అది", "wait"]
+    static let neverMind = ["never mind", "nevermind", "nothing", "forget it", "leave it", "its fine",
+                            "vaddule", "vaddu le", "em ledu", "emi ledu", "emledu", "ఏమీ లేదు",
+                            "వద్దులే", "parledu", "పర్లేదు"]
+    /// "Don't skip", "aapakandi": a control word that is negated means nothing should happen.
+    static let controlNegation = ["dont", "do not", "cheyyaku", "cheyakandi", "cheyyakandi", "aapaku",
+                                  "aapakandi", "ఆపకు", "ఆపకండి", "చేయకు", "చెయ్యకు", "చేయకండి"]
+    static let controlWords = ["skip", "next", "stop", "pause", "aapu", "ఆప", "change", "తర్వాత"]
+
+    // MARK: Genres (played as a genre, never treated as a name)
+
+    static let genres: [(String, [String])] = [
+        ("jazz", ["jazz"]), ("rock", ["rock"]), ("pop", ["pop"]), ("hip hop", ["hip hop", "hiphop", "rap"]),
+        ("classical", ["classical", "శాస్త్రీయ"]), ("carnatic", ["carnatic", "కర్ణాటక"]), ("folk", ["folk", "జానపద"]),
+        ("devotional", ["devotional", "bhakti", "భక్తి"]), ("edm", ["edm"]), ("lofi", ["lofi", "lo fi"]),
+        ("indie", ["indie"]), ("metal", ["metal"]), ("ghazal", ["ghazal"]), ("sufi", ["sufi"]),
+        ("bhajan", ["bhajan", "భజన"]), ("instrumental", ["instrumental"]),
+    ]
+
+    /// Everyday words that are never names on their own: if a captured "name" is only these,
+    /// nothing is captured. Keeps "for the drive" or "lately" from becoming an artist.
+    static let commonWords: Set<String> = [
+        "about", "after", "again", "all", "already", "also", "am", "any", "as", "at", "back", "be",
+        "because", "been", "before", "both", "by", "car", "could", "day", "did", "do", "does", "down",
+        "drive", "driving", "during", "each", "ever", "every", "evening", "get", "go", "going", "good",
+        "got", "had", "has", "have", "he", "her", "here", "him", "his", "home", "how", "if", "im", "in",
+        "into", "ive", "its", "journey", "kind", "lately", "lot", "lots", "many", "may", "maybe", "mine",
+        "morning", "most", "my", "night", "nice", "off", "office", "often", "one", "ones", "only", "our",
+        "out", "over", "own", "put", "right", "ride", "road", "she", "should", "still", "such", "than",
+        "their", "them", "then", "there", "these", "they", "thing", "things", "those", "through", "time",
+        "travel", "trip", "under", "until", "up", "us", "was", "way", "we", "well", "were", "what",
+        "when", "where", "which", "while", "who", "why", "work", "would", "yeah", "yes", "your",
+        "releases", "release", "listen", "hear", "heard", "listening", "playing", "played", "bro", "dude",
+        "kuda", "ayipoyindi", "ayyindi", "unnayi", "undi", "chesi", "ante", "mari", "tho", "nu", "vi",
+        "konni", "chala", "baga", "ippudu", "ikkada", "akkada", "maaku", "meeru", "cheppu", "chudu",
+        "vinu", "kosam", "lekunda", "anni", "inkaa", "malli", "evi", "edi", "emaina",
+        "కూడా", "అయిపోయింది", "ఇప్పుడు", "చాలా", "బాగా", "కోసం", "అన్ని", "ఉన్నాయి", "ఉంది",
+        "ఉండే", "ఉన్న", "గా", "వచ్చిన",
+    ]
+
+    /// Telugu attaches suffixes ("ప్రశాంతమైన", "తొంభైల"), so a Telugu-script word counts as known
+    /// when it contains a known Telugu stem of three or more letters.
+    static func isKnown(_ word: String) -> Bool {
+        if knownWords.contains(word) { return true }
+        guard word.unicodeScalars.contains(where: { (0x0C00...0x0C7F).contains($0.value) }) else { return false }
+        return teluguStems.contains { word.contains($0) }
+    }
+
+    static let teluguStems: [String] = knownWords.filter { word in
+        word.unicodeScalars.count >= 3 && word.unicodeScalars.allSatisfy { (0x0C00...0x0C7F).contains($0.value) }
+    }.sorted()
 
     // MARK: Languages
 
@@ -150,7 +254,9 @@ enum VoiceLexicon {
             discovery, familiar, surprise, anything, similar, lockVibe, same, elsewhere, deeper, neverAgain,
             later, like, dislike, keep, whoIsSinging, whatMovie, whatAlbum, whenReleased, upNext,
             undo, thisArtist, differentArtist, refuse, today, onlyWords, mixWords, alternateWords,
-            mostlyWords, someWords, languages.flatMap(\.1),
+            mostlyWords, someWords, languages.flatMap(\.1), tempoFast, tempoSlow, otherSongs, thisSong,
+            never, lessOfThem, neverMind, controlNegation, genres.flatMap(\.1), decadeWords.flatMap(\.1),
+            Array(noise),
             ["dont", "do", "not", "no", "without", "from", "movie", "cinema", "సినిమా", "album",
              "artist", "singer", "composer", "but", "actually", "instead", "back", "go", "it",
              "will", "would", "like", "vibe", "mood", "feel", "kind", "type", "style", "songs",

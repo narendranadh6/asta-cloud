@@ -35,6 +35,30 @@ public enum VoiceReply {
             ? pick(style, en: "Got it.", mixed: "సరే.", te: "సరే.") : nil
     }
 
+    /// "Did you mean …?" for a change Halo wasn't sure about; answered with yes or no.
+    public static func confirmation(for delta: IntentDelta) -> String {
+        let style = delta.speech
+        if delta.changesProfile {
+            return pick(style, en: "Never play this again?", mixed: "ఇక పెట్టొద్దా?", te: "ఇక పెట్టొద్దా?")
+        }
+        let summary = delta.operations.lazy.compactMap { reply(for: $0, style: style) }.first
+        let text = (summary ?? pick(style, en: "Do that", mixed: "అలా చేయనా", te: "అలా చేయనా"))
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".!"))
+        return text + "?"
+    }
+
+    /// The missing part of an incomplete request.
+    public static func question(for slot: IntentDecision.Slot, style: SpeechStyle) -> String {
+        switch slot {
+        case .artist: pick(style, en: "Which artist?", mixed: "ఏ artist?", te: "ఏ గాయకుడు?")
+        case .language: pick(style, en: "Which language?", mixed: "ఏ language?", te: "ఏ భాష?")
+        case .song: pick(style, en: "Which song?", mixed: "ఏ song?", te: "ఏ పాట?")
+        case .album: pick(style, en: "Which album?", mixed: "ఏ album?", te: "ఏ ఆల్బమ్?")
+        case .film: pick(style, en: "Which movie?", mixed: "ఏ movie?", te: "ఏ సినిమా?")
+        case .something: pick(style, en: "What should I play?", mixed: "ఏం పెట్టాలి?", te: "ఏం పెట్టాలి?")
+        }
+    }
+
     private static func reply(for operation: SessionOperation, style: SpeechStyle) -> String? {
         switch operation {
         case .transport, .rate(.keep), .excludeArtist(.currentArtist, _), .rate(.dislike), .ask:
@@ -75,6 +99,8 @@ public enum VoiceReply {
             return pick(style, en: "Saved for later.", mixed: "Later కి save చేశా.", te: "తర్వాత కోసం.")
         case .rate(.neverAgain):
             return pick(style, en: "Won't play it again.", mixed: "ఇక పెట్టను.", te: "ఇక పెట్టను.")
+        case .excludeTrack:
+            return nil  // obvious: the song changes
         case .avoid(.sad):
             return pick(style, en: "No sad songs.", mixed: "Sad songs వద్దు, okay.",
                         te: "బాధ పాటలు వద్దు.")

@@ -240,50 +240,5 @@ final class IntentCorpusTests: XCTestCase {
     }
 }
 
-/// A compact, stable text form of an operation, used by the corpus.
-func describe(_ operation: SessionOperation) -> String {
-    func ref(_ entity: EntityRef) -> String {
-        switch entity {
-        case .currentArtist: "current"
-        case .currentTrack: "currentTrack"
-        case .currentAlbum: "currentAlbum"
-        case let .mention(name, _): name
-        }
-    }
-    func signed(_ value: Double) -> String { String(format: "%+.2f", value) }
-    func plain(_ value: Double) -> String { String(format: "%.2f", value) }
-    switch operation {
-    case .play(.vibe): return "play"
-    case .play(.surprise): return "play:surprise"
-    case .play(.similarToCurrent): return "play:similar"
-    case let .play(.entity(.mention(name, kind))): return "play:\(kind.rawValue):\(name)"
-    case let .play(.entity(entity)): return "play:\(ref(entity))"
-    case let .transport(action): return "transport:\(action.rawValue)"
-    case let .setVibe(dimension, value): return "set:\(dimension.rawValue):\(plain(value))"
-    case let .adjustVibe(dimension, value): return "adjust:\(dimension.rawValue):\(signed(value))"
-    case let .setLanguage(preference):
-        let secondary = preference.secondary.map { "+\($0.rawValue)" } ?? ""
-        return "lang:\(preference.strategy.rawValue):\(preference.primary.rawValue)\(secondary)"
-    case let .favorLanguage(language): return "favor:\(language.rawValue)"
-    case let .setRecency(recency):
-        switch recency {
-        case .any: return "recency:any"
-        case let .withinDays(days): return "recency:days:\(days)"
-        case let .decade(year): return "recency:decade:\(year)"
-        case .classics: return "recency:classics"
-        }
-    case .newer: return "newer"
-    case .older: return "older"
-    case let .preserve(kept): return "preserve:" + kept.map(\.rawValue).sorted().joined(separator: "+")
-    case .lock: return "lock"
-    case .unlock: return "unlock"
-    case let .seedMode(mode): return "seed:\(mode.rawValue)"
-    case let .weightArtist(entity, weight): return "weight:\(ref(entity)):\(signed(weight))"
-    case let .excludeArtist(entity, scope): return "exclude:\(ref(entity)):\(scope.rawValue)"
-    case .diversifyArtists: return "diversify"
-    case let .avoid(mood): return "avoid:\(mood.rawValue)"
-    case let .rate(rating): return "rate:\(rating.rawValue)"
-    case let .ask(question): return "ask:\(question.rawValue)"
-    case .undo: return "undo"
-    }
-}
+/// The corpus compares operations in their wire form (see `SessionOperation.wire`).
+func describe(_ operation: SessionOperation) -> String { operation.wire }
