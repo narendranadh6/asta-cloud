@@ -46,7 +46,16 @@ final class HoldoutV2EvaluationTests: XCTestCase {
         var share: String { String(format: "%.3f", Double(right) / Double(max(total, 1))) }
     }
 
-    func testHoldoutV2Singles() {
+    func testHoldoutV2Singles() { Self.runSingles(HoldoutV2.singles, tag: "HALO-V2") }
+    func testHoldoutV2Sequences() { Self.runSequences(HoldoutV2.sequences, tag: "HALO-V2") }
+    /// Holdout v3: frozen 2026-11-04 (sha256 4f22e18d…7c3b9a), evaluated once, report only.
+    func testHoldoutV3Singles() { Self.runSingles(HoldoutV3.singles, tag: "HALO-V3") }
+    func testHoldoutV3Sequences() { Self.runSequences(HoldoutV3.sequences, tag: "HALO-V3") }
+
+    static func runSingles(_ singles: [HoldoutV2.Single], tag: String) {
+        var report: [String] = []
+        func print(_ line: String) { report.append(line); Swift.print(line) }
+        defer { save(report, as: tag + "-singles") }
         var exact = Tally(), outcomeTally = Tally(), entityTally = Tally(), negation = Tally()
         var byForm: [String: Tally] = [:], byCategory: [String: Tally] = [:]
         var confusion: [String: Int] = [:]
@@ -54,7 +63,7 @@ final class HoldoutV2EvaluationTests: XCTestCase {
         var clarifyTP = 0, clarifyFP = 0, clarifyFN = 0
         var reliability: [(confidence: Double, correct: Bool)] = []
         let started = DispatchTime.now().uptimeNanoseconds
-        for item in HoldoutV2.singles {
+        for item in singles {
             let decision = IntentInterpreter.interpret(item.text)
             let got = decision.outcome.rawValue
             let ops = decision.delta.operations.map(\.wire).sorted()
@@ -79,43 +88,46 @@ final class HoldoutV2EvaluationTests: XCTestCase {
                 reliability.append((confidence, ok))
             }
             if !ok {
-                print("HALO-V2-MISS [\(item.form)/\(item.category)] \(item.text) → \(got) \(ops) "
+                print("\(tag)-MISS [\(item.form)/\(item.category)] \(item.text) → \(got) \(ops) "
                       + "(expected \(item.outcome) \(expected))")
             }
         }
-        let perUtterance = Double(DispatchTime.now().uptimeNanoseconds - started) / Double(HoldoutV2.singles.count) / 1e6
-        print("HALO-V2 singles=\(exact.total) exact=\(exact.share) outcome=\(outcomeTally.share) "
+        let perUtterance = Double(DispatchTime.now().uptimeNanoseconds - started) / Double(singles.count) / 1e6
+        print("\(tag) singles=\(exact.total) exact=\(exact.share) outcome=\(outcomeTally.share) "
               + "entities=\(entityTally.share) (n=\(entityTally.total)) negation=\(negation.share) (n=\(negation.total))")
-        print("HALO-V2 false_action_rate=\(falseActions.share) (\(falseActions.right) of \(falseActions.total) "
+        print("\(tag) false_action_rate=\(falseActions.share) (\(falseActions.right) of \(falseActions.total) "
               + "unsupported/no_action executed)")
         let precision = Double(clarifyTP) / Double(max(clarifyTP + clarifyFP, 1))
         let recall = Double(clarifyTP) / Double(max(clarifyTP + clarifyFN, 1))
-        print(String(format: "HALO-V2 clarify precision=%.3f recall=%.3f (tp=%d fp=%d fn=%d)",
+        print("\(tag) " + String(format: "clarify precision=%.3f recall=%.3f (tp=%d fp=%d fn=%d)",
                      precision, recall, clarifyTP, clarifyFP, clarifyFN))
         for (form, tally) in byForm.sorted(by: { $0.key < $1.key }) {
-            print("HALO-V2 form=\(form) exact=\(tally.share) n=\(tally.total)")
+            print("\(tag) form=\(form) exact=\(tally.share) n=\(tally.total)")
         }
         for (category, tally) in byCategory.sorted(by: { $0.key < $1.key }) {
-            print("HALO-V2 category=\(category) exact=\(tally.share) n=\(tally.total)")
+            print("\(tag) category=\(category) exact=\(tally.share) n=\(tally.total)")
         }
-        for (cell, count) in confusion.sorted(by: { $0.key < $1.key }) { print("HALO-V2 outcome \(cell) \(count)") }
+        for (cell, count) in confusion.sorted(by: { $0.key < $1.key }) { print("\(tag) outcome \(cell) \(count)") }
         // Calibration reliability on executed commands: confidence vs. observed accuracy.
         var ece = 0.0
         for value in Set(reliability.map(\.confidence)).sorted() {
             let bin = reliability.filter { $0.confidence == value }
             let accuracy = Double(bin.filter(\.correct).count) / Double(bin.count)
             ece += Double(bin.count) / Double(max(reliability.count, 1)) * abs(accuracy - value)
-            print(String(format: "HALO-V2 calibration confidence=%.2f observed=%.3f n=%d", value, accuracy, bin.count))
+            print("\(tag) " + String(format: "calibration confidence=%.2f observed=%.3f n=%d", value, accuracy, bin.count))
         }
-        print(String(format: "HALO-V2 calibration ECE=%.3f", ece))
-        print(String(format: "HALO-V2 latency_ms_per_utterance=%.3f", perUtterance))
+        print("\(tag) " + String(format: "calibration ECE=%.3f", ece))
+        print("\(tag) " + String(format: "latency_ms_per_utterance=%.3f", perUtterance))
         XCTAssertGreaterThanOrEqual(exact.total, 220)
     }
 
-    func testHoldoutV2Sequences() {
+    static func runSequences(_ sequences: [HoldoutV2.Sequence], tag: String) {
+        var report: [String] = []
+        func print(_ line: String) { report.append(line); Swift.print(line) }
+        defer { save(report, as: tag + "-sequences") }
         var tally = Tally()
         var byForm: [String: Tally] = [:]
-        for sequence in HoldoutV2.sequences {
+        for sequence in sequences {
             var state = SessionState(startedAt: Date(timeIntervalSince1970: 1_793_000_000))
             let current = sequence.nowPlaying.map { NowPlayingContext(trackID: "audius:now", artist: $0) }
             for turn in sequence.turns {
@@ -130,11 +142,20 @@ final class HoldoutV2EvaluationTests: XCTestCase {
             let ok = got == expected
             tally.add(ok)
             byForm[sequence.form, default: Tally()].add(ok)
-            if !ok { print("HALO-V2-SEQ-MISS [\(sequence.form)] \(sequence.turns) → \(got) (expected \(expected))") }
+            if !ok { print("\(tag)-SEQ-MISS [\(sequence.form)] \(sequence.turns) → \(got) (expected \(expected))") }
         }
-        print("HALO-V2 sequences=\(tally.total) state_accuracy=\(tally.share)")
-        for (form, t) in byForm.sorted(by: { $0.key < $1.key }) { print("HALO-V2 seq_form=\(form) accuracy=\(t.share) n=\(t.total)") }
+        print("\(tag) sequences=\(tally.total) state_accuracy=\(tally.share)")
+        for (form, t) in byForm.sorted(by: { $0.key < $1.key }) { print("\(tag) seq_form=\(form) accuracy=\(t.share) n=\(t.total)") }
         XCTAssertGreaterThanOrEqual(tally.total, 30)
+    }
+
+    /// Also written to .build/holdout-reports (console output on Linux can drop long runs).
+    static func save(_ lines: [String], as name: String) {
+        let directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent(".build/holdout-reports")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? lines.joined(separator: "\n").write(to: directory.appendingPathComponent(name + ".txt"),
+                                                  atomically: true, encoding: .utf8)
     }
 
     static func summary(_ state: SessionState) -> [String: String] {

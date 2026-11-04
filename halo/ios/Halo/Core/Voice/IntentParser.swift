@@ -16,7 +16,8 @@ public enum IntentParser {
         }
 
         // 2. The current artist and album.
-        let refusing = u.isNegated
+        // "Skip this artist" refuses the artist (skipping a song is a control, handled below).
+        let refusing = u.isNegated || (u.has(["skip"]) && u.has(VoiceLexicon.thisArtist))
         // "Today" is the most specific; "never" / "don't ever … again" make it lasting.
         let lasting = u.has(VoiceLexicon.never) || (u.word("ever") && refusing)
         let lastingScope: Scope = u.has(VoiceLexicon.today) ? .today : lasting ? .profile : .session

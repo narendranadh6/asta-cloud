@@ -6,6 +6,11 @@ Legend: **implemented and tested** = code plus automated tests run in this repos
 **not device-tested** = runs in tests/simulator only; **proposed** = not built; **blocked** =
 needs permission, licence, hardware or a paid service.
 
+Fourth milestone: negation fixed (no wrong-direction action in the development tests; 3 of
+383 on holdout v3 at evaluation time, fixed afterwards); names in any phrasing, questions about
+"next", Telugu stems, nameless follow-ups. Holdout v3: exact 79.9%, false actions 0.0%,
+conversation state 78.4% (details in testing/BENCHMARK_RESULTS.md).
+
 | Context 2.0 item | Status |
 |---|---|
 | Decision layer: execute / clarify / unsupported / no action | Implemented and tested |

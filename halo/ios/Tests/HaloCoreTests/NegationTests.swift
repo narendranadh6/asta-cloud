@@ -95,4 +95,13 @@ final class NegationTests: XCTestCase {
                        ["exclude:Anirudh Ravichander:session", "lang:only:te", "play", "set:energy:0.85"])
         XCTAssertEqual(ops("Konchem calm ga pettu, sad songs vaddu"), ["adjust:energy:-0.12", "avoid:sad"])
     }
+
+    // 8. "Skip" aimed at an artist, and "enough" (chalu / చాలు), refuse.
+    func testSkipArtistAndEnoughRefuse() {
+        XCTAssertEqual(ops("Skip this singer today"), ["exclude:current:today"])
+        XCTAssertEqual(ops("Skip that artist"), ["exclude:current:session"])
+        XCTAssertEqual(ops("Sad paatalu chalu ika"), ["avoid:sad"])
+        XCTAssertEqual(ops("బాధ పాటలు చాలు"), ["avoid:sad"])
+        XCTAssertEqual(ops("Skip"), ["transport:next"])  // skipping a song is still a control
+    }
 }

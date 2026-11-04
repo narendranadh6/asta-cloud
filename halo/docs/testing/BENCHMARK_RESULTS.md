@@ -1,5 +1,61 @@
 # Benchmark results
 
+## 2026-11-04 (fourth milestone): negation fixes and Context follow-ups
+
+### Holdout v3 (final, evaluated once; now retired)
+
+`docs/testing/holdout-v3.json` (sha256 `4f22e18d…7c3b9a`): 383 single commands and 37 sequences,
+written and labeled by a separate agent from the specification only, frozen before evaluation,
+scored by the same evaluator as v2 (`HoldoutV2EvaluationTests.runSingles`). Measured on commit
+2cd3025, after the negation fixes and before anything below that was changed after reading it.
+Two conventions that were ambiguous in v2 were fixed in the v3 specification as product
+decisions: known films use their canonical spelling, and any tempo request also sets energy.
+
+| Measure | v3 | v2 (previous milestone) |
+|---|---|---|
+| Exact intent | **79.9%** | 74.8% |
+| Outcome only | 90.9% | 87.4% |
+| Entities | 86.0% (n=100) | 84.0% |
+| Negation | 86.5% (n=37) | 78.1% |
+| Unsupported / no-action requests acted on | **0.0%** (0 of 46) | 2.3% |
+| Clarification precision / recall | 48.4% / 62.5% | 45.5% / 50.0% |
+| Conversation state | **78.4%** (n=37) | 56.2% |
+| Calibration ECE | 0.066 | 0.102 |
+| Latency (Linux container, debug) | 3.2 ms | 2.6 ms |
+
+The two sets are different and independently written, so the comparison is indicative, not a
+controlled before/after.
+
+By form: English 89.3%, mixed 85.6%, Telugu script 72.3%, romanized 71.9%. Sequences: mixed
+100%, English 80.0%, romanized 66.7%, Telugu 66.7%.
+
+By category: ambiguous artist 100%, question 100%, no action 100%, unsupported 96.3%, current song
+90.0%, relative date 87.5%, rating 86.7%, negative 86.5%, entity (film/album/song/genre) 86.4%,
+artist 85.7%, language 85.7%, noisy 80.0%, transport 77.3%, vibe 77.4%, era 75.0%, discovery
+71.4%, tempo 66.7%, follow-up reference 58.8%, incomplete 25.0%, double negative 21.4%.
+
+Calibration (stated → observed on executed commands): 0.71 → 0.600 (45), 0.91 → 0.881 (42),
+0.96 → 0.897 (203). Still somewhat overconfident.
+
+**Wrong-direction actions remaining at evaluation time: 3 of 383** — "skip this artist for
+today" (more of the artist) and "sad songs inka chalu" / "విషాద పాటలు ఇక చాలు" ("enough sad songs":
+played sad songs). Fixed after the evaluation with new development tests ("skip" aimed at an
+artist refuses it; "chalu/చాలు" negates); the v3 figures above are from before that fix.
+
+Other failure modes (not fixed; for the next milestone with new development tests and holdout v4):
+* **Double negatives and acceptances**: the label convention adds no "play" for "I don't mind sad
+  songs" while Halo adds one whenever "songs" is said (convention to decide); "not bad, keep it",
+  "baagane undi, unchu" are not recognized as "keep"; a leading "kaadu, …" / "కాదు, …" ("no, …")
+  is taken into the name.
+* **Incomplete requests with fillers** ("play songs by... umm", "can you put on uh") resume or do
+  nothing instead of asking; bare "pettaku", "bhasha maarchu" don't ask.
+* **Follow-up words** "vaalla / వాళ్ళ" ("their") and undo phrasings ("go back to how it was",
+  "mundu unnatte cheyyi") are not understood ("go back" is read as previous track).
+* **Telugu**: tempo adjectives (వేగమైన, నెమ్మదైన), "beat ekkuva unna", multi-word Telugu-script
+  names in exclusions (దేవి శ్రీ ప్రసాద్ వద్దు), "inkeppudu" scope with -aku forms.
+
+---
+
 ## 2026-11-04 (third milestone): Context 2.0
 
 ### Holdout v2 (final, evaluated once; now retired)

@@ -183,7 +183,8 @@ enum VoiceLexicon {
 
     /// Whole words that negate a request.
     static let negationWords: Set<String> = ["dont", "never", "not", "no", "without", "avoid", "away", "nothing",
-                                             "neither", "nor", "vaddu", "vaddandi", "vaddhu", "oddu", "asalu"]
+                                             "neither", "nor", "vaddu", "vaddandi", "vaddhu", "oddu", "asalu",
+                                             "chalu", "chaalu", "చాలు"]
     /// Phrases that negate a request.
     static let negationPhrases = ["do not", "no more", "enough of", "stop playing", "dont want", "dont you dare",
                                   "i dont want", "keep away", "వద్దు", "వద్దండి", "పెట్టకు", "పెట్టకండి",
