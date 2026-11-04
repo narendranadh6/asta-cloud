@@ -33,12 +33,26 @@ Limitations: the alias table is small and hand-checked; names said in a pattern 
 doesn't know ("Thaman mass beats") lose the name; Telugu speech recognition is not available
 on the tested simulator, so Telugu-script handling is exercised by text only.
 
-## Halo Flow 2.0 (partly built)
+## Halo Flow 2.0 (built: `session-v3`)
 
-Built: session-aware candidates, hard constraints, valence/energy/tempo/language/recency/
-discovery/seed/artist features, artist cap 2, language interleaving, Flow-band-only
-replacement, on-device re-ranking when offline. Next: replay and session-duration signals,
-personalization reset in the Drive UI, a measured offline replay of the weights.
+* **Hard constraints first**, on server and phone: rights (`SourcePolicyRightsResolver`: full
+  stream, authorised source, Jamendo licence), not already played, excluded tracks and artists
+  (credit word match), "today" exclusions until local midnight, avoided moods, "only" languages.
+* **Score**: rank, energy, tempo, valence, language, recency, discovery, seed, artist weights
+  (unchanged from v2). Artist cap 2 per response.
+* **Spacing** (new): never the same artist twice in a row, or straight after the song just
+  heard, when a song within 0.5 of the score can go there instead. Halves back-to-back repeats
+  in the benchmark at no measurable relevance cost.
+* **Listening signals** (`SessionState.record`): early skip (< 30 s or < 25 %) −0.1 and that
+  song stays out for the session; late skip −0.03; completion +0.05; replay +0.15. Inferred
+  weights are capped at ±0.4, kept apart from explicit ones (explicit always wins), ignored
+  while the vibe is locked, and never written to the profile. A short skip is never a dislike.
+* **"Not today"** ends at the next local midnight computed with an explicit `TimeZone` and the
+  calendar (DST-safe), stored on the device only (`TodayExclusionStore`).
+* **Reset**: Drive "Reset" forgets the drive's steering, signals and today's exclusions and keeps
+  playing; Taste "Reset taste memory" also clears Drive's on-device memory.
+* **Queue**: Halo only replaces its own Flow band; songs the listener queued stay first through
+  every change (tested over a five-command drive).
 
 ## Halo Recall (not started)
 

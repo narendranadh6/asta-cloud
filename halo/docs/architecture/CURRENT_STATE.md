@@ -59,10 +59,11 @@ There is no Android code (`find . -name "*.kt"` finds nothing).
   remaining upload is authorised. Licensed Telugu film music needs a licensed provider.
 * Speech: on the CI simulator `te-IN` recognition does not exist; `en-IN` exists but is
   server-based there (HALO-SPIKE lines, CI run 39711685970). Real devices are untested.
-* The CI UI-test backend log shows a `FOREIGN KEY constraint failed` inserting
-  `user_preferences` during registration (run 39711685970). Requests still succeed (201); not
-  yet investigated.
-* Session `today` scope ends with the drive; it isn't persisted until midnight yet.
+* ~~The CI UI-test backend log shows a `FOREIGN KEY constraint failed` inserting
+  `user_preferences` during registration.~~ Fixed 2026-11-04: file SQLite shared one connection
+  (`StaticPool`) across requests, so a concurrent request's rollback undid a sign-up's user.
+  Regression test `tests/test_database.py`.
+* ~~Session `today` scope ends with the drive.~~ Now kept on the device until local midnight.
 
 ## 6. Test coverage (baseline, 2026-11-04)
 

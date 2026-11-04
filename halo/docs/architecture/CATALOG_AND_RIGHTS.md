@@ -15,12 +15,27 @@ a paid product, territory restrictions, and whether every Audius upload is autho
 catalog audit shows many Telugu film songs on Audius are unauthorised re-uploads; the filter
 removes obvious ones by name patterns, which is a mitigation, not proof of rights.
 
+## Rights gate (built)
+
+`app/services/catalog/rights.py`: `SourcePolicyRightsResolver.decide(track)` allows only full
+streams from authorised sources (Audius under its API terms; Jamendo with a CC licence) and
+refuses previews, missing streams and any unknown source by default. Session candidates apply
+it before scoring, so no weight, client field or model output can bring a refused track back.
+`OpenCatalogEntitlements` allows Audius/Jamendo and refuses anything needing a subscription.
+
+## Provider interfaces (built as interfaces; adapters later)
+
+`app/services/catalog/providers.py`: `MusicSearchProvider`, `MusicMetadataProvider`,
+`MusicPlaybackProvider`, `MusicCatalogProvider`, `PlaybackDescriptor` (`stream_url` for sources
+the app streams; `device_player` for a provider's own on-device player, e.g. MusicKit, where
+Halo never touches audio) and `PlaybackRouter` (rights → entitlement → player descriptor).
+Only `StreamUrlPlayback` exists; MusicKit and HALO-owned adapters are not implemented and are
+refused by the router until they are, with their rights basis and entitlement check.
+
 ## Target (later)
 
-Interfaces: `MusicCatalogProvider`, `MusicSearchProvider`, `MusicPlaybackProvider`,
-`MusicRightsResolver`, `MusicEntitlementChecker`, `PlaybackRouter`. Every track will carry a
-canonical identity, provider identity, rights status, territory and entitlement requirements;
-the router refuses playback without a positive rights check.
+Every track will carry a canonical identity, provider identity, rights status, territory and
+entitlement requirements; the router refuses playback without a positive rights check.
 
 * **Apple Music (MusicKit):** deferred by the owner. Constraints to verify first: subscriber-only
   full playback through `ApplicationMusicPlayer`, no audio access or proxying, developer token

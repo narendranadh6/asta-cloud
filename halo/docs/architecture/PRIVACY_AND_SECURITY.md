@@ -6,6 +6,8 @@
 | Microphone audio | Never stored by Halo | Only while the Talk button is active |
 | Transcripts | Phone memory for the current turn | Not stored; may be sent to the server LLM fallback only when that ships, with consent |
 | Long-term preferences, feedback | Server, only with personalization consent | Deletable (`DELETE /me`) |
+| "Not today" artists | Phone (UserDefaults), names and end times only | Until local midnight, or Reset |
+| Inferred listening signals | Phone memory, inside the drive's session | End of the drive, or Reset |
 | Provider keys | Server environment variables | Never in the app or repo |
 | Device token | iOS Keychain | Until account deletion |
 
@@ -19,5 +21,4 @@ Rules in code:
   are bounded (Pydantic limits on every session field).
 * No language model can bypass catalog validation: playable tracks only come from sources.
 
-Open items: persist `today` exclusions safely; an explicit consent screen before any server
-speech or LLM fallback; investigate the registration foreign-key error seen in the CI log.
+Open items: an explicit consent screen before any server speech or LLM fallback.
