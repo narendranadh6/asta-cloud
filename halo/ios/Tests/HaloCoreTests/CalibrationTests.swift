@@ -12,15 +12,12 @@ import XCTest
 final class CalibrationTests: XCTestCase {
     struct Sample { var evidence: Double; var correct: Bool }
 
+    /// Every development command that reached the confidence step (the same pool the evidence
+    /// weights are tuned on): right means the label says execute and the operations match.
     static func devSamples() -> [Sample] {
-        var labeled: [(String, [String])] = IntentCorpusTests.corpus.map { ($0.text, $0.expected) }
-        labeled += HoldoutV1.singles.map { ($0.text, $0.expected.map(HoldoutEvaluationTests.normalize)) }
-        return labeled.compactMap { text, expected in
-            let decision = IntentInterpreter.interpret(text)
-            // Only decisions that reached the confidence step are calibrated.
-            guard decision.reason == .understood || decision.reason == .lowConfidence else { return nil }
-            let got = decision.delta.operations.map(\.wire).sorted()
-            return Sample(evidence: decision.evidence, correct: got == expected.sorted())
+        EvidenceTuningTests.pool().compactMap { item in
+            guard item.decision.features != nil else { return nil }
+            return Sample(evidence: item.decision.evidence, correct: item.rightIfExecuted)
         }
     }
 
@@ -35,7 +32,8 @@ final class CalibrationTests: XCTestCase {
         }
         var blocks: [(value: Double, weight: Double, size: Int)] = []
         for bin in 0..<bins {
-            let value: Double = (correct[bin] + 1) / (total[bin] + 2)
+            // No data in a bin means no evidence Halo is right there: 0, so it always asks.
+            let value: Double = total[bin] == 0 ? 0 : (correct[bin] + 1) / (total[bin] + 2)
             let weight: Double = total[bin] + 2
             blocks.append((value: value, weight: weight, size: 1))
         }

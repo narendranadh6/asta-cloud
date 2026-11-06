@@ -42,6 +42,8 @@ public struct IntentDecision: Hashable, Sendable {
     /// Estimated chance the interpretation is right, from the calibration table; nil when the
     /// outcome didn't need one.
     public var calibratedConfidence: Double?
+    /// What the evidence score was computed from (only for decisions that reached the gate).
+    public var features: EvidenceFeatures? = nil
 
     public static func recognitionFailed() -> IntentDecision {
         IntentDecision(outcome: .noAction, reason: .recognitionFailed, delta: IntentDelta(operations: []),
@@ -50,7 +52,7 @@ public struct IntentDecision: Hashable, Sendable {
 }
 
 /// How risky a change is, which sets how sure Halo must be before acting without asking.
-public enum ActionRisk: Int, Comparable, Sendable {
+public enum ActionRisk: Int, Comparable, Sendable, Hashable {
     /// Transport, questions: easy to see and undo.
     case low
     /// Session changes (vibe, language, artists for this drive).
@@ -72,13 +74,26 @@ public enum ActionRisk: Int, Comparable, Sendable {
     }
 
     /// Minimum calibrated confidence to act without asking.
-    var required: Double {
+    var required: Double { required(GateThresholds.current) }
+
+    func required(_ thresholds: GateThresholds) -> Double {
         switch self {
-        case .low: 0.5
-        case .session: 0.6
-        case .lasting: 0.85
+        case .low: thresholds.low
+        case .session: thresholds.session
+        case .lasting: thresholds.lasting
         }
     }
+}
+
+/// Confidence needed per risk before acting without asking.
+public struct GateThresholds: Hashable, Sendable {
+    public var low: Double
+    public var session: Double
+    public var lasting: Double
+
+    /// Session 0.5 (was 0.6) chosen by cross-validation on development data, 2026-11-06; lasting
+    /// changes keep the stricter 0.85.
+    public static let current = GateThresholds(low: 0.5, session: 0.5, lasting: 0.85)
 }
 
 /// Turns an utterance into an `IntentDecision`: parse (deterministic), resolve entities, then
@@ -157,19 +172,34 @@ public enum IntentInterpreter {
                                   evidence: 0, calibratedConfidence: nil)
         }
 
-        let evidence = IntentEvidence.score(u, delta: delta, unresolvedNames: resolved.unresolved,
-                                            recognizerConfidence: recognizerConfidence,
-                                            knownNameWords: resolved.knownWords)
-        let calibrated = IntentCalibration.confidence(forEvidence: evidence)
-        delta.confidence = calibrated
-        let risk = ActionRisk.of(delta)
-        var decision = IntentDecision(outcome: .execute, reason: .understood, delta: delta, utterance: text,
-                                      evidence: evidence, calibratedConfidence: calibrated)
-        if calibrated < risk.required {
-            decision.outcome = .clarify
-            decision.reason = .lowConfidence
-        }
-        return decision
+        let dimensions = delta.operations.compactMap(\.dimension)
+        let features = EvidenceFeatures(
+            unknownShare: u.unknownShare(knownNames: resolved.knownWords),
+            unresolvedNames: resolved.unresolved,
+            conflictingDimensions: Set(dimensions).count < dimensions.count,
+            operationCount: delta.operations.count,
+            recognizerConfidence: recognizerConfidence,
+            risk: ActionRisk.of(delta))
+        let undecided = IntentDecision(outcome: .execute, reason: .understood, delta: delta, utterance: text,
+                                       evidence: 0, calibratedConfidence: nil, features: features)
+        return gate(undecided)
+    }
+
+    /// Scores the evidence, maps it to confidence, and asks instead of acting when the
+    /// confidence is below what the change's risk requires. Decisions without features pass.
+    public static func gate(_ decision: IntentDecision, weights: EvidenceWeights = .current,
+                            table: [Double] = IntentCalibration.table,
+                            thresholds: GateThresholds = .current) -> IntentDecision {
+        guard let features = decision.features else { return decision }
+        var gated = decision
+        gated.evidence = weights.score(features)
+        let calibrated = IntentCalibration.confidence(forEvidence: gated.evidence, table: table)
+        gated.calibratedConfidence = calibrated
+        gated.delta.confidence = calibrated
+        let ok = calibrated >= features.risk.required(thresholds)
+        gated.outcome = ok ? .execute : .clarify
+        gated.reason = ok ? .understood : .lowConfidence
+        return gated
     }
 
     /// The longest run of one to three words that names a known or shared artist or film.
@@ -264,16 +294,39 @@ public enum IntentInterpreter {
 
 /// The deterministic evidence behind a parse. Higher means the words left little room for
 /// doubt. It is a score, not a probability: `IntentCalibration` maps it to one.
-public enum IntentEvidence {
-    static func score(_ u: Utterance, delta: IntentDelta, unresolvedNames: Int,
-                      recognizerConfidence: Double, knownNameWords: Set<String> = []) -> Double {
+public struct EvidenceFeatures: Hashable, Sendable {
+    public var unknownShare: Double
+    public var unresolvedNames: Int
+    public var conflictingDimensions: Bool
+    public var operationCount: Int
+    public var recognizerConfidence: Double
+    public var risk: ActionRisk
+}
+
+/// Penalties that turn evidence features into a 0…1 score. `current` is chosen by
+/// cross-validation on development data (`EvidenceTuningTests`, run with HALO_TUNE=1).
+public struct EvidenceWeights: Hashable, Sendable {
+    public var unknownShare: Double
+    public var unresolvedName: Double
+    public var conflict: Double
+    public var manyOperations: Double
+    public var recognizer: Double
+
+    /// unknownShare 0.45 (was 0.6) chosen by 5-fold cross-validation on 1,329 development
+    /// commands (corpus + retired holdouts v1–v4): CV exact accuracy 88.5% → 89.2%, no fold worse.
+    /// Conflict and many-operations penalties made no difference and stay as they were. The
+    /// recognizer penalty can't be tuned on text (confidence is always 1 there); it is 0.8 so a
+    /// barely-heard command (recognizer confidence 0.1) always asks.
+    public static let current = EvidenceWeights(unknownShare: 0.45, unresolvedName: 0.12, conflict: 0.2,
+                                                manyOperations: 0.1, recognizer: 0.8)
+
+    public func score(_ f: EvidenceFeatures) -> Double {
         var score = 1.0
-        score -= 0.6 * u.unknownShare(knownNames: knownNameWords)
-        score -= 0.12 * Double(unresolvedNames)
-        let dimensions = delta.operations.compactMap(\.dimension)
-        if Set(dimensions).count < dimensions.count { score -= 0.2 }  // e.g. energy up and down
-        if delta.operations.count > 4 { score -= 0.1 }
-        score -= 0.5 * (1 - min(max(recognizerConfidence, 0), 1))
+        score -= unknownShare * f.unknownShare
+        score -= unresolvedName * Double(f.unresolvedNames)
+        if f.conflictingDimensions { score -= conflict }  // e.g. energy up and down
+        if f.operationCount > 4 { score -= manyOperations }
+        score -= recognizer * (1 - min(max(f.recognizerConfidence, 0), 1))
         return min(max(score, 0), 1)
     }
 }
