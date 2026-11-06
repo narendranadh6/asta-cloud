@@ -112,7 +112,8 @@ final class IntentCorpusTests: XCTestCase {
         .init(text: "DSP songs pettu", expected: ["play:artist:Devi Sri Prasad"], form: .romanized),
         .init(text: "Thaman mass beats", expected: ["play:artist:S. Thaman", "set:energy:0.85"], form: .romanized),
         .init(text: "Sad songs vaddu", expected: ["avoid:sad"], form: .romanized),
-        .init(text: "Telugu songs matrame", expected: ["play", "lang:only:te"], form: .romanized),
+        // A restriction without a play verb sets the rule but doesn't start music (decided 2026-11-06).
+        .init(text: "Telugu songs matrame", expected: ["lang:only:te"], form: .romanized),
         .init(text: "Inka energy penchu", expected: ["adjust:energy:+0.20"], form: .romanized),
         .init(text: "Skip cheyyi", expected: ["transport:next"], form: .romanized),
         .init(text: "Aapu", expected: ["transport:pause"], form: .romanized),
@@ -148,7 +149,7 @@ final class IntentCorpusTests: XCTestCase {
         .init(text: "బాధ పాటలు వద్దు", expected: ["avoid:sad"], form: .telugu),
         .init(text: "దేవిశ్రీ పాటలు పెట్టు", expected: ["play:artist:Devi Sri Prasad"], form: .telugu),
         .init(text: "మళ్ళీ పెట్టకు", expected: ["rate:neverAgain"], form: .telugu),
-        .init(text: "ఇంగ్లీష్ పాటలు మాత్రమే", expected: ["play", "lang:only:en"], form: .telugu),
+        .init(text: "ఇంగ్లీష్ పాటలు మాత్రమే", expected: ["lang:only:en"], form: .telugu),
 
         // Mixed Telugu and English
         .init(text: "Telugu lo energetic songs pettu", expected: ["play", "set:energy:0.85", "lang:only:te"], form: .mixed),

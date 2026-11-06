@@ -62,9 +62,10 @@ final class NegationTests: XCTestCase {
 
     // 5. Things that look negative but aren't.
     func testFalseNegations() {
-        XCTAssertEqual(ops("I don't mind sad songs"), ["play", "set:valence:0.25"])
+        // Accepting a mood sets it without starting music (decided 2026-11-06).
+        XCTAssertEqual(ops("I don't mind sad songs"), ["set:valence:0.25"])
         XCTAssertEqual(ops("No, play happy songs"), ["play", "set:valence:0.80"])
-        XCTAssertEqual(ops("Sad songs parledu"), ["play", "set:valence:0.25"])
+        XCTAssertEqual(ops("Sad songs parledu"), ["set:valence:0.25"])
         XCTAssertEqual(decision("Don't stop the music").reason, .negatedControl)
         XCTAssertEqual(decision("Next song pettaku").reason, .negatedControl)
     }

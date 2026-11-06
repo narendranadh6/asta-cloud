@@ -122,7 +122,8 @@ public enum IntentInterpreter {
         if !delta.operations.contains(where: \.namesSomething), let name = knownName(in: u, resolver: resolver),
            u.isNegated || u.has(IntentParser.playVerbs) || u.has(VoiceLexicon.requestCues) || u.text == name {
             let ref = EntityRef.mention(name, kind: .any)
-            let scope: Scope = u.has(VoiceLexicon.today) ? .today : .session
+            let lasting = u.has(VoiceLexicon.never) || (u.word("ever") && u.isNegated)
+            let scope: Scope = u.has(VoiceLexicon.today) ? .today : lasting ? .profile : .session
             delta.operations.insert(u.isNegated ? .excludeArtist(ref, scope) : .play(.entity(ref)), at: 0)
             delta.operations.removeAll { $0 == .play(.vibe) || $0 == .transport(.resume) }
         }
@@ -188,14 +189,25 @@ public enum IntentInterpreter {
 
     /// "play songs by", "set the language to", "don't play": a request with its object missing.
     static func incompleteSlot(_ u: Utterance) -> IntentDecision.Slot? {
-        let text = u.text
+        // Trailing fillers don't complete a request: "play songs by… umm".
+        var words = u.text.split(separator: " ").map(String.init)
+        while let last = words.last, VoiceLexicon.noise.contains(last) || ["hmm", "uh", "um", "umm", "aa"].contains(last) {
+            words.removeLast()
+        }
+        let text = words.joined(separator: " ")
+        if u.has(VoiceLexicon.languageChange) && u.languages.isEmpty { return .language }
+        if words.count == 1, let only = words.first, !VoiceLexicon.controlNegation.contains(only),
+           Utterance.isNegativeImperative(only) || ["పెట్టకు", "వినిపించకు", "పెట్టకండి"].contains(only) {
+            return .artist
+        }
         let endings: [(String, IntentDecision.Slot)] = [
             (" by", .artist), (" songs of", .artist), (" songs from", .film), ("language to", .language),
+            ("dont put on", .artist), (" put on", .something), ("from the movie", .film),
             ("switch to", .language), ("play the song", .song), ("play song", .song), ("play the album", .album),
             ("play album", .album), ("from the movie", .film), ("from the film", .film),
         ]
         for (ending, slot) in endings where text.hasSuffix(ending) { return slot }
-        if ["dont play", "do not play", "no more", "dont play any", "play some", "put on some"].contains(text) {
+        if ["dont play", "do not play", "no more", "dont play any", "dont put on", "play some", "put on some"].contains(text) {
             return text.hasPrefix("play") || text.hasPrefix("put") ? .something : .artist
         }
         return nil
@@ -222,6 +234,13 @@ public enum IntentInterpreter {
                     return ref
                 default:
                     continue
+                }
+            }
+            // A known name at the end of the capture ("ivala thaman", "ఈరోజు దేవి శ్రీ ప్రసాద్").
+            for drop in 1..<max(words.count, 1) {
+                if case let .known(entity) = resolver.resolve(words.dropFirst(drop).joined(separator: " ")) {
+                    knownWords.formUnion(words.dropFirst(drop))
+                    return .mention(entity.name, kind: entity.kind == .film ? .soundtrack : .artist)
                 }
             }
             unresolved += 1

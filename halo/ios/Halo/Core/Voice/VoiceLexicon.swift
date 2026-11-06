@@ -48,7 +48,7 @@ enum VoiceLexicon {
     static let energyDown = ["calm", "calmer", "relax", "relaxing", "peaceful", "slow", "slower",
                              "chill", "soft", "softer", "soothing", "sleep", "sleepy", "quiet",
                              "mellow", "melody", "melodies", "prashanthamga", "nemmadiga", "prashantham",
-                             "prashanthamaina", "nemmadi", "melodious", "gentle",
+                             "prashanthamaina", "nemmadi", "nemmadaina", "melodious", "gentle", "నెమ్మద",
                              "ప్రశాంత", "నెమ్మది", "మెలోడీ", "స్లో", "మెల్లగా", "శాంత"]
     static let happy = ["happy", "happier", "cheerful", "feel good", "feelgood", "bright", "joyful",
                         "santhosham", "santhoshamga", "anandam", "సంతోష", "ఆనంద", "హ్యాపీ"]
@@ -57,7 +57,8 @@ enum VoiceLexicon {
                       "బాధ", "విషాద", "దుఃఖ"]
     /// "Fast beat unna songs": a quick tempo (and energy).
     static let tempoFast = ["fast beat", "fast beats", "fast tempo", "beat unna", "beats unna", "rhythmic",
-                            "uptempo", "up tempo", "high tempo", "ఫాస్ట్ బీట్", "బీట్ ఉన్న"]
+                            "uptempo", "up tempo", "high tempo", "beat heavy", "beat ekkuva", "vegamga", "vegamaina",
+                            "ఫాస్ట్ బీట్", "బీట్ ఉన్న", "బీట్ ఎక్కువ", "వేగ"]
     static let tempoSlow = ["slow tempo", "slow beat", "low tempo"]
     static let romantic = ["romantic", "love songs", "prema", "ప్రేమ", "రొమాంటిక్"]
     /// "more X", "-er", "ఎక్కువ", "పెంచు": change relative to now instead of setting a value.
@@ -124,7 +125,8 @@ enum VoiceLexicon {
     static let dislike = ["i dont like this", "dont like this", "dont like", "nachaledu", "నచ్చలేదు",
                           "less like this", "bad song"]
     static let keep = ["keep this one", "this is good", "this one is good", "good one", "nice",
-                       "bagundi", "బాగుంది", "super", "awesome", "yeah this is good"]
+                       "bagundi", "బాగుంది", "super", "awesome", "yeah this is good", "keep it", "not bad",
+                       "bagane", "baagane", "బాగానే", "idi bagundi"]
 
     // MARK: Questions
 
@@ -144,7 +146,10 @@ enum VoiceLexicon {
                          "next enti", "next ఏంటి", "coming up", "which song is next", "what plays next",
                          "next e song", "next ఏ పాట", "tarvata e paata", "tarvata ఏ పాట",
                          "తర్వాత ఏ పాట"]
-    static let undo = ["undo", "cancel that", "undo that", "wait no", "go back to before"]
+    static let undo = ["undo", "cancel that", "undo that", "wait no", "go back to before", "the way it was",
+                       "how it was", "revert", "take that back", "reverse that", "mundu laaga", "mundu laage",
+                       "mundu unnatte", "antaku mundu", "paatha settings", "previous settings", "అంతకు ముందు",
+                       "ముందు లాగా", "ముందు ఉన్నట్టే", "మార్పు రద్దు"]
 
     // MARK: Artists
 
@@ -158,11 +163,23 @@ enum VoiceLexicon {
     static let never = ["never", "ever again", "inkeppudu", "ఇంకెప్పుడూ", "forever"]
     /// "Not too much" with no name: the artist named last.
     static let lessOfThem = ["not too much", "too much", "not too many", "too many", "less of them", "not so much",
+                             "not so many", "takkuva pettu", "తక్కువ పెట్టు",
                              "not so often", "fewer", "takkuva cheyyi", "తక్కువ చెయ్యి", "konchem takkuva",
                              "ekkuva vaddu", "ekkuva pettaku", "ఎక్కువ వద్దు", "ఎక్కువ పెట్టకు"]
     /// "Released", "came out": about time, never names.
     static let releaseWords = ["vachina", "vachinavi", "vachchina", "vachindi", "vastundi", "vache", "vachche",
                                "aina", "ayina", "released", "విడుదలైన", "విడుదలైంది", "వచ్చిన", "వచ్చింది", "వస్తుంది"]
+    /// "I don't mind …", "… aina parledu", "… are fine": accepting a mood, not asking to play.
+    static let acceptances = ["dont mind", "wouldnt mind", "would not mind", "do not mind", "aina parledu",
+                              "aina okay", "ayina parledu", "are fine", "is fine", "fine too", "okay too", "ok too",
+                              "no problem", "parledu", "పర్లేదు", "అయినా పర్లేదు"]
+    /// "Only Telugu", "from now on": a rule for the session, not a request to start.
+    static let restrictions = ["only", "matrame", "మాత్రమే", "from now on", "ika nunchi", "ఇక నుంచి"]
+    /// "Switch the language" with no language named.
+    static let languageChange = ["change the language", "change language", "language marchu", "language maarchu",
+                                 "language ni marchu", "language ni change", "bhasha marchu", "bhasha maarchu",
+                                 "bhasha ni maarchu", "భాష మార్చు", "భాష మార్చండి", "భాషని మార్చు", "switch the language"]
+
     /// Words that start like a command word but mean something else ("news" isn't "new").
     static let falsePrefixes: Set<String> = ["news", "newspaper", "newsletter", "classical", "classically",
                                              "massive", "massively", "massage", "nextdoor", "stopwatch",
@@ -248,6 +265,7 @@ enum VoiceLexicon {
         "కూడా", "అయిపోయింది", "ఇప్పుడు", "చాలా", "బాగా", "కోసం", "అన్ని", "ఉన్నాయి", "ఉంది",
         "ఉండే", "ఉన్న", "గా", "వచ్చిన", "though", "tho", "ra", "raa", "yaar", "yar", "asalu", "assalu", "gaari",
         "garu", "gaaru", "andi", "kaani", "anyway", "pls", "unna", "unnavi", "అసలు", "గారి", "గారు",
+        "vaalla", "vaallavi", "valla", "their", "them", "those", "వాళ్ళ", "వాళ్ళవి", "kaadu", "కాదు", "nah",
     ]
 
     /// Telugu attaches suffixes ("ప్రశాంతమైన", "తొంభైల"), so a Telugu-script word counts as known
@@ -306,7 +324,8 @@ enum VoiceLexicon {
             later, like, dislike, keep, whoIsSinging, whatMovie, whatAlbum, whenReleased, upNext,
             undo, thisArtist, differentArtist, refuse, today, onlyWords, mixWords, alternateWords,
             mostlyWords, someWords, languages.flatMap(\.1), tempoFast, tempoSlow, otherSongs, thisSong,
-            never, lessOfThem, neverMind, controlNegation, releaseWords, requestCues, questionWords, nextWords, genres.flatMap(\.1), decadeWords.flatMap(\.1),
+            never, lessOfThem, neverMind, controlNegation, releaseWords, requestCues, questionWords, nextWords,
+            acceptances, restrictions, languageChange, genres.flatMap(\.1), decadeWords.flatMap(\.1),
             Array(noise),
             ["dont", "do", "not", "no", "without", "from", "movie", "cinema", "సినిమా", "album",
              "artist", "singer", "composer", "but", "actually", "instead", "back", "go", "it",

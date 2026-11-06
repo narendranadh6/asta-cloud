@@ -86,8 +86,10 @@ public enum IntentParser {
             ops.append(relative || comparative ? .adjustVibe(.energy, step) : .setVibe(.energy, 0.85))
         }
         if u.has(VoiceLexicon.tempoFast) {
+            // A fast-tempo request is absolute: "beat ekkuva" isn't "more energy".
+            ops.removeAll { $0.dimension == .energy }
             ops.append(.setVibe(.tempo, 0.8))
-            if !ops.contains(where: { $0.dimension == .energy }) { ops.append(.setVibe(.energy, 0.85)) }
+            ops.append(.setVibe(.energy, 0.85))
         } else if u.has(VoiceLexicon.tempoSlow) {
             ops.append(.setVibe(.tempo, 0.3))
         }
@@ -173,8 +175,11 @@ public enum IntentParser {
         // 9. A request ("play …", "… songs పెట్టు") starts new music; a bare change re-ranks.
         let starts = ops.contains { $0.startsMusic }
         // "No English songs" sets a rule; it isn't a request to start something.
-        let onlyARule = languageOnlyFromRefusal && !u.has(playVerbs)
-            && ops.filter(\.startsMusic).count == 1
+        // Accepting a mood ("I don't mind sad songs") or setting a rule ("Telugu songs matrame")
+        // changes the session but doesn't start music unless a play verb says so.
+        let onlyARule = (languageOnlyFromRefusal && ops.filter(\.startsMusic).count == 1
+                         || u.has(VoiceLexicon.acceptances) || u.has(VoiceLexicon.restrictions))
+            && !u.has(playVerbs)
         if asksToPlay && starts && !onlyARule && !ops.contains(where: \.isPlay) {
             ops.insert(.play(.vibe), at: 0)
         }
@@ -215,7 +220,10 @@ public enum IntentParser {
             return [.rate(.like)]
         }
         if u.has(VoiceLexicon.keep) && !u.has(VoiceLexicon.lockVibe) && !u.has(["vibe"]) {
-            return [.rate(.keep)]
+            // "Keep it" is a rating only on its own; "keep it energetic but older" steers.
+            let steers = !u.languages.isEmpty || u.has(playVerbs) || u.has(VoiceLexicon.energyUp)
+                || u.has(VoiceLexicon.energyDown) || u.has(VoiceLexicon.olderWords) || u.has(VoiceLexicon.newerWords)
+            if !(steers && u.has(["keep it"])) { return [.rate(.keep)] }
         }
         return nil
     }
@@ -258,7 +266,7 @@ public enum IntentParser {
         "(?:^|actually |but )no ([^ ,]+(?: [^ ,]+)?)(?: songs| music)?(?: today| now| please)?$",
         "dont play anything by ([^,]+?)(?: today| now|$)",
         "nothing by ([^,]+?)(?: today| now|$)",
-        "(?:^| )([^ ]+(?: [^ ]+)?) (?:songs |పాటలు |paatalu |patalu )?(?:vaddu|వద్దు)",
+        "(?:^| )([^ ]+(?: [^ ]+){0,2}) (?:songs |పాటలు |paatalu |patalu )?(?:vaddu|వద్దు)",
     ]
 
     /// "play X" with nothing else understood: used only when the sentence has no other request.
@@ -341,6 +349,14 @@ struct Utterance {
         let separators = CharacterSet(charactersIn: ".,!?;:\"()[]{}…-–—/")
         text = text.components(separatedBy: separators).joined(separator: " ")
         text = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        // A leading "no," / "kaadu," / "no no" is an interjection before the real request.
+        let interjection = #"^(?:(?:no|nah|nope|kaadu|కాదు)\s*,\s*|(?:no no|kaadu kaadu|కాదు కాదు)\b[\s,]*)+"#
+        let lowered = raw.lowercased().replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "’", with: "")
+        if let match = lowered.range(of: interjection, options: .regularExpression), match.upperBound < lowered.endIndex {
+            text = String(lowered[match.upperBound...])
+            text = text.components(separatedBy: separators).joined(separator: " ")
+            text = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        }
         for wake in VoiceLexicon.wake.sorted(by: { $0.count > $1.count })
         where text == wake || text.hasPrefix(wake + " ") {
             text = String(text.dropFirst(wake.count)).trimmingCharacters(in: .whitespaces)
