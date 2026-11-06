@@ -105,4 +105,18 @@ final class NegationTests: XCTestCase {
         XCTAssertEqual(ops("బాధ పాటలు చాలు"), ["avoid:sad"])
         XCTAssertEqual(ops("Skip"), ["transport:next"])  // skipping a song is still a control
     }
+
+    // 9. A negated control does nothing, whatever else the sentence says; Telugu negative
+    //    imperatives are recognized by their form, not a word list.
+    func testNegatedControlsDoNothing() {
+        for text in ["Don't skip this one", "Never stop this song please", "Please don't change it, it's good",
+                     "ఈ పాట ఆపకు", "తర్వాత పాట పెట్టకండి", "Skip mathram cheyyaku"] {
+            XCTAssertEqual(decision(text).outcome, .noAction, text)
+        }
+        XCTAssertTrue(Utterance.isNegativeImperative("వెళ్ళకు"))
+        XCTAssertTrue(Utterance.isNegativeImperative("మార్చకండి"))
+        XCTAssertFalse(Utterance.isNegativeImperative("నాకు"))
+        XCTAssertFalse(Utterance.isNegativeImperative("ఎందుకు"))
+        XCTAssertEqual(ops("Skip this song"), ["transport:next"])  // a plain skip still skips
+    }
 }

@@ -395,9 +395,31 @@ struct Utterance {
         if words.contains(where: { VoiceLexicon.negationWords.contains($0) || Self.isNegativeImperative($0) }) {
             return true
         }
+        if words.contains(where: { $0.unicodeScalars.contains { (0x0C00...0x0C7F).contains($0.value) }
+                                   && Self.isNegativeImperative($0) }) {
+            return true
+        }
         return VoiceLexicon.negationPhrases.contains { phrase in
             Self.isTelugu(phrase) ? joined.contains(phrase) : joined.contains(" " + phrase + " ")
         }
+    }
+
+    /// "Don't skip", "never stop", "skip cheyyaku", "తర్వాత పాటకి వెళ్ళకు": a player control that is
+    /// itself negated, so nothing should happen.
+    var negatesAControl: Bool {
+        let words = negationScopeText.split(separator: " ").map(String.init)
+        // The control verb and its negation in one word: "aapaku", "ఆపకు", "మార్చకండి".
+        let fused: Set<String> = ["aapaku", "aapakandi", "marchaku", "maarchaku", "marchakandi", "ఆపకు", "ఆపకండి",
+                                  "మార్చకు", "మార్చకండి"]
+        if words.contains(where: fused.contains) { return true }
+        let controls: Set<String> = ["skip", "stop", "pause", "next", "change", "aapu", "aapey", "తర్వాత", "ఆపు"]
+        for (index, word) in words.enumerated() where controls.contains(word) || word.hasPrefix("skip") {
+            let before = words[max(0, index - 2)..<index]
+            if before.contains(where: { ["dont", "never", "not"].contains($0) }) { return true }
+            let after = words[(index + 1)..<min(words.count, index + 4)]
+            if after.contains(where: Self.isNegativeImperative) { return true }
+        }
+        return false
     }
 
     /// Whether a language is the thing being refused: a negation right before it
@@ -421,8 +443,20 @@ struct Utterance {
         return scoped.split(separator: " ").joined(separator: " ")
     }
 
-    /// Romanized negative imperatives: "pettaku", "vinipinchaku", "cheyyakandi".
+    /// Romanized negative imperatives ("pettaku", "vinipinchaku", "cheyyakandi") and Telugu-script
+    /// ones: a word ending in కు / కండి right after a bare consonant (పెట్టకు, వెళ్ళకు). A vowel
+    /// sign before కు means it isn't one (నాకు "to me", ఎందుకు "why").
     static func isNegativeImperative(_ word: String) -> Bool {
+        let scalars = Array(word.unicodeScalars)
+        if scalars.contains(where: { (0x0C00...0x0C7F).contains($0.value) }) {
+            for ending in ["కు", "కండి"] {
+                let tail = Array(ending.unicodeScalars)
+                guard scalars.count > tail.count + 1, Array(scalars.suffix(tail.count)) == tail else { continue }
+                let before = scalars[scalars.count - tail.count - 1].value
+                if (0x0C15...0x0C39).contains(before) { return true }  // a consonant with no vowel sign
+            }
+            return false
+        }
         guard word.count >= 6, !VoiceLexicon.notNegativeImperatives.contains(word),
               word.unicodeScalars.allSatisfy({ ("a"..."z").contains(Character($0)) }) else { return false }
         return word.hasSuffix("aku") || word.hasSuffix("akandi") || word.hasSuffix("akunda")

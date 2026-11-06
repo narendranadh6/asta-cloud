@@ -15,7 +15,8 @@
 | Database | `backend/tests/test_database.py` | concurrent rollback can't undo a sign-up (FK regression) |
 | Context 2.0 | `ContextTwoTests.swift` | milestone examples, unrelated requests, no action, clarify, common words, Telugu script, entities, negation scopes, wire round trip, conversations, drive decisions, fallback |
 | Calibration | `CalibrationTests.swift` | refits the table on development data; fails on drift |
-| Holdout v2, v3 | `HoldoutV2EvaluationTests.swift` + `docs/testing/holdout-v2.json`, `holdout-v3.json` | report only; each run once and retired; reports also written to `ios/.build/holdout-reports` |
+| Weak areas | `WeakAreaTests.swift` | playback convention, keep, interjections, incomplete with fillers, follow-ups, undo, Telugu tempo and names |
+| Holdout v2, v3, v4 | `HoldoutV2EvaluationTests.swift` + `docs/testing/holdout-v2.json`, `holdout-v3.json`, `holdout-v4.json` | report only; each run once and retired; reports also written to `ios/.build/holdout-reports` |
 | Negation | `NegationTests.swift` | intensified English, Telugu negative imperatives, false negations, never-opposite-action safety, scope, skip/enough |
 | Context follow-ups | `ContextThreeTests.swift` | evidence for known names, false prefixes, questions about next, Telugu forms, names in any phrasing, nameless follow-ups, particles |
 | Speech routing and consent | `SpeechCapabilityTests.swift` | on-device first, consent before server, typing fallback, revocation, disclosures, WER |

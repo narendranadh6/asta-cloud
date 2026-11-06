@@ -1,5 +1,55 @@
 # Benchmark results
 
+## 2026-11-06 (fifth milestone): weak areas
+
+### Holdout v4 (final, evaluated once on c278a65; now retired)
+
+`docs/testing/holdout-v4.json` (sha256 `ea965a2d…cf021d4027`): 345 single commands and 44
+sequences, labeled by a separate agent from the specification only (written through a generator
+script it authored; labels by the same spec). The spec adds the playback convention decided this
+milestone: accepting a mood or setting a rule without a play verb changes the session but doesn't
+start music; bare requests still play.
+
+| Measure | v4 | v3 | v2 |
+|---|---|---|---|
+| Exact intent | **86.7%** | 79.9% | 74.8% |
+| Outcome only | 93.9% | 90.9% | 87.4% |
+| Entities | 89.9% (n=99) | 86.0% | 84.0% |
+| Negation | 85.3% (n=34) | 86.5% | 78.1% |
+| Unsupported / no-action acted on | 4.3% (2 of 46) | 0.0% | 2.3% |
+| Wrong-direction actions | **0 of 345** | 3 of 383 | — |
+| Clarification precision / recall | **73.3% / 75.9%** | 48.4% / 62.5% | 45.5% / 50.0% |
+| Conversation state | **90.9%** (n=44) | 78.4% | 56.2% |
+| Calibration ECE | 0.045 | 0.066 | 0.102 |
+
+Different, independently written sets: indicative, not a controlled before/after.
+
+By form: English 89.9%, Telugu script 87.1%, romanized 84.1%, mixed 83.8%. Sequences: Telugu
+100%, English 90.9%, mixed 90.9%, romanized 81.8%.
+
+By category: ambiguous artist, follow-up reference, no action, noisy, unsupported 100%; era 93.3%,
+discovery 92.3%, question 92.3%, vibe 89.5%, double negative 88.2% (was 21.4%), entity 88.2%,
+artist 86.4%, rating 85.7%, negative 85.3%, tempo 83.3%, undo 83.3%, transport 78.9%, language
+76.5%, current song 75.0%, incomplete 58.8%, relative date 58.3%.
+
+The 2 false actions were negated controls ("తర్వాత పాటకి వెళ్ళకు" skipped; "Don't skip this one ra"
+excluded the song). Fixed after the evaluation, by rule: Telugu negative imperatives are
+recognized by form (కు/కండి after a bare consonant; not నాకు, ఎందుకు), and a negated control does
+nothing whatever else the sentence says. v4 figures are from before this fix.
+
+Remaining (next round, new development tests, holdout v5):
+* **Language preference words**: "lean towards", "priority ivvu" (favor); a refused language in a
+  two-language sentence ("English lo kaadu, play Telugu", "Telugu chalu") still mixes.
+* **Relative dates without a play verb or with extra words**: "this month's releases please",
+  "best songs of this year" ("best", "hit" become names), "came out this week" read as a question.
+* **Transport phrasings**: "start this song over", "modati nunchi", "upcoming song remove",
+  "ముందు పాట" (previous) fall back to resume or nothing.
+* **Song-level never in Telugu** ("మళ్ళీ ఎప్పుడూ పెట్టకు", "malli eppudu") and two actions in one
+  sentence ("this song vaddu, next one pettu").
+* **Incomplete with Telugu fillers** ("ee... ante...", "adi... umm") and "peru gurthu ledu".
+
+---
+
 ## 2026-11-04 (fourth milestone): negation fixes and Context follow-ups
 
 ### Holdout v3 (final, evaluated once; now retired)

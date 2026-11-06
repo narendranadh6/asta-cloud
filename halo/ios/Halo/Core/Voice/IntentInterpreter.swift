@@ -106,6 +106,9 @@ public enum IntentInterpreter {
             return decide(.clarify, .incomplete(slot))
         }
 
+        if u.negatesAControl {
+            return decide(.noAction, .negatedControl)
+        }
         var delta = IntentParser.parse(text)
         let controlOnly = !delta.isEmpty && delta.operations.allSatisfy {
             if case .transport = $0 { true } else { false }

@@ -6,6 +6,11 @@ Legend: **implemented and tested** = code plus automated tests run in this repos
 **not device-tested** = runs in tests/simulator only; **proposed** = not built; **blocked** =
 needs permission, licence, hardware or a paid service.
 
+Fifth milestone (weak areas): acceptances and rules don't start playback (decided), double
+negatives, interjections, incomplete-with-fillers, "their" follow-ups, undo phrasings, Telugu
+tempo and names, negated controls by rule. Holdout v4: exact 86.7%, conversation state 90.9%,
+clarify P/R 73.3%/75.9%, wrong-direction 0 of 345, false actions 2 of 46 (fixed after).
+
 Fourth milestone: negation fixed (no wrong-direction action in the development tests; 3 of
 383 on holdout v3 at evaluation time, fixed afterwards); names in any phrasing, questions about
 "next", Telugu stems, nameless follow-ups. Holdout v3: exact 79.9%, false actions 0.0%,
