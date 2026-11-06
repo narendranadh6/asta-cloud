@@ -140,7 +140,7 @@ public enum IntentInterpreter {
         if !delta.operations.contains(where: \.namesSomething), let name = knownName(in: u, resolver: resolver),
            u.isNegated || u.has(IntentParser.playVerbs) || u.has(VoiceLexicon.requestCues) || u.text == name {
             let ref = EntityRef.mention(name, kind: .any)
-            let lasting = u.has(VoiceLexicon.never) || (u.word("ever") && u.isNegated)
+            let lasting = u.isLasting(refusing: u.isNegated)
             let scope: Scope = u.has(VoiceLexicon.today) ? .today : lasting ? .profile : .session
             delta.operations.insert(u.isNegated ? .excludeArtist(ref, scope) : .play(.entity(ref)), at: 0)
             delta.operations.removeAll { $0 == .play(.vibe) || $0 == .transport(.resume) }
@@ -222,13 +222,26 @@ public enum IntentInterpreter {
 
     /// "play songs by", "set the language to", "don't play": a request with its object missing.
     static func incompleteSlot(_ u: Utterance) -> IntentDecision.Slot? {
-        // Trailing fillers don't complete a request: "play songs by… umm".
-        var words = u.text.split(separator: " ").map(String.init)
-        while let last = words.last, VoiceLexicon.noise.contains(last) || ["hmm", "uh", "um", "umm", "aa"].contains(last) {
+        // Hesitations don't complete a request: "play songs by… umm", "adi… ante… pettu".
+        let all = u.text.split(separator: " ").map(String.init)
+        let hesitated = all.contains { VoiceLexicon.hesitations.contains($0) }
+        var words = all
+        while let last = words.last, VoiceLexicon.noise.contains(last) || VoiceLexicon.hesitations.contains(last) {
             words.removeLast()
         }
         let text = words.joined(separator: " ")
-        if u.has(VoiceLexicon.languageChange) && u.languages.isEmpty { return .language }
+        let content = all.filter { !VoiceLexicon.hesitations.contains($0) && !VoiceLexicon.noise.contains($0) }
+        if hesitated, !content.isEmpty,
+           content.allSatisfy({ IntentParser.playVerbs.contains($0) || ["cheyyi", "chey", "please", "plz"].contains($0) }) {
+            return .something
+        }
+        let namesLanguage = u.has(["language", "bhasha", "భాష"])
+        let changes = u.has(["marchu", "maarchu", "change", "switch", "మార్చు", "మార్చండి"])
+        if (u.has(VoiceLexicon.languageChange) || namesLanguage && changes) && u.languages.isEmpty { return .language }
+        if u.has(VoiceLexicon.forgotName) {
+            return u.has(["movie", "film", "cinema", "సినిమా"]) ? .film : .something
+        }
+        if text.hasSuffix(" some"), u.has(IntentParser.playVerbs) || u.has(VoiceLexicon.requestCues) { return .something }
         if words.count == 1, let only = words.first, !VoiceLexicon.controlNegation.contains(only),
            Utterance.isNegativeImperative(only) || ["పెట్టకు", "వినిపించకు", "పెట్టకండి"].contains(only) {
             return .artist

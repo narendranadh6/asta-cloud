@@ -19,7 +19,7 @@ public enum IntentParser {
         // "Skip this artist" refuses the artist (skipping a song is a control, handled below).
         let refusing = u.isNegated || (u.has(["skip"]) && u.has(VoiceLexicon.thisArtist))
         // "Today" is the most specific; "never" / "don't ever … again" make it lasting.
-        let lasting = u.has(VoiceLexicon.never) || (u.word("ever") && refusing)
+        let lasting = u.isLasting(refusing: refusing)
         let lastingScope: Scope = u.has(VoiceLexicon.today) ? .today : lasting ? .profile : .session
         if u.has(VoiceLexicon.thisSong) && refusing && !u.has(VoiceLexicon.thisArtist) {
             // "Never this song" is the song-level "never again"; otherwise just this session.
@@ -65,7 +65,7 @@ public enum IntentParser {
             ops.append(.setLanguage(LanguagePreference(primary: playable[0], secondary: playable[1],
                                                        strategy: strategy)))
         } else if let language = playable.first {
-            if u.has(VoiceLexicon.more) && !u.has(VoiceLexicon.onlyWords) {
+            if (u.has(VoiceLexicon.more) || u.has(VoiceLexicon.preferWords)) && !u.has(VoiceLexicon.onlyWords) {
                 ops.append(.favorLanguage(language))
             } else {
                 ops.append(.setLanguage(.only(language)))
@@ -73,7 +73,8 @@ public enum IntentParser {
         }
 
         // 4. Vibe.
-        let asksToPlay = u.has(playVerbs) || u.has(["songs", "music", "playlist", "పాటలు", "paatalu", "patalu"])
+        let asksToPlay = u.has(playVerbs)
+            || u.has(["songs", "music", "playlist", "పాటలు", "paatalu", "patalu", "releases", "tracks", "hits"])
         let relative = u.has(VoiceLexicon.more) || u.has(VoiceLexicon.less) || u.has(VoiceLexicon.slightly)
         let step = u.has(VoiceLexicon.slightly) ? 0.12 : 0.2
         let sameEnergy = u.has(["same energy"])
@@ -208,6 +209,11 @@ public enum IntentParser {
         if u.has(VoiceLexicon.whatMovie) { return [.ask(.whatMovie)] }
         if u.has(VoiceLexicon.whatAlbum) { return [.ask(.whatAlbum)] }
         if u.has(VoiceLexicon.whenReleased) { return [.ask(.whenReleased)] }
+        if u.has(VoiceLexicon.cameOut), u.word("when") || u.has(["eppudu", "ఎప్పుడు"]) { return [.ask(.whenReleased)] }
+        if u.has(["upcoming", "next one", "next song", "coming up"]),
+           u.has(["remove", "off the queue", "take out", "teesey", "teeseyi", "తీసేయ్"]) {
+            return [.transport(.removeNext)]
+        }
         if u.has(VoiceLexicon.neverAgain) && !u.has(VoiceLexicon.thisArtist) { return [.rate(.neverAgain)] }
         if u.has(VoiceLexicon.never), u.has(VoiceLexicon.thisSong) || u.word("this"), !u.has(VoiceLexicon.thisArtist),
            !u.has(VoiceLexicon.sad), u.languages.isEmpty {
@@ -232,7 +238,7 @@ public enum IntentParser {
         // "Don't …" never falls back to a control: the interpreter reports it as no action.
         if u.isNegated { return nil }
         if u.has(VoiceLexicon.pause) { return .pause }
-        if u.has(VoiceLexicon.restart) { return .restart }
+        if u.has(VoiceLexicon.restart) || (u.word("over") && u.has(["start", "play", "restart"])) { return .restart }
         if u.has(VoiceLexicon.next) { return .next }
         if u.has(VoiceLexicon.previous) { return .previous }
         // A bare "play"/"pettu" resumes, but only when every word is understood: "Amma ki call
@@ -404,6 +410,11 @@ struct Utterance {
         }
     }
 
+    /// A refusal that lasts: "never", "don't ever … again", "malli eppudu … pettaku".
+    func isLasting(refusing: Bool) -> Bool {
+        has(VoiceLexicon.never) || (refusing && (word("ever") || has(["eppudu", "epudu", "ఎప్పుడూ"])))
+    }
+
     /// "Don't skip", "never stop", "skip cheyyaku", "తర్వాత పాటకి వెళ్ళకు": a player control that is
     /// itself negated, so nothing should happen.
     var negatesAControl: Bool {
@@ -429,9 +440,12 @@ struct Utterance {
         guard let names = VoiceLexicon.languages.first(where: { $0.0 == language })?.1 else { return false }
         for (index, word) in words.enumerated() where names.contains(where: { word.hasPrefix($0) || word.contains($0) && Self.isTelugu($0) }) {
             let before = words[max(0, index - 2)..<index]
-            let after = words[(index + 1)..<min(words.count, index + 3)].filter { !["songs", "paatalu", "patalu", "పాటలు", "music"].contains($0) }
+            let after = words[(index + 1)..<min(words.count, index + 4)].filter {
+                !["songs", "paatalu", "patalu", "పాటలు", "music", "lo", "లో", "ki", "ni"].contains($0)
+            }
             if before.contains(where: { ["not", "no", "without", "dont"].contains($0) }) { return true }
-            if let next = after.first, VoiceLexicon.refuse.contains(next) || Self.isNegativeImperative(next) { return true }
+            if let next = after.first, VoiceLexicon.refuse.contains(next) || Self.isNegativeImperative(next)
+                || ["kaadu", "కాదు", "chalu", "chaalu", "చాలు"].contains(next) { return true }
         }
         return false
     }
@@ -515,8 +529,8 @@ struct Utterance {
     /// How recent "new" means, from the words used.
     var recencyDays: Int {
         if has(["yesterday", "ninna", "నిన్న"]) { return 1 }
-        if has(["this week", "ee week", "ఈ వారం"]) { return 7 }
-        if has(["this month", "ee month", "ఈ నెల"]) { return 30 }
+        if has(["this week", "ee week", "ee vaaram", "ఈ వారం"]) { return 7 }
+        if has(["this month", "ee month", "ee nela", "ఈ నెల"]) { return 30 }
         if has(["last few months", "few months"]) { return 120 }
         if has(["this year", "ee year", "ee samvatsaram", "ఈ సంవత్సరం"]) { return 365 }
         return 90

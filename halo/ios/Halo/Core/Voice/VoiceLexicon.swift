@@ -29,10 +29,11 @@ enum VoiceLexicon {
 
     static let next = ["skip", "next song", "next", "skip cheyyi", "tarvata", "tharvatha",
                        "తర్వాత", "తర్వాతది", "next పెట్టు"]
-    static let previous = ["previous", "go back", "last song", "previous song", "back",
-                           "venakki", "వెనక్కి", "ముందు song", "mundu song"]
-    static let restart = ["restart", "from the start", "from the beginning", "start over",
-                          "malli start", "మొదటి నుంచి"]
+    static let previous = ["previous", "go back", "last song", "previous song", "back", "song before",
+                           "the one before", "previous one", "venakki", "వెనక్కి", "ముందు song", "mundu song",
+                           "mundu paata", "mundu pata", "ముందు పాట"]
+    static let restart = ["restart", "from the start", "from the beginning", "start over", "from the top",
+                          "malli start", "modati nunchi", "modatinunchi", "మొదటి నుంచి"]
     static let pause = ["pause", "stop", "aapu", "aapey", "ఆపు", "ఆపేయ్", "ఆపండి"]
     static let resume = ["resume", "continue", "keep playing", "కొనసాగించు"]
     static let removeNext = ["remove the next", "remove next", "skip the next", "dont play the next",
@@ -72,7 +73,8 @@ enum VoiceLexicon {
     static let newerWords = ["newer", "kothavi", "kottavi", "కొత్తవి"]
     static let newWords = ["new", "latest", "fresh", "లేటెస్ట్", "recent", "recently", "kotha",
                            "kottha", "కొత్త", "this week", "yesterday", "ninna", "నిన్న",
-                           "release aina", "released", "విడుదల", "ee week", "ee month", "ee year",
+                           "release aina", "released", "విడుదల", "ee week", "ee month", "ee year", "ee nela", "ee vaaram",
+                           "ee samvatsaram",
                            "ఈ వారం", "ఈ నెల", "ఈ సంవత్సరం",
                            "this month", "this year", "yesterday", "last few months", "just released"]
     static let olderWords = ["older", "paathavi", "pathavi", "పాతవి"]
@@ -140,8 +142,10 @@ enum VoiceLexicon {
                             "ఆల్బమ్ లోది"]
     static let whenReleased = ["when was this released", "when released", "release date",
                                "eppudu release", "ఎప్పుడు release", "when did this", "when did it come out",
-                               "come out", "came out", "eppudu vachindi", "విడుదలైంది", "ఎప్పుడు విడుదల",
-                               "release ayindi"]
+                               "eppudu vachindi", "ఎప్పుడు విడుదల", "ఎప్పుడు వచ్చింది", "release ayindi"]
+    /// "Came out" asks about release only with a question word ("put on what came out
+    /// yesterday" is a request).
+    static let cameOut = ["come out", "came out", "విడుదలైంది"]
     static let upNext = ["whats next", "what is next", "whats coming next", "what is coming next",
                          "next enti", "next ఏంటి", "coming up", "which song is next", "what plays next",
                          "next e song", "next ఏ పాట", "tarvata e paata", "tarvata ఏ పాట",
@@ -175,6 +179,14 @@ enum VoiceLexicon {
                               "no problem", "parledu", "పర్లేదు", "అయినా పర్లేదు"]
     /// "Only Telugu", "from now on": a rule for the session, not a request to start.
     static let restrictions = ["only", "matrame", "మాత్రమే", "from now on", "ika nunchi", "ఇక నుంచి"]
+    /// "Prefer Telugu", "give English priority": lean towards a language without "only".
+    static let preferWords = ["prefer", "priority", "lean towards", "lean toward", "favour", "favor"]
+    /// Hesitations that can surround a request without being part of it.
+    static let hesitations: Set<String> = ["adi", "ante", "aa", "umm", "um", "uh", "hmm", "er", "అది", "అంటే", "ఆ",
+                                           "ఏం", "like", "that"]
+    /// "I forgot the name": the thing to play is missing.
+    static let forgotName = ["gurthu ledu", "gurtu ledu", "forgot the name", "dont remember the name",
+                             "what was the name", "peru enti", "గుర్తు లేదు", "ఏంటి పేరు", "పేరు ఏంటి"]
     /// "Switch the language" with no language named.
     static let languageChange = ["change the language", "change language", "language marchu", "language maarchu",
                                  "language ni marchu", "language ni change", "bhasha marchu", "bhasha maarchu",
@@ -266,6 +278,7 @@ enum VoiceLexicon {
         "ఉండే", "ఉన్న", "గా", "వచ్చిన", "though", "tho", "ra", "raa", "yaar", "yar", "asalu", "assalu", "gaari",
         "garu", "gaaru", "andi", "kaani", "anyway", "pls", "unna", "unnavi", "అసలు", "గారి", "గారు",
         "vaalla", "vaallavi", "valla", "their", "them", "those", "వాళ్ళ", "వాళ్ళవి", "kaadu", "కాదు", "nah",
+        "chalu", "chaalu", "top", "best", "hit", "popular", "great", "nela", "నెల", "again", "one",
     ]
 
     /// Telugu attaches suffixes ("ప్రశాంతమైన", "తొంభైల"), so a Telugu-script word counts as known
@@ -325,7 +338,7 @@ enum VoiceLexicon {
             undo, thisArtist, differentArtist, refuse, today, onlyWords, mixWords, alternateWords,
             mostlyWords, someWords, languages.flatMap(\.1), tempoFast, tempoSlow, otherSongs, thisSong,
             never, lessOfThem, neverMind, controlNegation, releaseWords, requestCues, questionWords, nextWords,
-            acceptances, restrictions, languageChange, genres.flatMap(\.1), decadeWords.flatMap(\.1),
+            acceptances, restrictions, languageChange, preferWords, cameOut, forgotName, Array(hesitations), genres.flatMap(\.1), decadeWords.flatMap(\.1),
             Array(noise),
             ["dont", "do", "not", "no", "without", "from", "movie", "cinema", "సినిమా", "album",
              "artist", "singer", "composer", "but", "actually", "instead", "back", "go", "it",
