@@ -158,7 +158,7 @@ public enum IntentInterpreter {
             return decide(.noAction, .notUnderstood)
         }
 
-        let resolved = resolve(delta, resolver: resolver)
+        let resolved = resolve(delta, resolver: resolver, utterance: u)
         delta = resolved.delta
         if let (said, options) = resolved.ambiguous.first {
             return decide(.clarify, .ambiguousEntity(said: said, options: options), delta)
@@ -261,7 +261,7 @@ public enum IntentInterpreter {
 
     /// Resolves artist and film names; a name known only by its first words ("thaman lately")
     /// keeps the known part. Returns ambiguous names to ask about and names left unresolved.
-    static func resolve(_ delta: IntentDelta, resolver: EntityResolver)
+    static func resolve(_ delta: IntentDelta, resolver: EntityResolver, utterance: Utterance = Utterance(""))
         -> (delta: IntentDelta, ambiguous: [(String, [String])], unresolved: Int, knownWords: Set<String>) {
         var ambiguous: [(String, [String])] = []
         var unresolved = 0
@@ -281,6 +281,14 @@ public enum IntentInterpreter {
                 default:
                     continue
                 }
+            }
+            // A known name in the sentence that contains the captured words: the capture lost part
+            // of it ("Gopi Sundar vi …" captured "sundar").
+            if let full = knownName(in: utterance, resolver: resolver),
+               Set(full.split(separator: " ").map(String.init)).isSuperset(of: words),
+               case let .known(entity) = resolver.resolve(full) {
+                knownWords.formUnion(full.split(separator: " ").map(String.init))
+                return .mention(entity.name, kind: entity.kind == .film ? .soundtrack : .artist)
             }
             // A known name at the end of the capture ("ivala thaman", "ఈరోజు దేవి శ్రీ ప్రసాద్").
             for drop in 1..<max(words.count, 1) {

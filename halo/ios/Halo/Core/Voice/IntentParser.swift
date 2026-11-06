@@ -75,7 +75,10 @@ public enum IntentParser {
         // 4. Vibe.
         let asksToPlay = u.has(playVerbs)
             || u.has(["songs", "music", "playlist", "పాటలు", "paatalu", "patalu", "releases", "tracks", "hits"])
+        // ఇంకా ("more / still") makes a vibe change relative ("ఇంకా హుషారుగా"), but with a language it
+        // just means more songs, so it isn't in `more`.
         let relative = u.has(VoiceLexicon.more) || u.has(VoiceLexicon.less) || u.has(VoiceLexicon.slightly)
+            || u.has(["ఇంకా"])
         let step = u.has(VoiceLexicon.slightly) ? 0.12 : 0.2
         let sameEnergy = u.has(["same energy"])
         let lowering = u.has(VoiceLexicon.less) && u.has(["energy", "ఎనర్జీ"])

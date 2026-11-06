@@ -54,6 +54,9 @@ final class HoldoutV2EvaluationTests: XCTestCase {
     /// Holdout v4: frozen 2026-11-06 (sha256 ea965a2d…cf021d4027), evaluated once on c278a65.
     func testHoldoutV4Singles() { Self.runSingles(HoldoutV4.singles, tag: "HALO-V4") }
     func testHoldoutV4Sequences() { Self.runSequences(HoldoutV4.sequences, tag: "HALO-V4") }
+    /// Holdout v5: frozen 2026-11-06, evaluated once after the weight tuning.
+    func testHoldoutV5Singles() { Self.runSingles(HoldoutV5.singles, tag: "HALO-V5") }
+    func testHoldoutV5Sequences() { Self.runSequences(HoldoutV5.sequences, tag: "HALO-V5") }
 
     static func runSingles(_ singles: [HoldoutV2.Single], tag: String) {
         var report: [String] = []

@@ -8,9 +8,9 @@ public enum IntentCalibration {
     /// Upper bounds of the evidence bins (the last bin ends at 1.0).
     public static let binEdges: [Double] = [0.5, 0.7, 0.85, 0.95, 1.0001]
     /// P(correct) per bin, refitted 2026-11-06 with the cross-validated evidence weights on 1,106
-    /// development decisions (corpus + retired holdouts v1–v4; bin sizes 0, 16, 73, 194, 823):
+    /// development decisions (corpus + retired holdouts v1–v4; bin sizes 0, 14, 69, 192, 831):
     /// Laplace-smoothed, isotonic; an empty bin is 0, so Halo always asks there.
-    public static let table: [Double] = [0.0, 0.56, 0.64, 0.91, 0.95]
+    public static let table: [Double] = [0.0, 0.63, 0.69, 0.92, 0.95]
     public static let provenance = "corpus + retired holdouts v1-v4, 2026-11-06 (tuned weights)"
 
     public static func confidence(forEvidence evidence: Double, table: [Double] = table) -> Double {

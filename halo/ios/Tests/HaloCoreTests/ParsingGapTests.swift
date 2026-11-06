@@ -64,4 +64,16 @@ final class ParsingGapTests: XCTestCase {
         }
         XCTAssertEqual(ops("Play"), ["transport:resume"])  // a bare "play" still resumes
     }
+
+    // After holdout v5 (new phrasings): "enough with", split names, gayakudu, edupu, undo, ఇంకా.
+    func testAfterHoldoutFive() {
+        XCTAssertEqual(ops("Enough with these gloomy tracks"), ["avoid:sad"])
+        XCTAssertEqual(ops("Mani Sharma vi takkuva pettu"), ["weight:Mani Sharma:-0.60"])
+        XCTAssertEqual(ops("Anurag Kulkarni songs ivala vaddu"), ["exclude:Anurag Kulkarni:today"])
+        XCTAssertEqual(ops("Ee gayakudu ivala vaddu"), ["exclude:current:today"])
+        XCTAssertEqual(ops("Edupu songs vaddu"), ["avoid:sad"])
+        XCTAssertEqual(ops("Adi cancel cheyyi"), ["undo"])
+        XCTAssertEqual(ops("ఇంకా ఎనర్జీ కావాలి"), ["adjust:energy:+0.20"])
+        XCTAssertEqual(ops("స్లో టెంపో పాటలు పెట్టు"), ["play", "set:energy:0.20", "set:tempo:0.30"])
+    }
 }

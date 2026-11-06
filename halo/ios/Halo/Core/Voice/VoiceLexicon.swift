@@ -54,13 +54,13 @@ enum VoiceLexicon {
     static let happy = ["happy", "happier", "cheerful", "feel good", "feelgood", "bright", "joyful",
                         "santhosham", "santhoshamga", "anandam", "సంతోష", "ఆనంద", "హ్యాపీ"]
     static let sad = ["sad", "emotional", "heartbreak", "melancholic", "melancholy", "depressing",
-                      "gloomy", "sorrowful", "crying", "badha", "baadha", "vishadam", "vishada",
+                      "gloomy", "sorrowful", "crying", "badha", "baadha", "vishadam", "vishada", "edupu", "ఏడుపు",
                       "బాధ", "విషాద", "దుఃఖ"]
     /// "Fast beat unna songs": a quick tempo (and energy).
     static let tempoFast = ["fast beat", "fast beats", "fast tempo", "beat unna", "beats unna", "rhythmic",
                             "uptempo", "up tempo", "high tempo", "beat heavy", "beat ekkuva", "vegamga", "vegamaina",
                             "ఫాస్ట్ బీట్", "బీట్ ఉన్న", "బీట్ ఎక్కువ", "వేగ"]
-    static let tempoSlow = ["slow tempo", "slow beat", "low tempo"]
+    static let tempoSlow = ["slow tempo", "slow beat", "low tempo", "నెమ్మదైన టెంపో", "స్లో టెంపో", "nemmadi tempo"]
     static let romantic = ["romantic", "love songs", "prema", "ప్రేమ", "రొమాంటిక్"]
     /// "more X", "-er", "ఎక్కువ", "పెంచు": change relative to now instead of setting a value.
     static let more = ["more", "ekkuva", "ఎక్కువ", "penchu", "పెంచు", "increase", "make it"]
@@ -153,12 +153,13 @@ enum VoiceLexicon {
     static let undo = ["undo", "cancel that", "undo that", "wait no", "go back to before", "the way it was",
                        "how it was", "revert", "take that back", "reverse that", "mundu laaga", "mundu laage",
                        "mundu unnatte", "antaku mundu", "paatha settings", "previous settings", "అంతకు ముందు",
-                       "ముందు లాగా", "ముందు ఉన్నట్టే", "మార్పు రద్దు"]
+                       "ముందు లాగా", "ముందు ఉన్నట్టే", "మార్పు రద్దు", "cancel cheyyi", "venakki teesuko",
+                       "indaka chesindi", "ఇందాక చేసింది"]
 
     // MARK: Artists
 
     static let thisArtist = ["this singer", "this artist", "that singer", "that artist", "ee singer",
-                             "ee artist", "ee gayakudu", "ee gayani", "ఈ singer", "ఈ artist", "ఈ సింగర్",
+                             "ee artist", "ee gayakudu", "ee gayakudi", "ee gayani", "ఈ singer", "ఈ artist", "ఈ సింగర్",
                              "ఈ గాయకుడు", "ఈ గాయకుడి", "ఈ గాయని", "ఈ ఆర్టిస్ట్", "ee music director"]
     /// The song that is playing ("ee song vaddu", "not this song").
     static let thisSong = ["this song", "this one", "this track", "that song", "ee song", "ee paata", "ee pata",
@@ -213,7 +214,7 @@ enum VoiceLexicon {
     /// Whole words that negate a request.
     static let negationWords: Set<String> = ["dont", "never", "not", "no", "without", "avoid", "away", "nothing",
                                              "neither", "nor", "vaddu", "vaddandi", "vaddhu", "oddu", "asalu",
-                                             "chalu", "chaalu", "చాలు"]
+                                             "chalu", "chaalu", "చాలు", "enough"]
     /// Phrases that negate a request.
     static let negationPhrases = ["do not", "no more", "enough of", "stop playing", "dont want", "dont you dare",
                                   "i dont want", "keep away", "వద్దు", "వద్దండి", "పెట్టకు", "పెట్టకండి",
@@ -278,7 +279,8 @@ enum VoiceLexicon {
         "ఉండే", "ఉన్న", "గా", "వచ్చిన", "though", "tho", "ra", "raa", "yaar", "yar", "asalu", "assalu", "gaari",
         "garu", "gaaru", "andi", "kaani", "anyway", "pls", "unna", "unnavi", "అసలు", "గారి", "గారు",
         "vaalla", "vaallavi", "valla", "their", "them", "those", "వాళ్ళ", "వాళ్ళవి", "kaadu", "కాదు", "nah",
-        "chalu", "chaalu", "top", "best", "hit", "popular", "great", "nela", "నెల", "again", "one",
+        "chalu", "chaalu", "top", "best", "hit", "popular", "great", "nela", "నెల", "again", "one", "ayyayi",
+        "ayyai", "ayipoyayi",
     ]
 
     /// Telugu attaches suffixes ("ప్రశాంతమైన", "తొంభైల"), so a Telugu-script word counts as known
