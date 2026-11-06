@@ -51,6 +51,10 @@ final class AppSettings {
     var voiceLocale: String {
         didSet { defaults.set(voiceLocale, forKey: Keys.voiceLocale) }
     }
+    /// Listen for "Halo" while the app is open (on-device only). Off unless the listener turns it on.
+    var wakeWordEnabled: Bool {
+        didSet { defaults.set(wakeWordEnabled, forKey: Keys.wakeWord) }
+    }
     /// How much Halo says back: short confirmations, or nothing.
     var voiceReplies: Bool {
         didSet { defaults.set(voiceReplies, forKey: Keys.voiceReplies) }
@@ -73,6 +77,7 @@ final class AppSettings {
             ?? .balanced
         voiceLocale = defaults.string(forKey: Keys.voiceLocale) ?? "en-IN"
         voiceReplies = defaults.object(forKey: Keys.voiceReplies) as? Bool ?? true
+        wakeWordEnabled = defaults.bool(forKey: Keys.wakeWord)
     }
 
     func reset() {
@@ -91,6 +96,7 @@ final class AppSettings {
         discovery = .balanced
         voiceLocale = "en-IN"
         voiceReplies = true
+        wakeWordEnabled = false
     }
 
     private enum Keys {
@@ -108,7 +114,8 @@ final class AppSettings {
         static let discovery = "halo.discovery"
         static let voiceLocale = "halo.voiceLocale"
         static let voiceReplies = "halo.voiceReplies"
+        static let wakeWord = "halo.wakeWord"
         static let all = [autoplay, onboarding, personalization, sync, glow, haptics, reminder,
-                          name, mood, language, energy, discovery, voiceLocale, voiceReplies]
+                          name, mood, language, energy, discovery, voiceLocale, voiceReplies, wakeWord]
     }
 }

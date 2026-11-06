@@ -24,7 +24,7 @@
 	<false/>
 	<!-- Halo Drive: push-to-talk only. Audio is never stored. -->
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Halo listens when you press Talk to Halo, so you can ask for music while you drive.</string>
+	<string>Halo listens when you tap the Halo orb, or for its name if you turn on “Listen for Halo”, so you can ask for music hands-free. Audio is never saved.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Halo turns what you say into music requests. Recordings are not saved.</string>
 	<key>LSRequiresIPhoneOS</key>

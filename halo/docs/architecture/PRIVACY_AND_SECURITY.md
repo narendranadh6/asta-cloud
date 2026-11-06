@@ -27,7 +27,14 @@ on-device recognition when routed there.
 
 Rules in code:
 
-* Push-to-talk only; no wake word; the microphone never starts by itself.
+* Tap the Halo orb to talk (push-to-talk). The wake word "Halo" is **opt-in** (Settings ›
+  Halo Drive › Listen for "Halo", off by default) and only runs while the app is open in the
+  foreground, with **on-device recognition required** (`requiresOnDeviceRecognition`): if the
+  iPhone can't recognize the language on the device, the option is unavailable, so continuous
+  audio never leaves the phone. Each utterance is checked for the wake word and discarded; nothing
+  is stored. It stops when the app leaves the foreground, pauses while a command is heard or
+  Halo speaks, and iOS shows its microphone indicator while it runs. Listening when the app is
+  closed or the phone is locked isn't possible for third-party apps; Siri is the route for that.
 * On-device recognition when the locale supports it (`requiresOnDeviceRecognition`).
 * Halo never infers emotions from voice.
 * External text (metadata, transcripts, provider responses) is untrusted: the planner rejects

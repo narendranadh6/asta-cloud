@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Connects the microphone and voice to a `DriveSession`: one "Talk to Halo" press, one turn.
+/// Connects the microphone and voice to a `DriveSession`: one tap on the Halo orb (or the
+/// wake word), one turn. Lives for the whole app, not only Halo Drive.
 @MainActor
 @Observable
 final class DriveVoice {
@@ -11,6 +12,11 @@ final class DriveVoice {
     var consentRequest: ProcessingDisclosure?
     /// Why Halo suggests typing instead of talking right now (nil when talking works).
     private(set) var typingReason: TextInputReason?
+    /// Whether the small Halo card (what Halo heard and said) is showing.
+    private(set) var showsCard = false
+    /// Called when a turn is over (the wake-word listener resumes then).
+    @ObservationIgnored var onTurnFinished: (() -> Void)?
+    @ObservationIgnored private var hideCard: Task<Void, Never>?
     @ObservationIgnored private let listener = SpeechListener()
     @ObservationIgnored private let player: PlayerController
     @ObservationIgnored private let consent: VoiceConsent
@@ -35,6 +41,7 @@ final class DriveVoice {
             listener.stop()
             return
         }
+        showCard()
         lastLocale = locale
         let report = SpeechCapabilityProbe(platform: platform).run(locales: [locale.identifier])
         let route = SpeechRoutePlanner.route(
@@ -49,11 +56,44 @@ final class DriveVoice {
             listen(locale: locale, requireOnDevice: false)
         case .haloServer:
             typingReason = .unavailable  // no Halo speech server in this build
+            finishTurn()
         case let .textInput(reason):
             typingReason = reason
             if case let .consentNeeded(processor) = reason {
                 consentRequest = ProcessingDisclosure.of(processor)
+            } else {
+                finishTurn()
             }
+        }
+    }
+
+    /// A command spoken right after the wake word ("Halo, play Telugu songs").
+    func handleCommand(_ text: String) {
+        showCard()
+        caption = text
+        Task {
+            await session.handle(text)
+            finishTurn()
+        }
+    }
+
+    func dismissCard() {
+        hideCard?.cancel()
+        showsCard = false
+    }
+
+    private func showCard() {
+        hideCard?.cancel()
+        showsCard = true
+    }
+
+    private func finishTurn() {
+        onTurnFinished?()
+        hideCard?.cancel()
+        hideCard = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            self?.showsCard = false
         }
     }
 
@@ -62,14 +102,18 @@ final class DriveVoice {
         guard let request = consentRequest else { return }
         consentRequest = nil
         consent.record(granted ? .granted : .declined, for: request.processor)
-        if granted { talk(locale: lastLocale) } else { typingReason = .consentDeclined }
+        if granted { talk(locale: lastLocale) } else { typingReason = .consentDeclined; finishTurn() }
     }
 
     func submitTyped(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         caption = trimmed
-        Task { await session.handleTyped(String(trimmed.prefix(200))) }
+        showCard()
+        Task {
+            await session.handleTyped(String(trimmed.prefix(200)))
+            finishTurn()
+        }
     }
 
     private func listen(locale: Locale, requireOnDevice: Bool) {
@@ -93,6 +137,7 @@ final class DriveVoice {
                 player.duck("listening", false)
                 session.failListening(error.localizedDescription)
             }
+            finishTurn()
         }
     }
 
@@ -111,6 +156,7 @@ struct DriveView: View {
 
     @Environment(PlayerController.self) private var player
     @Environment(AppSettings.self) private var settings
+    @Environment(AppModel.self) private var app
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var palette: ArtworkPalette = .halo
     @State private var confirmReset = false
@@ -289,24 +335,19 @@ struct DriveView: View {
         }
     }
 
+    /// The Halo orb: tap to talk (or say "Halo" when the wake word is on).
     private var talkButton: some View {
         Button {
             Haptics.tap(enabled: settings.hapticsEnabled)
-            voice.talk(locale: Locale(identifier: settings.voiceLocale))
+            app.talk()
         } label: {
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: voice.isListening ? "waveform" : "mic.fill")
-                    .symbolEffect(.variableColor.iterative, isActive: voice.isListening && !reduceMotion)
-                Text(voice.isListening ? "Listening — tap when done" : "Talk to Halo")
+            VStack(spacing: Spacing.xs) {
+                AIOrb(size: 84, isActive: voice.isListening || isWorking)
+                Text(voice.isListening ? "Listening — tap when done"
+                     : settings.wakeWordEnabled ? "Tap Halo or say “Halo”" : "Tap Halo to talk")
+                    .font(.headline)
             }
-            .font(.title3.weight(.bold))
             .frame(maxWidth: .infinity, minHeight: 72)
-            .foregroundStyle(palette.color(\.base))
-            .background(RoundedRectangle(cornerRadius: Radius.large).fill(HaloColor.text))
-            .overlay {
-                HaloRing(active: voice.isListening || isWorking, cornerRadius: Radius.large + 5)
-                    .padding(-5)
-            }
         }
         .buttonStyle(PressScaleStyle())
         .accessibilityLabel(voice.isListening ? "Stop listening" : "Talk to Halo")

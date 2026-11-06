@@ -13,6 +13,14 @@ struct SettingsView: View {
     @State private var isDeleting = false
     @State private var errorMessage: String?
 
+    private var wakeWordSubtitle: String {
+        if !WakeWordListener.isSupported(locale: Locale(identifier: settings.voiceLocale)) {
+            return "Not available on this iPhone for this language (needs on-device recognition)"
+        }
+        if case let .unavailable(reason) = app.wakeWord.state { return reason }
+        return "While Halo is open. Say “Halo, play Telugu songs”."
+    }
+
     /// Telugu speech recognition exists only on some iOS versions and devices.
     private var teluguListening: Bool { !SpeechListener.supported(["te-IN"]).isEmpty }
 
@@ -116,6 +124,13 @@ struct SettingsView: View {
                     IconRow(symbol: "speaker.wave.2", color: HaloColor.secondary,
                             title: "Spoken replies", subtitle: "Short confirmations like “Going newer.”")
                 }
+                Toggle(isOn: $settings.wakeWordEnabled) {
+                    IconRow(symbol: "ear", color: HaloColor.accent, title: "Listen for “Halo”",
+                            subtitle: wakeWordSubtitle)
+                }
+                .disabled(!WakeWordListener.isSupported(locale: Locale(identifier: settings.voiceLocale))
+                          && !settings.wakeWordEnabled)
+                .accessibilityIdentifier("wakeWordToggle")
                 NavigationLink { VoiceSettingsView() } label: {
                     IconRow(symbol: "lock.shield", color: HaloColor.accent, title: "Voice & privacy",
                             subtitle: "What may leave this iPhone, and what it can recognize")
@@ -124,8 +139,9 @@ struct SettingsView: View {
             } header: {
                 Text("Halo Drive")
             } footer: {
-                Text("Halo listens only while you hold Talk to Halo. Recognition stays on this iPhone when "
-                     + "it can; anything else needs your permission first. Audio and transcripts are never saved.")
+                Text("Tap the Halo orb to talk. With “Listen for “Halo”” on, Halo also listens for its name, "
+                     + "but only while the app is open, and only on this iPhone: that audio never leaves it. "
+                     + "Other recognition needs your permission first. Audio and transcripts are never saved.")
             }
 
 

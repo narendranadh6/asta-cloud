@@ -20,8 +20,15 @@ final class AppModel {
     private(set) var catalogConfigured = true
     private(set) var musicSources: [String] = []
     private(set) var aiPlanner: String?
-    /// Halo Drive, while it is on screen.
-    private(set) var drive: DriveVoice?
+    /// Halo's voice (tap the Halo orb or say "Halo"); created on first use.
+    private(set) var voice: DriveVoice?
+    /// The Halo Drive screen is open.
+    var driveScreenShown = false
+    /// Listens for "Halo" while the app is open, when the listener turned it on.
+    let wakeWord = WakeWordListener()
+    @ObservationIgnored private var speaker: SystemVoiceSpeaker?
+    /// UI tests run without the microphone (system permission prompts would block them).
+    let voiceAvailable = !ProcessInfo.processInfo.arguments.contains("-HaloInMemoryStore")
     /// "Not today" exclusions, kept on this device until local midnight.
     let todayExclusions: TodayExclusionStore
     /// What the listener allowed to leave the device (nothing by default).
@@ -58,30 +65,77 @@ final class AppModel {
         player.restoreSession()
     }
 
-    /// Opens Halo Drive. Halo Flow follows the spoken session until the drive ends.
-    func startDrive() {
-        guard drive == nil else { return }
-        let session = DriveSession(api: api, player: player,
-                                   speaker: SystemVoiceSpeaker(player: player),
-                                   todayStore: todayExclusions)
+    /// Halo's voice session, started on first use. Halo Flow follows the spoken session.
+    @discardableResult
+    func ensureVoice() -> DriveVoice {
+        if let voice { return voice }
+        let speaker = SystemVoiceSpeaker(player: player)
+        speaker.onFinishedSpeaking = { [weak self] in self?.resumeWakeWord() }
+        self.speaker = speaker
+        let session = DriveSession(api: api, player: player, speaker: speaker, todayStore: todayExclusions)
         session.replyLevel = settings.voiceReplies ? .short : .silent
         session.fallbackAllowed = { [voiceConsent] in voiceConsent.isGranted(.intentFallback) }
         session.onFeedback = { [weak self] rating, track in self?.driveFeedback(rating, track) }
         session.start()
-        drive = DriveVoice(session: session, player: player, consent: voiceConsent)
+        let voice = DriveVoice(session: session, player: player, consent: voiceConsent)
+        voice.onTurnFinished = { [weak self] in self?.resumeWakeWord() }
+        self.voice = voice
+        return voice
+    }
+
+    /// Tap on the Halo orb: listen for one command (tap again to finish early).
+    func talk() {
+        guard voiceAvailable else { return }
+        wakeWord.pause()
+        ensureVoice().talk(locale: Locale(identifier: settings.voiceLocale))
+    }
+
+    /// Opens the Halo Drive screen.
+    func startDrive() {
+        ensureVoice()
+        driveScreenShown = true
+    }
+
+    // MARK: Wake word
+
+    /// Starts or stops listening for "Halo" to match the setting and whether the app is open.
+    func updateWakeWord(appActive: Bool) {
+        guard voiceAvailable, settings.wakeWordEnabled, appActive else {
+            wakeWord.stop()
+            return
+        }
+        wakeWord.onEvent = { [weak self] event in self?.wakeWordHeard(event) }
+        Task { await wakeWord.start(locale: Locale(identifier: settings.voiceLocale)) }
+    }
+
+    private func wakeWordHeard(_ event: WakeWordDetector.Event) {
+        Haptics.tap(enabled: settings.hapticsEnabled)
+        switch event {
+        case .wake: talk()
+        case let .command(text): ensureVoice().handleCommand(text)
+        }
+    }
+
+    /// After a command and Halo's reply, listen for "Halo" again.
+    private func resumeWakeWord() {
+        guard settings.wakeWordEnabled, voice?.isListening != true, speaker?.isSpeaking != true else { return }
+        wakeWord.resume()
     }
 
     /// Forgets what Halo Drive learned on this device (today's exclusions and the current
     /// drive's steering and listening signals). The server taste profile is reset separately.
     func resetDriveMemory() {
         todayExclusions.save([:])
-        drive?.session.resetSession()
+        voice?.session.resetSession()
     }
 
+    /// Closes the Halo Drive screen and ends the voice session (Halo Flow goes back to normal).
     func endDrive() {
-        drive?.stop()
-        drive?.session.end()
-        drive = nil
+        driveScreenShown = false
+        voice?.stop()
+        voice?.session.end()
+        voice = nil
+        resumeWakeWord()
     }
 
     /// "I like this" saves the song; "never play this again" tells the server (when

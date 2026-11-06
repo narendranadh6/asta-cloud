@@ -7,10 +7,17 @@ final class SystemVoiceSpeaker: VoiceSpeaker {
     private let synthesizer = AVSpeechSynthesizer()
     private let delegate = SpeakerDelegate()
     private weak var player: PlayerController?
+    /// Called when Halo stops talking (the wake-word listener resumes then).
+    var onFinishedSpeaking: (() -> Void)?
+
+    var isSpeaking: Bool { synthesizer.isSpeaking }
 
     init(player: PlayerController) {
         self.player = player
-        delegate.onDone = { [weak self] in self?.player?.duck("speaking", false) }
+        delegate.onDone = { [weak self] in
+            self?.player?.duck("speaking", false)
+            self?.onFinishedSpeaking?()
+        }
         synthesizer.delegate = delegate
     }
 

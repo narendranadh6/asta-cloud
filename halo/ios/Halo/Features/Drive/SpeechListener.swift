@@ -166,7 +166,7 @@ final class SpeechListener {
     // Speech and audio callbacks arrive on their own queues; these are built outside the main
     // actor so Swift doesn't assert they run on main, and hop there explicitly.
 
-    private nonisolated static func installTap(
+    nonisolated static func installTap(
         on node: AVAudioInputNode, format: AVAudioFormat, request: SFSpeechAudioBufferRecognitionRequest
     ) {
         node.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
@@ -174,7 +174,7 @@ final class SpeechListener {
         }
     }
 
-    private nonisolated static func recognize(
+    nonisolated static func recognize(
         _ recognizer: SFSpeechRecognizer, _ request: SFSpeechAudioBufferRecognitionRequest,
         handler: @escaping @Sendable @MainActor (String?, Double, Bool, Bool) -> Void
     ) -> SFSpeechRecognitionTask {
