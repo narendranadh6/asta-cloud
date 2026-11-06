@@ -116,7 +116,8 @@ final class FlowRankingTests: XCTestCase {
 
     func testTheSameArtistNeverPlaysTwiceInARowWhenAnotherCan() {
         let pool = [candidate("a1", artist: "A", energy: 0.9), candidate("a2", artist: "A", energy: 0.88),
-                    candidate("b1", artist: "B", energy: 0.5), candidate("c1", artist: "C", energy: 0.4)]
+                    // Near-equal fits: spacing only swaps in a song that fits almost as well.
+                    candidate("b1", artist: "B", energy: 0.8), candidate("c1", artist: "C", energy: 0.75)]
         var state = SessionState()
         state.vibe[.energy] = VibeTarget(0.9)
         let order = SessionRanker.rank(pool, for: state).map(\.artist)

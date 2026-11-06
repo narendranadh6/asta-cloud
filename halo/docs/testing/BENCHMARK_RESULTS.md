@@ -1,5 +1,62 @@
 # Benchmark results
 
+## 2026-11-06 (sixth milestone): weights tuned
+
+### Command understanding: act-or-ask weights (cross-validated, development data)
+
+`EvidenceTuningTests` (run with `HALO_TUNE=1`): 2,400 candidate weight/threshold settings,
+5-fold cross-validation on 1,329 development commands (the corpus and the retired holdouts
+v1–v4), the calibration table refit on each training split, exact accuracy scored on the held-out
+fold. Chosen: unknown-word penalty 0.60 → 0.45, session-change threshold 0.60 → 0.50; lasting
+changes keep 0.85. CV exact accuracy 88.5% → 89.2%, no fold worse. A re-run after the parsing
+fixes kept these weights (best alternative +0.3 points in one fold only). The recognizer penalty
+can't be tuned on text and was raised to 0.8 so barely-heard speech always asks. These weights
+only decide act-or-ask; most errors are parsing, fixed separately.
+
+### Holdout v5 (final, evaluated once on 363e40c; now retired)
+
+`docs/testing/holdout-v5.json` (sha256 `7e9759ec…f75278849`): 375 commands and 44 sequences,
+labeled from the specification only by a separate agent; same specification as v4.
+
+| Measure | v5 | v4 | v3 |
+|---|---|---|---|
+| Exact intent | **88.5%** | 86.7% | 79.9% |
+| Outcome only | **96.5%** | 93.9% | 90.9% |
+| Entities | 87.5% (n=104) | 89.9% | 86.0% |
+| Negation | 78.4% (n=37) | 85.3% | 86.5% |
+| Unsupported / no-action acted on | **0 of 61** | 2 of 46 | 0 of 46 |
+| Wrong-direction actions | 1 of 375 | 0 of 345 | 3 of 383 |
+| Clarification precision / recall | **100%** / 78.1% | 73.3% / 75.9% | 48.4% / 62.5% |
+| Conversation state | 84.1% (n=44) | 90.9% | 78.4% |
+| Calibration ECE | 0.043 | 0.045 | 0.066 |
+
+By form: English 95.5%, Telugu script 89.0%, romanized 82.3%, mixed 82.2%.
+
+Lower than v4 on negation and conversations, from: "enough with the sad songs" (the one
+wrong-direction action), two-word names cut by a following particle ("Gopi Sundar vi …"),
+romanized "gayakudu/gayakudi" (singer), "edupu" (sad), undo "cancel cheyyi"/"venakki teesuko",
+and ఇంకా not read as "more". All fixed after the evaluation with new development tests; v5
+figures are from before.
+
+### Ranking weights: session-v4 (SYNTHETIC)
+
+`python -m app.tools.ranking_benchmark --tune`: 81 weight sets searched on seeds 11–13, the best
+confirmed on unseen seeds 21–23 (synthetic catalog and listeners; no real listening data).
+
+| On unseen seeds 21–23 | v3 | v4 (tuned) |
+|---|---|---|
+| Relevance@10 | 0.704 | **0.750** |
+| Skip rate | 0.233 | **0.199** |
+| Adjacent same-artist | 0.378 | 0.388 |
+| Disliked-artist share | 0.110 | 0.115 |
+
+On the original benchmark seed (not used in the search): relevance 0.755 → 0.799, skips
+0.167 → 0.121, adjacent repeats 0.180 → 0.196, constraint violations 0. Changes: energy
+1.0 → 1.4, recency 0.8 → 1.2, language 1.2 → 0.8, search rank 0.6 → 0.3 ("only" languages stay
+hard constraints). The phone's on-device ranker uses the same weights.
+
+---
+
 ## 2026-11-06 (fifth milestone): weak areas
 
 ### Holdout v4 (final, evaluated once on c278a65; now retired)

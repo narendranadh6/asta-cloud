@@ -34,6 +34,7 @@ from app.services.catalog.service import CatalogService
 from app.services.recommendations.session import (
     SESSION_V2,
     SESSION_V3,
+    SESSION_V4,
     RankingConfig,
     SessionRecommender,
     artist_matches,
@@ -343,50 +344,103 @@ def listen(
     return outcome
 
 
-async def run(quick: bool = False) -> dict[str, Any]:
-    rng = random.Random(SEED)
-    catalog = build_catalog(rng, artists=30 if quick else 50)
+async def evaluate(
+    config: RankingConfig, version: str, seed: int, artists: int
+) -> dict[str, float]:
+    """Mean metrics for one ranking config over every scripted session of one seed."""
+    rng = random.Random(seed)
+    catalog = build_catalog(rng, artists=artists)
     service = CatalogService([SyntheticSource(catalog)], MemoryStore())
     plans = scenarios(rng, catalog)
+    recommender = SessionRecommender(service, today=TODAY, config=config)
+    totals: dict[str, float] = {}
+    count = 0
+    plays: dict[str, int] = {}
+    for plan, listener in plans:
+        session: dict[str, Any] = {}
+        phone = PhoneState()
+        for turn in plan.turns:
+            for key, value in turn.items():
+                session[key] = (
+                    {**session.get(key, {}), **value} if isinstance(value, dict) else value
+                )
+            response = await recommender.candidates(build_request(version, session, phone))
+            top = [c.track for c in response.candidates[:10]]
+            if not top:
+                continue
+            metrics = measure(top, session, listener, phone)
+            for name, value in metrics.items():
+                totals[name] = totals.get(name, 0) + value
+            count += 1
+            for track in top[:5]:  # the listener hears the next five
+                outcome = listen(version, track, session, listener, phone)
+                plays[outcome] = plays.get(outcome, 0) + 1
+    heard = sum(plays.values()) or 1
+    summary = {name: round(value / max(count, 1), 3) for name, value in totals.items()}
+    summary["skip_rate"] = round(
+        (plays.get("early_skip", 0) + plays.get("late_skip", 0)) / heard, 3
+    )
+    summary["turns"] = count
+    return summary
+
+
+async def run(quick: bool = False) -> dict[str, Any]:
     results: dict[str, Any] = {
         "synthetic": True,
         "seed": SEED,
-        "tracks": len(catalog),
+        "tracks": len(build_catalog(random.Random(SEED), artists=30 if quick else 50)),
         "versions": {},
     }
-    configs: dict[str, RankingConfig] = {"v2": SESSION_V2, "v3": SESSION_V3, **ABLATIONS}
+    configs: dict[str, RankingConfig] = {
+        "v2": SESSION_V2,
+        "v3": SESSION_V3,
+        "v4": SESSION_V4,
+        **ABLATIONS,
+    }
     for version, config in configs.items():
-        recommender = SessionRecommender(service, today=TODAY, config=config)
-        totals: dict[str, float] = {}
-        count = 0
-        plays: dict[str, int] = {}
-        for plan, listener in plans:
-            session: dict[str, Any] = {}
-            phone = PhoneState()
-            for turn in plan.turns:
-                for key, value in turn.items():
-                    session[key] = (
-                        {**session.get(key, {}), **value} if isinstance(value, dict) else value
-                    )
-                response = await recommender.candidates(build_request(version, session, phone))
-                top = [c.track for c in response.candidates[:10]]
-                if not top:
-                    continue
-                metrics = measure(top, session, listener, phone)
-                for name, value in metrics.items():
-                    totals[name] = totals.get(name, 0) + value
-                count += 1
-                for track in top[:5]:  # the listener hears the next five
-                    outcome = listen(version, track, session, listener, phone)
-                    plays[outcome] = plays.get(outcome, 0) + 1
-        heard = sum(plays.values()) or 1
-        summary = {name: round(value / max(count, 1), 3) for name, value in totals.items()}
-        summary["skip_rate"] = round(
-            (plays.get("early_skip", 0) + plays.get("late_skip", 0)) / heard, 3
+        results["versions"][config.version] = await evaluate(
+            config, version, SEED, 30 if quick else 50
         )
-        summary["turns"] = count
-        results["versions"][config.version] = summary
     return results
+
+
+# Weight tuning: search on some seeds, confirm on others it never saw (both SYNTHETIC).
+TUNE_SEEDS = (11, 12, 13)
+CONFIRM_SEEDS = (21, 22, 23)
+
+
+async def mean_over(config: RankingConfig, seeds: tuple[int, ...]) -> dict[str, float]:
+    runs = [await evaluate(config, "v3", seed, 50) for seed in seeds]
+    return {k: round(sum(r[k] for r in runs) / len(runs), 4) for k in runs[0]}
+
+
+async def tune() -> dict[str, Any]:
+    base = SESSION_V3  # the search that produced SESSION_V4 started from v3
+    grid = [
+        {"energy": e, "language": la, "recency": r, "rank": rk}
+        for e in (0.6, 1.0, 1.4)
+        for la in (0.8, 1.2, 1.6)
+        for r in (0.5, 0.8, 1.2)
+        for rk in (0.3, 0.6, 0.9)
+    ]
+    scored = []
+    for change in grid:
+        config = RankingConfig("candidate", {**base.weights, **change}, spacing_margin=0.5)
+        m = await mean_over(config, TUNE_SEEDS)
+        if m["constraint_violations"] == 0:
+            scored.append((m["relevance_at_10"], -m["skip_rate"], change, m))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    best_change, best_tune = scored[0][2], scored[0][3]
+    best = RankingConfig("candidate", {**base.weights, **best_change}, spacing_margin=0.5)
+    return {
+        "synthetic": True,
+        "candidates": len(grid),
+        "baseline_tune": await mean_over(base, TUNE_SEEDS),
+        "best_change": best_change,
+        "best_tune": best_tune,
+        "baseline_confirm": await mean_over(base, CONFIRM_SEEDS),
+        "best_confirm": await mean_over(best, CONFIRM_SEEDS),
+    }
 
 
 def measure(
@@ -408,7 +462,12 @@ def measure(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--quick", action="store_true")
+    parser.add_argument("--tune", action="store_true", help="search weights (synthetic)")
     args = parser.parse_args()
+    if args.tune:
+        print("HALO-TUNE SYNTHETIC: searched on seeds", TUNE_SEEDS, "confirmed on", CONFIRM_SEEDS)
+        print(json.dumps(asyncio.run(tune()), indent=1))
+        return
     results = asyncio.run(run(quick=args.quick))
     print("HALO-BENCH SYNTHETIC catalog and listeners; not real listening data")
     versions = results["versions"]

@@ -6,6 +6,11 @@ Legend: **implemented and tested** = code plus automated tests run in this repos
 **not device-tested** = runs in tests/simulator only; **proposed** = not built; **blocked** =
 needs permission, licence, hardware or a paid service.
 
+Sixth milestone (weights): act-or-ask weights tuned by cross-validation on development data
+(+0.7 points CV); ranking weights session-v4 tuned on synthetic seeds and confirmed on unseen
+ones (relevance 0.704 → 0.750, skips 0.233 → 0.199); parsing gaps from v4/v5 fixed. Holdout v5:
+exact 88.5%, outcome 96.5%, false actions 0 of 61, clarify precision 100%.
+
 Fifth milestone (weak areas): acceptances and rules don't start playback (decided), double
 negatives, interjections, incomplete-with-fillers, "their" follow-ups, undo phrasings, Telugu
 tempo and names, negated controls by rule. Holdout v4: exact 86.7%, conversation state 90.9%,

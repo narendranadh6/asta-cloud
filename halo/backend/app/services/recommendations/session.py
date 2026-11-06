@@ -68,7 +68,16 @@ SESSION_V3 = RankingConfig(
     weights=SESSION_V2.weights,
     spacing_margin=0.5,
 )
-CURRENT = SESSION_V3
+# Weights tuned 2026-11-06 with `python -m app.tools.ranking_benchmark --tune` (SYNTHETIC):
+# 81 candidates searched on seeds 11-13, confirmed on unseen seeds 21-23: relevance@10
+# 0.704 -> 0.750, skip rate 0.233 -> 0.199 (adjacent repeats 0.378 -> 0.388). "Only"
+# languages stay hard constraints, so a lower language weight only affects mixed sessions.
+SESSION_V4 = RankingConfig(
+    version="session-v4",
+    weights={**SESSION_V3.weights, "energy": 1.4, "language": 0.8, "recency": 1.2, "rank": 0.3},
+    spacing_margin=0.5,
+)
+CURRENT = SESSION_V4
 RANKING_VERSION = CURRENT.version
 RANKING_WEIGHTS = CURRENT.weights
 ARTIST_CAP = CURRENT.artist_cap

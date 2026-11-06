@@ -64,7 +64,7 @@ The optional AI fallback (`/api/v1/intent/fallback`, off by default) is consulte
 commands the phone couldn't act on and only with consent; its output must parse entirely into
 Halo's wire vocabulary and goes through the same reducer; lasting changes still ask first.
 
-## Halo Flow 2.0 (built: `session-v3`)
+## Halo Flow 2.0 (built: `session-v4`)
 
 * **Hard constraints first**, on server and phone: rights (`SourcePolicyRightsResolver`: full
   stream, authorised source, Jamendo licence), not already played, excluded tracks and artists

@@ -1,12 +1,12 @@
 import Foundation
 
 /// Re-ranks the songs Halo already has against the current session, instantly and offline.
-/// Mirrors the server's `session-v3` features and weights (backend/app/services/
+/// Mirrors the server's `session-v4` features and weights (backend/app/services/
 /// recommendations/session.py), so a voice change reorders the pool before any network call.
 public enum SessionRanker {
-    public static let version = "session-v3"
+    public static let version = "session-v4"
     static let weights: [String: Double] = [
-        "rank": 0.6, "energy": 1.0, "tempo": 0.4, "valence": 0.8, "language": 1.2, "recency": 0.8,
+        "rank": 0.3, "energy": 1.4, "tempo": 0.4, "valence": 0.8, "language": 0.8, "recency": 1.2,
         "discovery": 0.5, "seed": 0.6, "artist": 1.0,
     ]
     static let unknown = 0.5
